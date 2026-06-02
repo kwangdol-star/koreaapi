@@ -95,18 +95,28 @@ async def kculture_calendar(window_days: int = 30, *, db_path: str | None = None
 
 
 async def korea_rising(category: str = "all", limit: int = 10, *, db_path: str | None = None) -> dict:
-    """What is rising in Korea now, ranked from accumulated verified snapshots (engine 2 seed)."""
+    """What is rising in Korea now: verified snapshots ranked by observed DEMAND (the captured
+    behavioral signal) then Skill Score - engine 2 turning usage into the trend product."""
     await _log("query", f"rising:{category}", db_path)
     recs = await store.recent(500, db_path=db_path)
+    signals = await store.top_signals(1000, kind="query", db_path=db_path)
+    demand = {s["key"]: s["count"] for s in signals}  # entity_id -> queries observed
     ranked = sorted(
-        recs, key=lambda r: (r.provenance.skill_score, r.snapshot_at), reverse=True
+        recs,
+        key=lambda r: (demand.get(r.entity_id, 0), r.provenance.skill_score, r.snapshot_at),
+        reverse=True,
     )
+    items = []
+    for r in ranked[:limit]:
+        it = _item(r)
+        it["demand_signal"] = demand.get(r.entity_id, 0)  # engine 2: queries seen for this entity
+        items.append(it)
     return {
         "category": category,
-        "items": [_item(r) for r in ranked[:limit]],
+        "items": items,
         "note": (
-            "Phase 1: ranked from accumulated verified snapshots; the captured behavioral "
-            "signal (see admin signals) folds into ranking as query volume accrues."
+            "Ranked by observed demand (behavioral signal) then Skill Score; only verified "
+            "snapshots are surfaced. demand_signal = queries seen for that entity."
         ),
     }
 

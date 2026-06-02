@@ -14,6 +14,7 @@ import os
 import tempfile
 
 from koreaapi import service
+from koreaapi.admin import seed
 from koreaapi.pipeline import store
 
 
@@ -50,6 +51,20 @@ def test_service_calls_capture_signal():
     top = asyncio.run(run())
     assert any(s["kind"] == "query" and s["key"] == "artist:bts" for s in top)
     assert any(s["kind"] == "buy_intent" and s["key"] == "BTS lightstick" for s in top)
+
+
+def test_korea_rising_ranks_by_demand_signal():
+    db = _tmp_db()
+
+    async def run():
+        await seed(db_path=db)  # bts/newjeans (skill ~1.0), aespa (0.7, single-source)
+        for _ in range(5):  # make the LOWEST-skill entity the most-queried...
+            await service.artist_status("artist:aespa", db_path=db)
+        return await service.korea_rising(db_path=db)
+
+    out = asyncio.run(run())
+    assert out["items"][0]["name"]["en_official"] == "aespa"  # ...demand outranks Skill Score
+    assert out["items"][0]["demand_signal"] >= 5
 
 
 if __name__ == "__main__":

@@ -21,7 +21,8 @@
 | AEO/GEO surface: JSON-LD in `report.html` + `citation` field in MCP output | ✅ |
 | Cold-start data infra: `admin export` (JSONL + latest.json) + daily GitHub Actions collector | ✅ (collector runs on open-network runners → solves the sandbox egress block) |
 | **Public GEO page deployed (GitHub Pages, built from live data)** | ✅ **LIVE → https://wrxfoundation.github.io/weatherplan-ai/** |
-| **Behavioral signal capture (engine ②)**: queries + buy-intent logged append-only → trend raw material (`admin signals`) | ✅ foundation |
+| **Behavioral signal (engine ②)**: queries + buy-intent logged append-only; `korea_rising` ranks by observed demand; `admin signals` | ✅ |
+| **CI**: `.github/workflows/test.yml` runs `pytest` + `ruff` on push (the suite is now gated) | ✅ |
 | Production Postgres backend (behind the same insert-only contract) | ⬜ planned (scale step) |
 
 Tests: 18 passed, 2 live-skip (egress); ruff clean. Tracked on PR #1.
