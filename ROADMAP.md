@@ -14,6 +14,7 @@
 | Append-only ingestion heart + Skill Score + bilingual model | ✅ implemented, offline-tested |
 | Two faces: MCP server (agent) + admin console (human) | ✅ |
 | Wikidata adapter (real source #1): live `wbsearchentities` + Wikimedia-compliant UA | ✅ |
+| **Cross-verification (real source #2 = Wikipedia)**: ingest agrees on the canonical name (not prose) → two independent sources concur → Skill Score clears the 0.7 single-source cap (→ ~1.0) | ✅ — the verification moat, live |
 | **Identity guard** (anti-poison): reject a label that contradicts a curated anchor | ✅ — caught a real bug in production |
 | Live-verified Q-ids | ✅ BTS `Q13580495` · NewJeans `Q113189277` · aespa `Q100877982` |
 | `admin pull` — turnkey live ingestion | ✅ first real external data ingested (3/3) |

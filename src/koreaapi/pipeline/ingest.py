@@ -7,7 +7,6 @@ never break the loop. Overwrite = wrapper; append = asset.
 
 from __future__ import annotations
 
-import json
 from collections import Counter
 from datetime import datetime, timezone
 
@@ -26,6 +25,16 @@ def _build_name(payload: dict) -> Name:
         en_source=payload.get("name_en_source", "llm"),
         en_confidence=payload.get("name_en_confidence", "medium"),
     )
+
+
+def _verify_key(payload: dict) -> str:
+    """The canonical fields sources must agree on to count as cross-verified: the bilingual
+    NAME, case/space-normalized. Prose summaries are excluded, so two independent sources that
+    agree on *who this is* (e.g. Wikidata + Wikipedia) raise the Skill Score above the
+    single-source cap."""
+    ko = (payload.get("name_ko") or "").casefold().replace(" ", "")
+    en = (payload.get("name_en_official") or "").casefold().replace(" ", "")
+    return f"{ko}|{en}"
 
 
 async def ingest_one(
@@ -55,10 +64,11 @@ async def ingest_one(
     if not payloads:
         return None  # nothing usable this cycle
 
-    # cross-verify: how many sources agree on the canonical payload?
-    cores = [json.dumps(p, sort_keys=True, ensure_ascii=False) for p in payloads]
-    modal_core, n_agree = Counter(cores).most_common(1)[0]
-    chosen = payloads[cores.index(modal_core)]
+    # cross-verify on the canonical FACTS (bilingual name), not the prose summary, so two
+    # independent sources that agree on who this is count as agreement (raising Skill Score).
+    keys = [_verify_key(p) for p in payloads]
+    modal_key, n_agree = Counter(keys).most_common(1)[0]
+    chosen = payloads[keys.index(modal_key)]
 
     name = _build_name(chosen)
     translation_official = (

@@ -69,7 +69,7 @@ real adapter — **Wikidata** — is implemented: a curated entity→Q-id fast p
 anchor's identity is verified, so a contradictory label is **rejected, not ingested** —
 invariant 2) plus live `wbsearchentities` resolution. The parse/verify steps are
 fixture-tested offline and a **live smoke test** (`tests/test_wikidata_live.py`)
-auto-skips when egress is unavailable. Spotify / Circle Chart adapters are next.
+auto-skips when egress is unavailable. **Wikipedia** is the second source — ingest cross-verifies the bilingual name across both, so the Skill Score clears the single-source cap when they agree. Spotify / Circle Chart next.
 
 > **Egress note:** the live pull needs outbound access to `*.wikidata.org`. In the
 > web/sandbox environment egress is allowlist-gated — if Wikidata isn't allowlisted the

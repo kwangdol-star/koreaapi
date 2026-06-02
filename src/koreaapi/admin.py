@@ -31,6 +31,7 @@ from .pipeline.ingest import ingest_one
 from .pipeline.scheduler import CADENCE
 from .sources.mock import MockSource
 from .sources.wikidata import WikidataSource, _CURATED
+from .sources.wikipedia import WikipediaSource
 
 # Offline sample data for `seed` (replace with real source adapters later).
 # The third entry has a single source -> demonstrates the single-source Skill cap.
@@ -64,20 +65,21 @@ async def seed(db_path: str | None = None) -> None:
 
 
 async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = None) -> dict:
-    """Live-pull curated artists from Wikidata and append REAL verified snapshots.
+    """Live-pull curated artists from Wikidata + Wikipedia and append REAL verified snapshots.
 
-    The turnkey live ingestion (component A, live): for each entity it fetches the
-    bilingual labels from Wikidata, identity-verifies them, computes Skill Score +
-    provenance, and appends a snapshot. Needs network egress to www.wikidata.org; where
-    egress is blocked (e.g. the sandbox allowlist) each fetch is dropped by graceful
-    degradation and the entity is reported as failed - nothing is appended (never poison).
+    The turnkey live ingestion (component A, live): for each entity it fetches the bilingual
+    name from two INDEPENDENT sources (Wikidata + Wikipedia), CROSS-VERIFIES them, identity-
+    checks, computes Skill Score + provenance, and appends a snapshot. When both agree on the
+    name the score clears the single-source cap. Needs network egress; where it's blocked (e.g.
+    the sandbox allowlist) failed sources are dropped by graceful degradation - a snapshot is
+    still appended if at least one source succeeds, and nothing if none do (never poison).
     """
     ids = entity_ids or list(_CURATED)
-    src = WikidataSource()  # one instance memoizes any live Q-id lookups
+    sources = [WikidataSource(), WikipediaSource()]  # two independent sources -> cross-verify
     ingested: list[str] = []
     failed: list[str] = []
     for entity_id in ids:
-        rec = await ingest_one("facts", entity_id, [src], db_path=db_path)
+        rec = await ingest_one("facts", entity_id, sources, db_path=db_path)
         (ingested if rec is not None else failed).append(entity_id)
     return {"requested": ids, "ingested": ingested, "failed": failed}
 

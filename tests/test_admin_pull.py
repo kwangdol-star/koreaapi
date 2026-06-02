@@ -1,9 +1,8 @@
-"""Offline test for `admin pull` (the turnkey live-ingestion command), HTTP monkeypatched.
+"""Offline test for `admin pull` (turnkey live ingestion), HTTP monkeypatched.
 
-`pull` ingests REAL Wikidata snapshots with one command; it needs egress at runtime. Here
-we patch the HTTP call so the full wiring - adapter -> parse -> identity-verify -> ingest
--> append - is proven without network. With a real open network the same command pulls
-live data.
+`pull` uses TWO independent sources (Wikidata + Wikipedia); patching both HTTP calls to
+fixtures proves the full wiring - adapter -> parse -> identity-verify -> CROSS-VERIFY ->
+ingest -> append - and that two sources agreeing on the name clear the single-source cap.
 
 Run:  PYTHONPATH=src python -m pytest tests/test_admin_pull.py -q
 """
@@ -17,15 +16,16 @@ import pathlib
 from koreaapi import admin
 from koreaapi.pipeline import store
 from koreaapi.sources.wikidata import WikidataSource
+from koreaapi.sources.wikipedia import WikipediaSource
 
-GOOD = json.loads(
-    (pathlib.Path(__file__).parent / "fixtures" / "wikidata_bts.json").read_text(encoding="utf-8")
-)
+FIX = pathlib.Path(__file__).parent / "fixtures"
+WD = json.loads((FIX / "wikidata_bts.json").read_text(encoding="utf-8"))
+WP = json.loads((FIX / "wikipedia_bts.json").read_text(encoding="utf-8"))
 
 
-def test_pull_ingests_real_shaped_snapshot(monkeypatch, tmp_path):
-    # Patch the only network call; resolve_qid uses the curated map (no network) for bts.
-    monkeypatch.setattr(WikidataSource, "_http_get", lambda self, url: GOOD)
+def test_pull_cross_verifies_two_live_sources(monkeypatch, tmp_path):
+    monkeypatch.setattr(WikidataSource, "_http_get", lambda self, url: WD)
+    monkeypatch.setattr(WikipediaSource, "_http_get", lambda self, url: WP)
     db = str(tmp_path / "pull.db")
 
     out = asyncio.run(admin.pull(["artist:bts"], db_path=db))
@@ -35,11 +35,10 @@ def test_pull_ingests_real_shaped_snapshot(monkeypatch, tmp_path):
 
     rec = asyncio.run(store.latest("artist:bts", "facts", db_path=db))
     assert rec is not None
-    assert rec.name.en_official == "BTS"
-    assert rec.name.ko == "방탄소년단"
-    assert any("Wikidata" in s for s in rec.provenance.sources)  # provenance cites Wikidata
-    # single live source -> cross-verification impossible -> Skill Score capped (honest)
-    assert rec.provenance.skill_score <= 0.7
+    assert rec.name.en_official == "BTS" and rec.name.ko == "방탄소년단"
+    assert len(rec.provenance.sources) == 2  # Wikidata + Wikipedia cited
+    assert rec.provenance.skill_score >= 0.8  # cross-verified -> clears single-source cap
+    assert rec.provenance.confidence == "high"
 
 
 if __name__ == "__main__":
