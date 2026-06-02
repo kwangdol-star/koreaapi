@@ -102,6 +102,10 @@ works there** even though the dev sandbox blocks Wikidata egress. Production sca
 Postgres behind the same insert-only contract (see `pipeline/store.py`); the repo file set
 is the zero-cost cold-start "database".
 
+**Public GEO page.** `.github/workflows/pages.yml` builds `report.html` from live data and
+deploys it to GitHub Pages (one-time enable: Settings → Pages → Source: GitHub Actions) — a
+public, crawlable, JSON-LD-bearing URL so answer engines can surface and cite the verified data.
+
 Watch the headline metric of a verifiable-data business: **avg Skill Score,
 freshness, and source agreement** - that is literally watching the moat.
 

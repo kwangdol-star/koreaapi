@@ -220,6 +220,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     jsonld = _jsonld(recs, now.isoformat())
     doc = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>KoreaAPI - Data Console</title>
+<meta name="description" content="KoreaAPI - verifiable, bilingual Korean culture data for AI agents. Every record carries its source and a Skill Score.">
+<meta name="robots" content="index,follow">
 <script type="application/ld+json">
 {jsonld}
 </script>

@@ -83,8 +83,11 @@ exactly in that gap.
 
 ---
 
-## GEO — next concrete step
-`report.html` already emits Schema.org JSON-LD (Dataset + per-entity MusicGroup with `sameAs`
-the Wikidata entity) and the MCP output carries a `citation`. Remaining: **deploy the page /
-`data/latest.json` to a public URL** so answer engines (Perplexity / ChatGPT / Google AI
-Overviews) actually crawl and cite it. Needs production data serving (see Phase 2 infra).
+## GEO — public deploy (wired)
+`report.html` emits Schema.org JSON-LD (Dataset + per-entity MusicGroup with `sameAs` the
+Wikidata entity) + a meta description; MCP output carries a `citation`. **`.github/workflows/
+pages.yml`** now builds this page from live data and deploys it to **GitHub Pages** (free, no
+external account) — a public, crawlable URL for answer engines (Perplexity / ChatGPT / Google
+AI Overviews). One-time enable: repo **Settings → Pages → Source: GitHub Actions**; then it
+auto-refreshes daily. (Production may later move this to the product domain / a Postgres-backed
+renderer — see Phase 2 infra.)

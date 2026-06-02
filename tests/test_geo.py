@@ -41,6 +41,7 @@ def test_report_emits_jsonld_structured_data(tmp_path):
     assert 'type="application/ld+json"' in page  # crawlable structured data block
     assert "schema.org" in page
     assert '"@type": "MusicGroup"' in page
+    assert 'name="description"' in page  # AEO meta for answer engines
     assert "BTS" in page  # a verified entity surfaced as structured data
 
 
