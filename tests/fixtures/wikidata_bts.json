@@ -1,0 +1,18 @@
+{
+  "entities": {
+    "Q484203": {
+      "id": "Q484203",
+      "labels": {
+        "en": { "language": "en", "value": "BTS" },
+        "ko": { "language": "ko", "value": "방탄소년단" }
+      },
+      "aliases": {
+        "en": [
+          { "language": "en", "value": "Bangtan Boys" },
+          { "language": "en", "value": "Bangtan Sonyeondan" }
+        ]
+      }
+    }
+  },
+  "success": 1
+}

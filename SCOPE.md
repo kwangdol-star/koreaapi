@@ -108,6 +108,8 @@ Example record (conceptual):
 ## 7. Out of scope (later layers)
 Coupang Partners API · ticketing / Circle Chart official partnerships · K-beauty · **travel/local verticals — restaurant (맛집) reservations = designated first travel-local vertical, hung off the K-culture magnet (concert venue → nearby restaurant → booking commission); reuses the same Name/Provenance/append-only contract** · enterprise (KYB, English-DART, MFDS compliance) · x402 micropayments · full geocoding · weather (free hook only).
 
+*Candidate tooling (revisit at the noted phase, vet first): `postgres` skill + Composio Supabase/Vercel connectors for deploy; Composio Stripe/Shopify + analytics (PostHog/Segment) for the commerce / behavioral-signal engines - but prefer **direct SDKs for core payment rails** (control, margin, moat); use connectors only for non-core, long-tail integrations.*
+
 ## 8. Definition of Done (Phase 1)
 - [ ] Daily ingestion running unattended; verified snapshots **appended** (time-series asset begins)
 - [ ] 4 MCP tools live; every response has Skill Score + provenance + **bilingual fields**
