@@ -8,7 +8,7 @@ product (get_korea_rising).
 
 Phase 1 dev backend is SQLite (zero setup); production swaps to Postgres behind
 the same insert-only contract. Set the DB path via the KOREAAPI_DB env var, or
-pass db_path explicitly (used by tests).
+pass db_path explicitly (used by tests and the admin console).
 """
 
 from __future__ import annotations
@@ -110,3 +110,44 @@ async def count(entity_id: str, kind: str, *, db_path: str | None = None) -> int
             conn.close()
 
     return await asyncio.to_thread(_do)
+
+
+async def entities(*, db_path: str | None = None) -> list[dict]:
+    """List distinct entity+kind with snapshot count and latest snapshot time.
+
+    Powers the human data console (read-only view over the same store agents use).
+    """
+
+    def _do() -> list[dict]:
+        conn = _connect(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT entity_id, kind, COUNT(*) AS n, MAX(snapshot_at) AS latest_at "
+                "FROM snapshots GROUP BY entity_id, kind ORDER BY latest_at DESC"
+            ).fetchall()
+            return [
+                {"entity_id": r[0], "kind": r[1], "snapshots": r[2], "latest_at": r[3]}
+                for r in rows
+            ]
+        finally:
+            conn.close()
+
+    return await asyncio.to_thread(_do)
+
+
+async def recent(limit: int = 200, *, db_path: str | None = None) -> list[Record]:
+    """Return the most recent snapshots across all entities (newest first)."""
+
+    def _do() -> list[str]:
+        conn = _connect(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT record_json FROM snapshots ORDER BY snapshot_at DESC, id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [r[0] for r in rows]
+        finally:
+            conn.close()
+
+    raws = await asyncio.to_thread(_do)
+    return [Record.model_validate_json(r) for r in raws]

@@ -117,6 +117,18 @@ Coupang Partners API · ticketing / Circle Chart official partnerships · K-beau
 ## 9. Cost & maintenance principle
 Near-zero data cost (free official APIs); ~$50–150/mo infra+LLM early. The only real maintenance is source drift, capped by: LLM extraction (absorbs layout change) · official sources first · append-only · graceful degradation. **Money is not the risk; the append-only asset is the point.**
 
+## 10. Two faces over one source of truth
+The product is agent-facing, but the owner needs a cockpit. Build **one source of
+truth** (the append-only store + provenance) with two read faces:
+- **Agent face** = the MCP server (decision-ready, machine-readable).
+- **Human face** = a read-only ops console: browse snapshots, watch data quality
+  (Skill Score / freshness / source agreement), spot-correct (a human override writes
+  a NEW snapshot tagged `translation.source = human` - still append-only).
+
+Never a second data path. Phase 1 console: `python -m koreaapi.admin report` (static
+`report.html`) + `datasette koreaapi.db`; later a proper dashboard and a trends /
+behavioral-signal view (engine ②).
+
 ---
 
 > **Hosting note:** Temporarily committed inside the `weatherplan-ai` repo under `koreaapi/`

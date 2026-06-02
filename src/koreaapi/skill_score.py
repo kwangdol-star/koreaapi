@@ -5,7 +5,8 @@ This is a differentiator - keep it transparent and documented (SCOPE.md S1).
 Heuristic (Phase 1), starting from 1.0:
   - freshness penalty: data older than its tier TTL loses up to 0.4
   - agreement penalty: when >=2 sources are available, disagreement subtracts up to 0.3
-  - fallback penalty: relying on a single fallback source caps the score at ~0.6
+  - single-source cap: one un-cross-verified source caps the score at 0.7
+  - fallback penalty: relying only on fallback sources caps the score at ~0.6
   - translation penalty: a non-official English translation subtracts 0.1
 Clamp to [0, 1].
 """
@@ -34,10 +35,13 @@ def compute_skill_score(
         over = min((age_seconds - ttl_seconds) / max(ttl_seconds, 1), 1.0)
         score -= 0.4 * over
 
-    # source agreement
+    # source agreement / verification
     if n_sources_total >= 2:
         agree_ratio = n_sources_agree / n_sources_total
         score -= 0.3 * (1.0 - agree_ratio)
+    else:
+        # a single source cannot be cross-verified -> cannot be high confidence
+        score = min(score, 0.7)
 
     # fallback only
     if used_fallback_only:

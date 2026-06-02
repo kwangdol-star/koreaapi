@@ -66,3 +66,22 @@ PYTHONPATH=src python -m pytest tests -q
 The append-only ingestion heart (store + ingest + Skill Score + bilingual
 normalization) is implemented and **tested offline** via a `MockSource`. Source
 adapters (Spotify / Wikidata / Circle Chart) and the MCP server are next.
+
+## Viewing & managing it (human console)
+The product is agent-facing (MCP), but you (human) need a cockpit. There are
+**two faces over one source of truth** (the append-only store): the MCP server for
+agents, and a read-only console for you.
+
+```bash
+cd koreaapi
+PYTHONPATH=src python -m koreaapi.admin seed     # populate koreaapi.db (offline sample)
+PYTHONPATH=src python -m koreaapi.admin stats    # data-quality summary
+PYTHONPATH=src python -m koreaapi.admin dump     # print recent snapshots
+PYTHONPATH=src python -m koreaapi.admin report   # -> report.html (open in a browser)
+
+# zero-code interactive browse + query + JSON API over the same DB:
+pip install datasette && datasette koreaapi.db
+```
+
+Watch the headline metric of a verifiable-data business: **avg Skill Score,
+freshness, and source agreement** - that is literally watching the moat.
