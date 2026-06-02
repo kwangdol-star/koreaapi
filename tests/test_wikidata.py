@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 import pathlib
 
-from koreaapi.sources.wikidata import parse_entity
+from koreaapi.sources.wikidata import parse_entity, parse_search
 
 FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_bts.json"
+SEARCH_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_search_bts.json"
 
 
 def test_parse_extracts_bilingual_official_name():
@@ -24,6 +25,17 @@ def test_parse_extracts_bilingual_official_name():
     assert payload["name_en_confidence"] == "high"
 
 
+def test_parse_search_picks_top_hit():
+    raw = json.loads(SEARCH_FIXTURE.read_text(encoding="utf-8"))
+    assert parse_search(raw) == "Q484203"  # top wbsearchentities hit
+
+
+def test_parse_search_no_hit_returns_none():
+    assert parse_search({"search": []}) is None
+
+
 if __name__ == "__main__":
     test_parse_extracts_bilingual_official_name()
-    print("wikidata parse test passed")
+    test_parse_search_picks_top_hit()
+    test_parse_search_no_hit_returns_none()
+    print("wikidata parse tests passed")

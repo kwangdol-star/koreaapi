@@ -4,22 +4,31 @@ Fetches an item's bilingual labels (Korean + English). Wikidata's `label` is the
 canonical common name, so the EN label is treated as the official English name
 (invariant 3: official names over translation).
 
-Network egress is required at runtime (blocked in the dev sandbox), so the HTTP call
-is kept thin and the PARSE step is pure + fixture-tested offline. On deploy (with
-egress) `fetch()` works; here, tests exercise `parse_entity()` against a saved fixture.
+Two PARSE steps are pure and fixture-tested offline: `parse_entity` (labels) and
+`parse_search` (entity lookup). The thin HTTP layer needs network egress at runtime.
+A curated entity->Q-id map gives the hot Phase-1 artists a high-precision fast path;
+anything else is resolved live via `wbsearchentities` (egress required). On deploy with
+egress this runs end-to-end; `tests/test_wikidata_live.py` is a live smoke test that
+auto-skips when egress is blocked (sandbox allowlist -> HTTP 403 host_not_allowed).
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
-_UA = {"User-Agent": "KoreaAPI/0.1 (https://koreaapi.dev)"}
+# Wikimedia User-Agent policy: descriptive client/version + a contact URL + library.
+# https://meta.wikimedia.org/wiki/User-Agent_policy  (repo URL is the reachable contact)
+_UA = {
+    "User-Agent": "KoreaAPI/0.1 (https://github.com/wrxfoundation/weatherplan-ai) python-urllib"
+}
 
-# Phase 1 entity -> Wikidata Q-id map (replace with live search once egress is available).
+# Curated entity -> Wikidata Q-id fast path (high precision for hot Phase-1 artists).
+# Anything not listed here is resolved live via wbsearchentities (egress required).
 _QID = {
     "artist:bts": "Q484203",
     "artist:newjeans": "Q110343458",
@@ -49,27 +58,66 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
     }
 
 
+def parse_search(raw: dict) -> str | None:
+    """Pure: pick the top hit's Q-id from a `wbsearchentities` response (None if no hit)."""
+    hits = raw.get("search", [])
+    if not hits:
+        return None
+    return hits[0].get("id")
+
+
 class WikidataSource:
     name = "Wikidata"
     is_fallback = False
 
-    def _url(self, qid: str) -> str:
+    def __init__(self) -> None:
+        # entity_id -> Q-id discovered via live search (memoized to spare the API).
+        self._discovered: dict[str, str] = {}
+
+    def _entity_url(self, qid: str) -> str:
         return (
             f"{WIKIDATA_API}?action=wbgetentities&ids={qid}"
             "&props=labels|aliases&languages=ko|en&format=json"
         )
 
-    async def fetch(self, entity_id: str, kind: str) -> dict:
-        qid = _QID.get(entity_id)
+    def _search_url(self, term: str) -> str:
+        query = urllib.parse.urlencode(
+            {
+                "action": "wbsearchentities",
+                "search": term,
+                "language": "en",
+                "uselang": "en",
+                "type": "item",
+                "limit": 1,
+                "format": "json",
+            }
+        )
+        return f"{WIKIDATA_API}?{query}"
+
+    def _http_get(self, url: str) -> dict:
+        req = urllib.request.Request(url, headers=_UA)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.load(r)
+
+    async def resolve_qid(self, entity_id: str) -> str:
+        """entity_id -> Q-id. Curated map first (precision), then memoized live search."""
+        if entity_id in _QID:
+            return _QID[entity_id]
+        if entity_id in self._discovered:
+            return self._discovered[entity_id]
+        term = entity_id.split(":", 1)[-1].strip()
+        if not term:
+            raise ValueError(f"cannot derive a search term from entity_id {entity_id!r}")
+        raw = await asyncio.to_thread(self._http_get, self._search_url(term))
+        qid = parse_search(raw)
         if not qid:
-            raise ValueError(f"no Wikidata Q-id mapped for {entity_id}")
+            raise ValueError(f"no Wikidata match for {entity_id!r} (searched {term!r})")
+        self._discovered[entity_id] = qid
+        return qid
 
-        def _get() -> dict:
-            req = urllib.request.Request(self._url(qid), headers=_UA)
-            with urllib.request.urlopen(req, timeout=10) as r:
-                return json.load(r)
-
-        raw = await asyncio.to_thread(_get)
+    async def fetch(self, entity_id: str, kind: str) -> dict:
+        qid = await self.resolve_qid(entity_id)
+        raw = await asyncio.to_thread(self._http_get, self._entity_url(qid))
         payload = parse_entity(raw, entity_id, kind)
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         return {"payload": payload, "citation": f"Wikidata {qid} {ts}"}

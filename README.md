@@ -64,8 +64,16 @@ PYTHONPATH=src python -m pytest tests -q
 ```
 
 The append-only ingestion heart (store + ingest + Skill Score + bilingual
-normalization) is implemented and **tested offline** via a `MockSource`. Source
-adapters (Spotify / Wikidata / Circle Chart) and the MCP server are next.
+normalization) is implemented and **tested offline** via a `MockSource`. The first
+real adapter — **Wikidata** — is implemented: a curated entity→Q-id fast path plus
+live `wbsearchentities` resolution, with both PARSE steps fixture-tested offline and a
+**live smoke test** (`tests/test_wikidata_live.py`) that auto-skips when egress is
+unavailable. Spotify / Circle Chart adapters are next.
+
+> **Egress note:** the live pull needs outbound access to `*.wikidata.org`. In the
+> web/sandbox environment egress is allowlist-gated — if Wikidata isn't allowlisted the
+> live test skips (HTTP 403 `host_not_allowed`) while the offline parser tests still
+> cover correctness.
 
 ## Viewing & managing it (human console)
 The product is agent-facing (MCP), but you (human) need a cockpit. There are

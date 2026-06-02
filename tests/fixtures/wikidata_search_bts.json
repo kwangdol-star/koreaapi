@@ -1,0 +1,15 @@
+{
+  "searchinfo": { "search": "bts" },
+  "search": [
+    {
+      "id": "Q484203",
+      "title": "Q484203",
+      "pageid": 456736,
+      "concepturi": "http://www.wikidata.org/entity/Q484203",
+      "label": "BTS",
+      "description": "South Korean boy band",
+      "match": { "type": "label", "language": "en", "text": "BTS" }
+    }
+  ],
+  "success": 1
+}
