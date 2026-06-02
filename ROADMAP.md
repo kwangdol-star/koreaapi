@@ -19,8 +19,8 @@
 | `admin pull` — turnkey live ingestion | ✅ first real external data ingested (3/3) |
 | AEO/GEO surface: JSON-LD in `report.html` + `citation` field in MCP output | ✅ |
 | Cold-start data infra: `admin export` (JSONL + latest.json) + daily GitHub Actions collector | ✅ (collector runs on open-network runners → solves the sandbox egress block) |
+| **Public GEO page deployed (GitHub Pages, built from live data)** | ✅ **LIVE → https://wrxfoundation.github.io/weatherplan-ai/** |
 | Production Postgres backend (behind the same insert-only contract) | ⬜ planned (scale step) |
-| Public deploy of the GEO page / data | ⬜ next |
 
 Tests: 18 passed, 2 live-skip (egress); ruff clean. Tracked on PR #1.
 
@@ -83,11 +83,19 @@ exactly in that gap.
 
 ---
 
-## GEO — public deploy (wired)
-`report.html` emits Schema.org JSON-LD (Dataset + per-entity MusicGroup with `sameAs` the
-Wikidata entity) + a meta description; MCP output carries a `citation`. **`.github/workflows/
-pages.yml`** now builds this page from live data and deploys it to **GitHub Pages** (free, no
-external account) — a public, crawlable URL for answer engines (Perplexity / ChatGPT / Google
-AI Overviews). One-time enable: repo **Settings → Pages → Source: GitHub Actions**; then it
-auto-refreshes daily. (Production may later move this to the product domain / a Postgres-backed
-renderer — see Phase 2 infra.)
+## GEO — public deploy (✅ LIVE)
+**Live: https://wrxfoundation.github.io/weatherplan-ai/** — first verified, real Wikidata data
+published publicly (2026-06-02): BTS/NewJeans/aespa with Skill Score, provenance (correct
+Q-ids), and Schema.org JSON-LD (`sameAs` the Wikidata entity) + meta description. MCP output
+carries a matching `citation`. Built + deployed by **`.github/workflows/pages.yml`** on
+GitHub Pages — the pull runs on GitHub's open-network runner (so it works despite the sandbox
+egress block); auto-refreshes on push + daily.
+
+**Enablement gotchas (both one-time, owner-only):**
+1. Settings → Pages → Source: **GitHub Actions**.
+2. Deploying from a **non-default branch** also needs it allowed in the `github-pages`
+   environment (Settings → Environments → github-pages → Deployment branches → No restriction),
+   else the deploy is blocked at the environment gate (instant ~2s failure). Unnecessary once
+   merged to the default branch.
+
+(Production may later move this to the product domain / a Postgres-backed renderer — Phase 2.)
