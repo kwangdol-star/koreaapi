@@ -85,3 +85,23 @@ pip install datasette && datasette koreaapi.db
 
 Watch the headline metric of a verifiable-data business: **avg Skill Score,
 freshness, and source agreement** - that is literally watching the moat.
+
+## Agent face (MCP server)
+The product itself: an MCP server exposing 4 tools, each returning verified, bilingual,
+provenance-bearing data from the same store the console reads.
+
+| Tool | Returns |
+|---|---|
+| `get_artist_status(artist_id)` | latest comeback/chart status + verified facts |
+| `get_kculture_calendar(window_days)` | upcoming comebacks / releases / concerts |
+| `get_korea_rising(category, limit)` | what's rising now, ranked from accumulated snapshots |
+| `get_buy_options(item)` | where to buy (Phase 1: rail pending; logs buy-intent) |
+
+```bash
+cd koreaapi
+pip install fastmcp                           # use a venv if system deps clash
+PYTHONPATH=src python -m koreaapi.server      # serves over MCP (stdio)
+```
+
+Logic lives in `service.py` (pure, offline-tested); `server.py` is the thin MCP
+binding. Tools register cleanly (verified in an isolated venv).
