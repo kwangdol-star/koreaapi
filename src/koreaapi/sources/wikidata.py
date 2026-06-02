@@ -6,10 +6,12 @@ canonical common name, so the EN label is treated as the official English name
 
 Two PARSE steps are pure and fixture-tested offline: `parse_entity` (labels) and
 `parse_search` (entity lookup). The thin HTTP layer needs network egress at runtime.
-A curated entity->Q-id map gives the hot Phase-1 artists a high-precision fast path;
-anything else is resolved live via `wbsearchentities` (egress required). On deploy with
-egress this runs end-to-end; `tests/test_wikidata_live.py` is a live smoke test that
-auto-skips when egress is blocked (sandbox allowlist -> HTTP 403 host_not_allowed).
+A curated entity->Q-id map gives the hot Phase-1 artists a high-precision fast path and
+carries each anchor's expected identity, so `fetch()` rejects a contradictory label
+instead of ingesting it (invariant 2: no unverifiable data ships); anything else is
+resolved live via `wbsearchentities` (egress required). On deploy with egress this runs
+end-to-end; `tests/test_wikidata_live.py` is a live smoke test that auto-skips when
+egress is blocked (sandbox allowlist -> HTTP 403 host_not_allowed).
 """
 
 from __future__ import annotations
@@ -27,13 +29,17 @@ _UA = {
     "User-Agent": "KoreaAPI/0.1 (https://github.com/wrxfoundation/weatherplan-ai) python-urllib"
 }
 
-# Curated entity -> Wikidata Q-id fast path (high precision for hot Phase-1 artists).
-# Anything not listed here is resolved live via wbsearchentities (egress required).
-_QID = {
-    "artist:bts": "Q484203",
-    "artist:newjeans": "Q110343458",
-    "artist:aespa": "Q97287573",
+# Curated anchors: entity_id -> Q-id + expected identity (our highest-trust pins).
+# The expected names let fetch() VERIFY the live response really is the entity we pinned
+# and REJECT a contradictory label (invariant 2) instead of stamping a wrong name as
+# 'official'. Anything not listed here is resolved live via wbsearchentities.
+_CURATED = {
+    "artist:bts": {"qid": "Q484203", "ko": "방탄소년단", "en": "BTS"},
+    "artist:newjeans": {"qid": "Q110343458", "ko": "뉴진스", "en": "NewJeans"},
+    "artist:aespa": {"qid": "Q97287573", "ko": "에스파", "en": "aespa"},
 }
+# Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path).
+_QID = {eid: meta["qid"] for eid, meta in _CURATED.items()}
 
 
 def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
@@ -64,6 +70,30 @@ def parse_search(raw: dict) -> str | None:
     if not hits:
         return None
     return hits[0].get("id")
+
+
+def _verify_identity(payload: dict, expected: dict) -> None:
+    """Reject a curated anchor whose fetched label contradicts its known identity.
+
+    Invariant 2 (PRINCIPLES.md): no unverifiable data ships. For entities we pinned by
+    Q-id we KNOW who they are, so a label matching neither the expected Korean nor English
+    name (e.g. BTS coming back as something else) signals a wrong/stale Q-id or a corrupted
+    response - raise so the pipeline drops it instead of poisoning the append-only store.
+    """
+    got = {
+        (payload.get("name_ko") or "").strip().casefold(),
+        (payload.get("name_en_official") or "").strip().casefold(),
+    }
+    got.discard("")
+    want = {
+        (expected.get("ko") or "").strip().casefold(),
+        (expected.get("en") or "").strip().casefold(),
+    }
+    want.discard("")
+    if want and got.isdisjoint(want):
+        raise ValueError(
+            f"identity mismatch: fetched {sorted(got)} matches none of expected {sorted(want)}"
+        )
 
 
 class WikidataSource:
@@ -119,5 +149,8 @@ class WikidataSource:
         qid = await self.resolve_qid(entity_id)
         raw = await asyncio.to_thread(self._http_get, self._entity_url(qid))
         payload = parse_entity(raw, entity_id, kind)
+        expected = _CURATED.get(entity_id)
+        if expected:
+            _verify_identity(payload, expected)  # reject contradictory data (invariant 2)
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         return {"payload": payload, "citation": f"Wikidata {qid} {ts}"}

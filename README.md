@@ -65,10 +65,11 @@ PYTHONPATH=src python -m pytest tests -q
 
 The append-only ingestion heart (store + ingest + Skill Score + bilingual
 normalization) is implemented and **tested offline** via a `MockSource`. The first
-real adapter — **Wikidata** — is implemented: a curated entity→Q-id fast path plus
-live `wbsearchentities` resolution, with both PARSE steps fixture-tested offline and a
-**live smoke test** (`tests/test_wikidata_live.py`) that auto-skips when egress is
-unavailable. Spotify / Circle Chart adapters are next.
+real adapter — **Wikidata** — is implemented: a curated entity→Q-id fast path (each
+anchor's identity is verified, so a contradictory label is **rejected, not ingested** —
+invariant 2) plus live `wbsearchentities` resolution. The parse/verify steps are
+fixture-tested offline and a **live smoke test** (`tests/test_wikidata_live.py`)
+auto-skips when egress is unavailable. Spotify / Circle Chart adapters are next.
 
 > **Egress note:** the live pull needs outbound access to `*.wikidata.org`. In the
 > web/sandbox environment egress is allowlist-gated — if Wikidata isn't allowlisted the
