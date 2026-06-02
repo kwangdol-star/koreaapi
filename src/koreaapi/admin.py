@@ -7,6 +7,7 @@ agents read - never a second data path.
 
 CLI:
   python -m koreaapi.admin seed     # populate koreaapi.db with sample snapshots (offline)
+  python -m koreaapi.admin pull     # LIVE: pull real Wikidata snapshots (needs network egress)
   python -m koreaapi.admin stats    # print a data-quality summary
   python -m koreaapi.admin dump     # print recent snapshots
   python -m koreaapi.admin report   # write report.html (open it in a browser)
@@ -25,6 +26,7 @@ from .pipeline import store
 from .pipeline.ingest import ingest_one
 from .pipeline.scheduler import CADENCE
 from .sources.mock import MockSource
+from .sources.wikidata import WikidataSource, _CURATED
 
 # Offline sample data for `seed` (replace with real source adapters later).
 # The third entry has a single source -> demonstrates the single-source Skill cap.
@@ -55,6 +57,25 @@ async def seed(db_path: str | None = None) -> None:
         names = ["Circle Chart", "Wikidata"][:n_sources]
         sources = [MockSource(name, payload) for name in names]
         await ingest_one(kind, entity_id, sources, db_path=db_path)
+
+
+async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = None) -> dict:
+    """Live-pull curated artists from Wikidata and append REAL verified snapshots.
+
+    The turnkey live ingestion (component A, live): for each entity it fetches the
+    bilingual labels from Wikidata, identity-verifies them, computes Skill Score +
+    provenance, and appends a snapshot. Needs network egress to www.wikidata.org; where
+    egress is blocked (e.g. the sandbox allowlist) each fetch is dropped by graceful
+    degradation and the entity is reported as failed - nothing is appended (never poison).
+    """
+    ids = entity_ids or list(_CURATED)
+    src = WikidataSource()  # one instance memoizes any live Q-id lookups
+    ingested: list[str] = []
+    failed: list[str] = []
+    for entity_id in ids:
+        rec = await ingest_one("facts", entity_id, [src], db_path=db_path)
+        (ingested if rec is not None else failed).append(entity_id)
+    return {"requested": ids, "ingested": ingested, "failed": failed}
 
 
 def _fresh(latest_at: str, kind: str) -> bool:
@@ -163,6 +184,15 @@ def _main(argv: list[str]) -> int:
             )
     elif cmd == "report":
         print("wrote", asyncio.run(report_html()))
+    elif cmd == "pull":
+        out = asyncio.run(pull())
+        print(f"pull: ingested {len(out['ingested'])}/{len(out['requested'])} -> {store._db_path(None)}")
+        if out["ingested"]:
+            print("  ok:", ", ".join(out["ingested"]))
+        if out["failed"]:
+            print("  failed (no snapshot):", ", ".join(out["failed"]))
+            print("  → if ALL failed, egress to www.wikidata.org is likely blocked (sandbox allowlist).")
+            print("    Run where the network is open: a deploy, or a Full-network session.")
     else:
         print(f"unknown command: {cmd}")
         return 2

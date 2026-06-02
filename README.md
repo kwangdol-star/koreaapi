@@ -84,6 +84,7 @@ agents, and a read-only console for you.
 ```bash
 cd koreaapi
 PYTHONPATH=src python -m koreaapi.admin seed     # populate koreaapi.db (offline sample)
+PYTHONPATH=src python -m koreaapi.admin pull     # LIVE: pull real Wikidata snapshots (needs egress)
 PYTHONPATH=src python -m koreaapi.admin stats    # data-quality summary
 PYTHONPATH=src python -m koreaapi.admin dump     # print recent snapshots
 PYTHONPATH=src python -m koreaapi.admin report   # -> report.html (open in a browser)
