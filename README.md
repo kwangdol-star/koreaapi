@@ -85,6 +85,7 @@ agents, and a read-only console for you.
 cd koreaapi
 PYTHONPATH=src python -m koreaapi.admin seed     # populate koreaapi.db (offline sample)
 PYTHONPATH=src python -m koreaapi.admin pull     # LIVE: pull real Wikidata snapshots (needs egress)
+PYTHONPATH=src python -m koreaapi.admin export   # write data/ asset (history + latest.json)
 PYTHONPATH=src python -m koreaapi.admin stats    # data-quality summary
 PYTHONPATH=src python -m koreaapi.admin dump     # print recent snapshots
 PYTHONPATH=src python -m koreaapi.admin report   # -> report.html (open in a browser)
@@ -92,6 +93,14 @@ PYTHONPATH=src python -m koreaapi.admin report   # -> report.html (open in a bro
 # zero-code interactive browse + query + JSON API over the same DB:
 pip install datasette && datasette koreaapi.db
 ```
+
+**Automated collection (cron).** `.github/workflows/collect.yml` runs `admin pull` +
+`admin export` daily (and on manual dispatch) and commits the growing data asset back to
+the repo: `koreaapi/data/snapshots.jsonl` (append-only history) + `latest.json` (current
+state, crawlable for GEO). It runs on GitHub's runners — **open network, so the live pull
+works there** even though the dev sandbox blocks Wikidata egress. Production scales this to
+Postgres behind the same insert-only contract (see `pipeline/store.py`); the repo file set
+is the zero-cost cold-start "database".
 
 Watch the headline metric of a verifiable-data business: **avg Skill Score,
 freshness, and source agreement** - that is literally watching the moat.

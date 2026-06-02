@@ -8,6 +8,7 @@ agents read - never a second data path.
 CLI:
   python -m koreaapi.admin seed     # populate koreaapi.db with sample snapshots (offline)
   python -m koreaapi.admin pull     # LIVE: pull real Wikidata snapshots (needs network egress)
+  python -m koreaapi.admin export   # write data/ asset (snapshots.jsonl history + latest.json)
   python -m koreaapi.admin stats    # print a data-quality summary
   python -m koreaapi.admin dump     # print recent snapshots
   python -m koreaapi.admin report   # write report.html (open it in a browser)
@@ -20,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import html
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -78,6 +80,32 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
         rec = await ingest_one("facts", entity_id, [src], db_path=db_path)
         (ingested if rec is not None else failed).append(entity_id)
     return {"requested": ids, "ingested": ingested, "failed": failed}
+
+
+async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
+    """Write the data asset as committable text - the cold-start 'database' before Postgres.
+
+    - data/snapshots.jsonl : full time-series, one record per line, APPENDED (history grows)
+    - data/latest.json     : current state, latest snapshot per entity+kind (overwritten)
+
+    Both are diffable, versionable, and crawlable (GEO). The scheduled collector
+    (.github/workflows/collect.yml) runs pull + export each tick so the asset accumulates in
+    git - run on GitHub's runners (open network), where the live pull works even though the
+    dev sandbox blocks Wikidata egress. Run export right after a pull (it appends history).
+    """
+    recs = await store.recent(100000, db_path=db_path)
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "snapshots.jsonl"), "a", encoding="utf-8") as f:
+        for r in reversed(recs):  # append oldest-first so the file reads as a timeline
+            f.write(r.model_dump_json() + "\n")
+    latest: dict[str, dict] = {}
+    for r in recs:  # recs are newest-first -> first seen per entity+kind is the latest
+        key = f"{r.entity_id}:{r.kind}"
+        if key not in latest:
+            latest[key] = json.loads(r.model_dump_json())
+    with open(os.path.join(out_dir, "latest.json"), "w", encoding="utf-8") as f:
+        json.dump(list(latest.values()), f, ensure_ascii=False, indent=2)
+    return {"appended": len(recs), "entities": len(latest)}
 
 
 def _fresh(latest_at: str, kind: str) -> bool:
@@ -255,6 +283,12 @@ def _main(argv: list[str]) -> int:
             print("  failed (no snapshot):", ", ".join(out["failed"]))
             print("  → if ALL failed, egress to www.wikidata.org is likely blocked (sandbox allowlist).")
             print("    Run where the network is open: a deploy, or a Full-network session.")
+    elif cmd == "export":
+        out = asyncio.run(export())
+        print(
+            f"export: appended {out['appended']} snapshot(s) -> data/snapshots.jsonl; "
+            f"refreshed data/latest.json ({out['entities']} entities)"
+        )
     else:
         print(f"unknown command: {cmd}")
         return 2
