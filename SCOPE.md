@@ -106,7 +106,7 @@ Example record (conceptual):
 - **Trend:** Beehiiv "Korea Rising" digest seeds the subscription; promote to API/paid later.
 
 ## 7. Out of scope (later layers)
-Coupang Partners API · ticketing / Circle Chart official partnerships · K-beauty & travel verticals · enterprise (KYB, English-DART, MFDS compliance) · x402 micropayments · full geocoding · weather (free hook only).
+Coupang Partners API · ticketing / Circle Chart official partnerships · K-beauty · **travel/local verticals — restaurant (맛집) reservations = designated first travel-local vertical, hung off the K-culture magnet (concert venue → nearby restaurant → booking commission); reuses the same Name/Provenance/append-only contract** · enterprise (KYB, English-DART, MFDS compliance) · x402 micropayments · full geocoding · weather (free hook only).
 
 ## 8. Definition of Done (Phase 1)
 - [ ] Daily ingestion running unattended; verified snapshots **appended** (time-series asset begins)

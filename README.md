@@ -57,7 +57,12 @@ koreaapi/
 ## Dev
 ```bash
 cd koreaapi
-uv sync
-# pipeline entry points are scaffolded stubs — Phase 1 wiring in progress
-uv run python -c "import koreaapi; print(koreaapi.__version__)"
+uv sync                      # or: pip install pydantic pytest
+
+# run the offline end-to-end pipeline test (no API keys / network needed)
+PYTHONPATH=src python -m pytest tests -q
 ```
+
+The append-only ingestion heart (store + ingest + Skill Score + bilingual
+normalization) is implemented and **tested offline** via a `MockSource`. Source
+adapters (Spotify / Wikidata / Circle Chart) and the MCP server are next.
