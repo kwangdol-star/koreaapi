@@ -1,0 +1,18 @@
+# KoreaAPI
+> The verifiable data layer for Korean culture & commerce, callable by any AI agent.
+
+KoreaAPI exposes Korean entertainment, culture, and commerce data via Anthropic's MCP.
+Every response includes provenance (sources, fetched_at) and a Skill Score (0-1) so an
+agent can decide whether to trust and cite the data. Data is bilingual: Korean original
+(canonical) + English (official names preferred) + romanization.
+
+## Tools
+- get_kculture_calendar(window): upcoming comebacks, releases, concerts, fan events, awards.
+- get_artist_status(artist): chart positions, latest release, next event, verified facts.
+- get_buy_options(item): where to buy + price + availability + affiliate link.
+- get_korea_rising(category): what is rising in Korea now (from aggregated behavioral signal).
+
+## Principles
+- Provenance + Skill Score on every response.
+- Korean canonical; English for distribution (official names over translation).
+- Append-only time-series — history is the moat.
