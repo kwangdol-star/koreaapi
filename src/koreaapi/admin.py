@@ -9,6 +9,7 @@ CLI:
   python -m koreaapi.admin seed     # populate koreaapi.db with sample snapshots (offline)
   python -m koreaapi.admin pull     # LIVE: pull real Wikidata snapshots (needs network egress)
   python -m koreaapi.admin export   # write data/ asset (snapshots.jsonl history + latest.json)
+  python -m koreaapi.admin signals  # top behavioral signals (engine 2: what agents query)
   python -m koreaapi.admin stats    # print a data-quality summary
   python -m koreaapi.admin dump     # print recent snapshots
   python -m koreaapi.admin report   # write report.html (open it in a browser)
@@ -293,6 +294,14 @@ def _main(argv: list[str]) -> int:
             f"export: appended {out['appended']} snapshot(s) -> data/snapshots.jsonl; "
             f"refreshed data/latest.json ({out['entities']} entities)"
         )
+    elif cmd == "signals":
+        sig = asyncio.run(store.top_signals(20))
+        if not sig:
+            print("no behavioral signal yet - queries log here as agents use the MCP tools")
+        else:
+            print("top behavioral signals (engine 2 - what agents ask for):")
+            for s in sig:
+                print(f"  {s['count']:>4}  [{s['kind']}] {s['key']}")
     else:
         print(f"unknown command: {cmd}")
         return 2

@@ -1,8 +1,12 @@
-"""Agent-face service logic (pure, transport-agnostic).
+"""Agent-face service logic (transport-agnostic).
 
 Reads the append-only store and returns decision-ready dicts. Every item carries
 provenance + Skill Score (invariant 2). server.py wraps these as MCP tools; tests
 exercise them directly with no transport dependency or network.
+
+Each call also logs a best-effort BEHAVIORAL SIGNAL (engine 2 raw material): usage -
+what agents query / intend to buy - is the proprietary signal a latecomer cannot
+reconstruct. Logging is best-effort and never breaks a read.
 """
 
 from __future__ import annotations
@@ -10,6 +14,14 @@ from __future__ import annotations
 from .pipeline import store
 
 _CALENDAR_KINDS = ("comeback", "release", "concert")
+
+
+async def _log(kind: str, key: str, db_path: str | None) -> None:
+    """Best-effort behavioral-signal capture; a logging failure must never break a read."""
+    try:
+        await store.log_signal(kind, key, db_path=db_path)
+    except Exception:
+        pass
 
 
 def _citation(rec) -> str:
@@ -54,6 +66,7 @@ def _item(rec) -> dict:
 
 async def artist_status(artist_id: str, *, db_path: str | None = None) -> dict:
     """Latest verified status across kinds for one artist. artist_id e.g. 'artist:bts'."""
+    await _log("query", artist_id, db_path)  # behavioral signal: even a miss is demand signal
     ents = [e for e in await store.entities(db_path=db_path) if e["entity_id"] == artist_id]
     if not ents:
         return {"artist_id": artist_id, "found": False, "note": "no verified snapshot yet"}
@@ -75,6 +88,7 @@ async def artist_status(artist_id: str, *, db_path: str | None = None) -> dict:
 
 async def kculture_calendar(window_days: int = 30, *, db_path: str | None = None) -> dict:
     """Upcoming Korean culture events (comebacks, releases, concerts) with provenance."""
+    await _log("query", "kculture_calendar", db_path)
     recs = await store.recent(500, db_path=db_path)
     items = [_item(r) for r in recs if r.kind in _CALENDAR_KINDS]
     return {"window_days": window_days, "count": len(items), "items": items}
@@ -82,6 +96,7 @@ async def kculture_calendar(window_days: int = 30, *, db_path: str | None = None
 
 async def korea_rising(category: str = "all", limit: int = 10, *, db_path: str | None = None) -> dict:
     """What is rising in Korea now, ranked from accumulated verified snapshots (engine 2 seed)."""
+    await _log("query", f"rising:{category}", db_path)
     recs = await store.recent(500, db_path=db_path)
     ranked = sorted(
         recs, key=lambda r: (r.provenance.skill_score, r.snapshot_at), reverse=True
@@ -90,14 +105,15 @@ async def korea_rising(category: str = "all", limit: int = 10, *, db_path: str |
         "category": category,
         "items": [_item(r) for r in ranked[:limit]],
         "note": (
-            "Phase 1: ranked from accumulated verified snapshots; behavioral signal "
-            "(queries/clicks) folds in once live."
+            "Phase 1: ranked from accumulated verified snapshots; the captured behavioral "
+            "signal (see admin signals) folds into ranking as query volume accrues."
         ),
     }
 
 
 async def buy_options(item: str, *, db_path: str | None = None) -> dict:
     """Where to buy a release/ticket/goods. Phase 1: commerce rail pending; logs buy-intent."""
+    await _log("buy_intent", item, db_path)  # the buy-intent signal accrues even at $0 commission
     # Honest cold-start stub: no monetized links yet, but the request itself is the
     # behavioral signal that seeds engine 2 (SCOPE S3/S6). Affiliate links (Skimlinks/
     # Amazon) activate once traffic qualifies.
