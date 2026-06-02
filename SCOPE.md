@@ -108,6 +108,12 @@ Example record (conceptual):
 ## 7. Out of scope (later layers)
 Coupang Partners API · ticketing / Circle Chart official partnerships · K-beauty · **travel/local verticals — restaurant (맛집) reservations = designated first travel-local vertical, hung off the K-culture magnet (concert venue → nearby restaurant → booking commission); reuses the same Name/Provenance/append-only contract** · enterprise (KYB, English-DART, MFDS compliance) · x402 micropayments · full geocoding · weather (free hook only).
 
+> **Phase 2 plan (web3 agent-payments via x402, GEO, portable reputation) → [`ROADMAP.md`](./ROADMAP.md).**
+> Grounded in the 2026-05-27 Agent×Blockchain conference: x402 proves *payment*, not
+> *fulfilment* — KoreaAPI's Skill Score is that missing proof, so agent payments **reinforce**
+> the verification moat rather than dilute it. (Payment rail = USDC + x402, not "receive BNB";
+> do **not** launch a token.)
+
 *Candidate tooling (revisit at the noted phase, vet first): `postgres` skill + Composio Supabase/Vercel connectors for deploy; Composio Stripe/Shopify + analytics (PostHog/Segment) for the commerce / behavioral-signal engines - but prefer **direct SDKs for core payment rails** (control, margin, moat); use connectors only for non-core, long-tail integrations.*
 
 ## 8. Definition of Done (Phase 1)
