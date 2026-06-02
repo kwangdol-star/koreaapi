@@ -30,13 +30,15 @@ _UA = {
 }
 
 # Curated anchors: entity_id -> Q-id + expected identity (our highest-trust pins).
-# The expected names let fetch() VERIFY the live response really is the entity we pinned
-# and REJECT a contradictory label (invariant 2) instead of stamping a wrong name as
-# 'official'. Anything not listed here is resolved live via wbsearchentities.
+# Q-ids verified against LIVE Wikidata (2026-06-02) via wbsearchentities - the earlier
+# offline-guessed ids were all wrong (e.g. Q484203 is "Arborka", not BTS), which the
+# identity guard caught. The expected names let fetch() VERIFY the live response really is
+# the entity we pinned and REJECT a contradictory label (invariant 2) instead of stamping a
+# wrong name as 'official'. Anything not listed here is resolved live via wbsearchentities.
 _CURATED = {
-    "artist:bts": {"qid": "Q484203", "ko": "방탄소년단", "en": "BTS"},
-    "artist:newjeans": {"qid": "Q110343458", "ko": "뉴진스", "en": "NewJeans"},
-    "artist:aespa": {"qid": "Q97287573", "ko": "에스파", "en": "aespa"},
+    "artist:bts": {"qid": "Q13580495", "ko": "방탄소년단", "en": "BTS"},
+    "artist:newjeans": {"qid": "Q113189277", "ko": "뉴진스", "en": "NewJeans"},
+    "artist:aespa": {"qid": "Q100877982", "ko": "에스파", "en": "aespa"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path).
 _QID = {eid: meta["qid"] for eid, meta in _CURATED.items()}
@@ -72,6 +74,11 @@ def parse_search(raw: dict) -> str | None:
     return hits[0].get("id")
 
 
+def _norm(s: str | None) -> str:
+    """Normalize a name for identity comparison: drop case and spaces (NewJeans == New Jeans)."""
+    return (s or "").casefold().replace(" ", "")
+
+
 def _verify_identity(payload: dict, expected: dict) -> None:
     """Reject a curated anchor whose fetched label contradicts its known identity.
 
@@ -80,15 +87,9 @@ def _verify_identity(payload: dict, expected: dict) -> None:
     name (e.g. BTS coming back as something else) signals a wrong/stale Q-id or a corrupted
     response - raise so the pipeline drops it instead of poisoning the append-only store.
     """
-    got = {
-        (payload.get("name_ko") or "").strip().casefold(),
-        (payload.get("name_en_official") or "").strip().casefold(),
-    }
+    got = {_norm(payload.get("name_ko")), _norm(payload.get("name_en_official"))}
     got.discard("")
-    want = {
-        (expected.get("ko") or "").strip().casefold(),
-        (expected.get("en") or "").strip().casefold(),
-    }
+    want = {_norm(expected.get("ko")), _norm(expected.get("en"))}
     want.discard("")
     if want and got.isdisjoint(want):
         raise ValueError(

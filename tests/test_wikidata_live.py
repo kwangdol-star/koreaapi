@@ -41,7 +41,7 @@ def test_live_pull_bts_is_real_and_bilingual():
     assert payload["name_ko"] == "방탄소년단"
     assert payload["name_en_official"] == "BTS"  # Wikidata label = official EN name
     assert payload["name_en_source"] == "official"
-    assert res["citation"].startswith("Wikidata Q484203")
+    assert res["citation"].startswith("Wikidata Q13580495")
 
 
 def test_live_search_resolves_unmapped_entity():

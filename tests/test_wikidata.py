@@ -27,7 +27,7 @@ def test_parse_extracts_bilingual_official_name():
 
 def test_parse_search_picks_top_hit():
     raw = json.loads(SEARCH_FIXTURE.read_text(encoding="utf-8"))
-    assert parse_search(raw) == "Q484203"  # top wbsearchentities hit
+    assert parse_search(raw) == "Q13580495"  # top wbsearchentities hit
 
 
 def test_parse_search_no_hit_returns_none():
