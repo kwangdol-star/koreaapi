@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
+import re
 import sys
 from datetime import datetime, timezone
 
@@ -104,14 +106,69 @@ async def stats(db_path: str | None = None) -> dict:
     }
 
 
+def _wikidata_url(sources: list[str]) -> str | None:
+    """Pull a Wikidata entity URL out of a provenance citation like 'Wikidata Q13580495 ...'."""
+    for s in sources:
+        if "wikidata" in s.lower():
+            m = re.search(r"\bQ\d+\b", s)
+            if m:
+                return f"https://www.wikidata.org/entity/{m.group(0)}"
+    return None
+
+
+def _jsonld(records: list, generated_iso: str) -> str:
+    """Schema.org JSON-LD for the verified entities (AEO/GEO: crawlable, citable structure).
+
+    Answer engines (Perplexity / ChatGPT / Google AI Overviews) parse JSON-LD; emitting each
+    artist as a MusicGroup with `sameAs` the Wikidata entity makes our verified, dated record
+    citable on the open web - the GEO substrate on top of the same append-only store.
+    """
+    groups = []
+    seen: set[str] = set()
+    for r in records:
+        if r.entity_id in seen:
+            continue
+        seen.add(r.entity_id)
+        node = {
+            "@type": "MusicGroup",
+            "name": r.name.en_official or r.name.ko,
+            "alternateName": [x for x in (r.name.ko, r.name.romanized) if x],
+            "description": r.summary_en,
+            "dateModified": r.snapshot_at.isoformat(),
+        }
+        wd = _wikidata_url(r.provenance.sources)
+        if wd:
+            node["sameAs"] = wd
+        groups.append(node)
+    doc = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Dataset",
+                "name": "KoreaAPI — verified K-culture data",
+                "description": (
+                    "Bilingual, provenance-bearing Korean culture & commerce data for AI "
+                    "agents; every record carries a source and a Skill Score."
+                ),
+                "dateModified": generated_iso,
+                "creator": {"@type": "Organization", "name": "KoreaAPI"},
+            },
+            *groups,
+        ],
+    }
+    return json.dumps(doc, ensure_ascii=False, indent=2)
+
+
 async def report_html(db_path: str | None = None, out_path: str = "report.html") -> str:
     ents = await store.entities(db_path=db_path)
     s = await stats(db_path=db_path)
     rows = []
+    recs = []
     for e in ents:
         rec = await store.latest(e["entity_id"], e["kind"], db_path=db_path)
         if rec is None:
             continue
+        recs.append(rec)
         sc = rec.provenance.skill_score
         color = "#10B981" if sc >= 0.8 else ("#F59E0B" if sc >= 0.5 else "#EF4444")
         is_fresh = _fresh(e["latest_at"], e["kind"])
@@ -130,9 +187,14 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
             f"<td>{html.escape(rec.summary_en)}</td>"
             "</tr>"
         )
-    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(timezone.utc)
+    generated = now.strftime("%Y-%m-%d %H:%M UTC")
+    jsonld = _jsonld(recs, now.isoformat())
     doc = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>KoreaAPI - Data Console</title>
+<script type="application/ld+json">
+{jsonld}
+</script>
 <style>
  body{{font-family:system-ui,-apple-system,sans-serif;background:#0A0E1A;color:#F5F7FA;margin:0;padding:24px}}
  h1{{margin:0 0 4px}} .sub{{color:#A0AEC0;margin-bottom:20px}}

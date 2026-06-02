@@ -12,6 +12,22 @@ from .pipeline import store
 _CALENDAR_KINDS = ("comeback", "release", "concert")
 
 
+def _citation(rec) -> str:
+    """Ready-to-cite line (source + freshness + Skill Score) an agent can reproduce verbatim.
+
+    AEO/GEO: every served fact carries how to cite it - the original source AND KoreaAPI -
+    so answer engines surface us as the verifiable origin.
+    """
+    name = rec.name.en_official or rec.name.ko
+    ko = f" ({rec.name.ko})" if rec.name.ko and rec.name.ko != name else ""
+    sources = "; ".join(rec.provenance.sources) or "unsourced"
+    return (
+        f"{name}{ko} - {rec.kind} (as of {rec.snapshot_at.date()}). "
+        f"Source: {sources}. Skill Score {rec.provenance.skill_score:.2f} "
+        f"({rec.provenance.confidence}). via KoreaAPI."
+    )
+
+
 def _item(rec) -> dict:
     """Decision-ready, bilingual projection of a stored Record (with provenance)."""
     return {
@@ -32,6 +48,7 @@ def _item(rec) -> dict:
             "translation": rec.provenance.translation.source,
             "fetched_at": rec.provenance.fetched_at.isoformat(),
         },
+        "citation": _citation(rec),
     }
 
 
