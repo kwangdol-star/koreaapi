@@ -22,6 +22,8 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
+from ..roster import ARTISTS
+
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 # Wikimedia User-Agent policy: descriptive client/version + a contact URL + library.
 # https://meta.wikimedia.org/wiki/User-Agent_policy  (repo URL is the reachable contact)
@@ -136,7 +138,7 @@ class WikidataSource:
             return _QID[entity_id]
         if entity_id in self._discovered:
             return self._discovered[entity_id]
-        term = entity_id.split(":", 1)[-1].strip()
+        term = ARTISTS.get(entity_id) or entity_id.split(":", 1)[-1].strip()
         if not term:
             raise ValueError(f"cannot derive a search term from entity_id {entity_id!r}")
         raw = await asyncio.to_thread(self._http_get, self._search_url(term))
@@ -150,7 +152,9 @@ class WikidataSource:
         qid = await self.resolve_qid(entity_id)
         raw = await asyncio.to_thread(self._http_get, self._entity_url(qid))
         payload = parse_entity(raw, entity_id, kind)
-        expected = _CURATED.get(entity_id)
+        expected = _CURATED.get(entity_id) or (
+            {"en": ARTISTS[entity_id]} if entity_id in ARTISTS else None
+        )
         if expected:
             _verify_identity(payload, expected)  # reject contradictory data (invariant 2)
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")

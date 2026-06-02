@@ -30,8 +30,9 @@ from datetime import datetime, timezone
 from .pipeline import store
 from .pipeline.ingest import ingest_one
 from .pipeline.scheduler import CADENCE
+from .roster import ARTISTS
 from .sources.mock import MockSource
-from .sources.wikidata import WikidataSource, _CURATED
+from .sources.wikidata import WikidataSource
 from .sources.wikipedia import WikipediaSource
 
 # Offline sample data for `seed` (replace with real source adapters later).
@@ -75,7 +76,7 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
     the sandbox allowlist) failed sources are dropped by graceful degradation - a snapshot is
     still appended if at least one source succeeds, and nothing if none do (never poison).
     """
-    ids = entity_ids or list(_CURATED)
+    ids = entity_ids or list(ARTISTS)
     sources = [WikidataSource(), WikipediaSource()]  # two independent sources -> cross-verify
     ingested: list[str] = []
     failed: list[str] = []

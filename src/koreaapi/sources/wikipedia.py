@@ -25,6 +25,9 @@ _TITLES = {
     "artist:bts": "BTS",
     "artist:newjeans": "NewJeans",
     "artist:aespa": "Aespa",
+    "artist:blackpink": "Blackpink",
+    "artist:lesserafim": "Le Sserafim",
+    "artist:straykids": "Stray Kids",
 }
 
 
