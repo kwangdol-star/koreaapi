@@ -87,6 +87,56 @@ exactly in that gap.
 
 ---
 
+## Vertical (candidate, decision-gated) — Prediction-market settlement oracle
+
+> Source: user idea (2026-06-02) + the conference's core claim — agents pay for *trustworthy
+> real-world input + the right to act*. Betting agents are the **purest buyers of verified
+> ground truth**: they need it both to inform a bet and to settle it.
+
+### The fit (on-thesis)
+- Prediction markets — **Polymarket** (on-chain), **Kalshi** (regulated US, fiat),
+  **오피니언/Opinion** (KR) — resolve on real-world outcomes; their #1 need is a **trustworthy
+  settlement/reference source**. KoreaAPI's provenance + Skill Score = *settlement-grade*.
+- K-culture markets ("BTS comeback on 6/13?", "NewJeans #1 this week?", "MAMA winner?") have
+  **no machine-readable verified source today** — the gap we own.
+- Agents query per-bet → **engine ② signal + per-call payment (x402, Phase 2)**. A settlement
+  oracle is premium + sticky (you don't switch the source your bets settle on).
+
+### What it requires (design draft)
+1. **Outcome/Claim record** (not just a Name) — a *resolvable assertion*, reusing the
+   Name/Provenance/append-only contract:
+   ```json
+   { "entity_id": "artist:bts", "claim": "comeback on 2026-06-13",
+     "resolution_date": "2026-06-13",
+     "status": "announced",            // rumored | announced | confirmed | resolved
+     "result": null,                   // set on resolution (true/false/value)
+     "provenance": { "sources": ["agency notice 2026-06-01"], "skill_score": 0.9 } }
+   ```
+2. **Status discipline** — `rumored | announced | confirmed | resolved`. For betting,
+   mislabelling rumor as fact = liability, so this tightens the existing translation.source /
+   confidence model. The verification moat matters MORE here.
+3. **Outcome sources** (the real cost): official agency announcements, Circle Chart (charts),
+   award orgs, Spotify/YouTube (milestones). → the "more sources" investment; needs a
+   source/credentials decision.
+4. **Settlement output**: extend the existing `citation` field into a machine-citable
+   *"verified claim, as-of <date>, source X, Skill Score Y, status Z"* an agent attaches to a bet.
+5. **MCP tool**: `get_claim_status(claim_id)` / `resolve_outcome(...)` → verified outcome +
+   provenance, for an agent to inform or settle a bet.
+
+### ⛔ Guardrails (load-bearing)
+- KoreaAPI is the **data / oracle layer, NOT a gambling operator** — no hosting bets, no wager
+  intake, no odds-making. Verifiable reference/settlement data only. (Korean gambling law is
+  strict; stay clearly on the data side.)
+- **Never ship rumor as fact.** `status` + Skill Score are the trust contract; honest
+  uncertainty over false confidence.
+
+### Sequencing
+Decision-gated. Slots **after / with** the live-state event data (SCOPE's comeback/chart/concert
+kinds) + engine ②; monetized via x402 (Phase 2). **Do not build the data layer until the
+outcome-source decision is made.**
+
+---
+
 ## GEO — public deploy (✅ LIVE)
 **Live: https://wrxfoundation.github.io/weatherplan-ai/** — first verified, real Wikidata data
 published publicly (2026-06-02): BTS/NewJeans/aespa with Skill Score, provenance (correct
