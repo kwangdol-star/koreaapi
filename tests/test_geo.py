@@ -103,6 +103,7 @@ def test_monitor_html_renders_quality_cockpit(tmp_path):
     page = open(out, encoding="utf-8").read()
     assert "KoreaAPI" in page and "Monitor" in page
     assert "SKILL SCORE" in page and "BY SOURCE" in page and "WATCH-LIST" in page
+    assert "what agents take" in page and "ACCUMULATION" in page  # usage signal + daily accumulation
     assert 'name="robots" content="noindex"' in page  # the cockpit is not a public/indexed page
 
 
