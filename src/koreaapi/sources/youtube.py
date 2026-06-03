@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -170,41 +171,51 @@ class YouTubeSource:
         picked = pick_channel(self._get(self._search_url(term)), _alias_norms(entity_id))
         return picked["channel_id"] if picked else None
 
+    def _fetch_sync(self, entity_id: str) -> dict | None:
+        """Resolve -> channels.list -> latest -> payload, synchronously. Mirrors diagnose's proven
+        chain exactly (run in one thread by fetch). Returns None only when the channel can't be
+        resolved; a real API/parse failure raises so fetch can surface the cause."""
+        channel_id = self._resolve_channel(entity_id)
+        if not channel_id:
+            return None
+        ch = parse_channel(self._get(self._channels_url(channel_id)))
+        # Identity guard: a search-resolved channel already passed pick_channel; only a curated
+        # _CHANNELS id bypasses search, so that is the sole case still needing verification here.
+        if entity_id in _CHANNELS and not _channel_ok(ch.get("title"), _alias_norms(entity_id)):
+            return None  # invariant 2: a wrong curated id must not ship
+        latest = None
+        if ch.get("uploads_playlist"):
+            try:
+                latest = parse_latest(self._get(self._uploads_url(ch["uploads_playlist"])))
+            except Exception:
+                latest = None  # release info is optional; never fail the whole fetch for it
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        return {
+            "channel_id": ch["channel_id"],
+            "title": ch.get("title"),
+            "subscribers": ch.get("subscribers"),
+            "views": ch.get("views"),
+            "videos": ch.get("videos"),
+            "latest": latest,
+            "name_en": ARTISTS.get(entity_id) or entity_id.split(":", 1)[-1],
+            "citation": f"YouTube {ch.get('title')} {ts}",
+            "source_url": f"https://www.youtube.com/channel/{ch['channel_id']}",
+        }
+
     async def fetch(self, entity_id: str) -> dict | None:
-        """Resolve the official channel, then pull stats + latest release. None on any failure."""
+        """Resolve the official channel + pull stats/latest release. None on any failure (the loop
+        never breaks); the cause is printed key-scrubbed so a 0-ingested run stays debuggable."""
         if not os.environ.get("YOUTUBE_API_KEY"):
             return None
         try:
-            channel_id = await asyncio.to_thread(self._resolve_channel, entity_id)
-            if not channel_id:
-                return None
-            ch = parse_channel(await asyncio.to_thread(self._get, self._channels_url(channel_id)))
-            # Identity guard: a search-resolved channel already passed pick_channel, so re-checking
-            # the channels.list title is redundant (and the two titles can differ harmlessly). Only
-            # a curated _CHANNELS id bypasses search, so that is the case that still needs verifying.
-            if entity_id in _CHANNELS and not _channel_ok(ch.get("title"), _alias_norms(entity_id)):
-                return None  # invariant 2: a wrong curated id must not ship
-            latest = None
-            if ch.get("uploads_playlist"):
-                try:
-                    raw = await asyncio.to_thread(self._get, self._uploads_url(ch["uploads_playlist"]))
-                    latest = parse_latest(raw)
-                except Exception:
-                    latest = None
-            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-            return {
-                "channel_id": ch["channel_id"],
-                "title": ch.get("title"),
-                "subscribers": ch.get("subscribers"),
-                "views": ch.get("views"),
-                "videos": ch.get("videos"),
-                "latest": latest,
-                "name_en": ARTISTS.get(entity_id) or entity_id.split(":", 1)[-1],
-                "citation": f"YouTube {ch.get('title')} {ts}",
-                "source_url": f"https://www.youtube.com/channel/{ch['channel_id']}",
-            }
-        except Exception:
-            return None  # graceful degradation: never break the loop
+            return await asyncio.to_thread(self._fetch_sync, entity_id)
+        except Exception as e:
+            key = os.environ.get("YOUTUBE_API_KEY") or ""
+            msg = f"{type(e).__name__}: {e}"
+            if key:
+                msg = msg.replace(key, "<key>")  # never leak the key (it can appear in a URL)
+            print(f"  youtube fetch failed for {entity_id}: {msg}", file=sys.stderr)
+            return None
 
     def diagnose(self, entity_id: str) -> dict:
         """Walk the full fetch chain and report the exact step that fails. Reports key presence
