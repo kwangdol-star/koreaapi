@@ -75,6 +75,28 @@ def test_markdown_digest_renders_verified_snapshot(tmp_path):
     assert "Big Hit Music" in md and "BTS" in md  # verified roster by agency
 
 
+def test_jsonld_escapes_script_breakout():
+    now = datetime.now(timezone.utc)
+    rec = Record(
+        entity_id="artist:x", kind="facts", name=Name(ko="엑스", en_official="X"), snapshot_at=now,
+        summary_en="bad </script><img src=x onerror=alert(1)>", data={},
+        provenance=Provenance(sources=["Wikidata Q1"], fetched_at=now, skill_score=1.0, confidence="high"),
+    )
+    out = admin._jsonld([rec], now.isoformat())
+    assert "</script>" not in out and "<img" not in out  # cannot break out of the <script> block
+    assert "u003c" in out  # the '<' was escaped to <
+
+
+def test_record_timestamps_normalized_to_aware_utc():
+    naive = datetime(2026, 1, 1, 12, 0, 0)  # no tzinfo (e.g. an external import / Postgres row)
+    rec = Record(
+        entity_id="x", kind="facts", name=Name(ko="엑스"), snapshot_at=naive, summary_en="x", data={},
+        provenance=Provenance(sources=["s"], fetched_at=naive, skill_score=1.0, confidence="high"),
+    )
+    assert rec.snapshot_at.tzinfo is not None  # coerced aware -> korea_rising sort never mixes tz
+    assert rec.provenance.fetched_at.tzinfo is not None
+
+
 def test_service_item_carries_reproducible_citation():
     out = asyncio.run(service.artist_status("artist:bts", db_path=_seeded_db()))
     item = out["status"][0]

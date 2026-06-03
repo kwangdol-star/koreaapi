@@ -34,6 +34,9 @@ def _agency_db() -> str:
         ("artist:straykids", "스트레이키즈", "Stray Kids", "JYP Entertainment"),
         ("artist:2pm", "투피엠", "2PM", "JYP Entertainment"),
         ("artist:aespa", "에스파", "aespa", "SM Entertainment"),
+        # "Cosmic Music" normalizes to "cosmicmusic" which *contains* "sm" - a substring match would
+        # wrongly attribute this act to a query of "SM". A prefix match must not.
+        ("artist:bandx", "밴드엑스", "BandX", "Cosmic Music"),
     ]
     for eid, ko, en, agency in rows:
         rec = Record(
@@ -70,13 +73,20 @@ def test_korea_rising_ranks_high_skill_first():
 
 def test_agency_lists_only_that_agencys_verified_members():
     db = _agency_db()
-    out = asyncio.run(service.agency("JYP", db_path=db))  # substring match on the label
+    out = asyncio.run(service.agency("JYP", db_path=db))  # prefix match on the label
     names = {m["name"]["en_official"] for m in out["members"]}
-    assert names == {"Stray Kids", "2PM"} and out["count"] == 2  # SM's aespa excluded
+    assert names == {"Stray Kids", "2PM"} and out["count"] == 2  # SM/Cosmic excluded
     assert out["members"][0]["provenance"]["sources"]  # provenance carried
     # the full label name resolves the same; an unknown agency returns nobody
     assert asyncio.run(service.agency("JYP Entertainment", db_path=db))["count"] == 2
     assert asyncio.run(service.agency("YG", db_path=db))["count"] == 0
+
+
+def test_agency_prefix_match_excludes_substring_false_positives():
+    db = _agency_db()
+    out = asyncio.run(service.agency("SM", db_path=db))  # must match "SM Entertainment" only
+    names = {m["name"]["en_official"] for m in out["members"]}
+    assert names == {"aespa"}  # NOT BandX ("Cosmic Music" merely *contains* "sm")
 
 
 def test_buy_options_phase1_stub_is_honest():

@@ -10,12 +10,13 @@ Run:  PYTHONPATH=src python -m pytest tests/test_circlechart.py -q
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import tempfile
 
 from koreaapi.pipeline import store
 from koreaapi.pipeline.ingest import ingest_chart
-from koreaapi.sources.circlechart import _grounded, parse_chart
+from koreaapi.sources.circlechart import _grounded, _wikitext_from_response, parse_chart
 
 _LLM_REPLY = """Sure, here is the chart:
 [
@@ -60,6 +61,24 @@ def test_grounded_rejects_hallucinated_entries():
 
 def test_grounded_empty_when_page_has_no_chart():
     assert _grounded([{"rank": 1, "artist": "X", "title": "Y"}], "<html>js shell only</html>") == []
+
+
+def test_wikitext_decode_fixes_grounding_for_korean_and_quotes():
+    # MediaWiki action=parse JSON \u-escapes Korean and backslash-escapes quotes. Decoding to the
+    # literal wikitext lets the LLM's unescaped output ground (otherwise those #1s are dropped).
+    wikitext = '| 뉴진스 || Stay "Forever" |'
+    raw = json.dumps({"parse": {"wikitext": {"*": wikitext}}})  # ensure_ascii -> Korean is \uXXXX here
+    assert "뉴진스" not in raw  # confirm the raw response really is escaped
+    decoded = _wikitext_from_response(raw)
+    assert "뉴진스" in decoded and 'Stay "Forever"' in decoded
+    entries = [{"rank": 1, "artist": "뉴진스", "title": 'Stay "Forever"'}]
+    assert _grounded(entries, decoded) == entries  # grounds against the decoded text
+    assert _grounded(entries, raw) == []  # would have been dropped against the escaped raw
+
+
+def test_wikitext_from_response_garbage_returns_empty():
+    assert _wikitext_from_response("not json") == ""
+    assert _wikitext_from_response('{"no": "parse here"}') == ""
 
 
 def test_ingest_chart_appends_a_chart_snapshot():

@@ -142,8 +142,8 @@ async def ingest_chart(chart: dict, *, db_path: str | None = None) -> Record | N
         kind="chart",
         name=Name(ko="써클 디지털 차트", en_official="Circle Digital Chart"),
         snapshot_at=now,
-        summary_en=f"Circle Digital Chart - {len(entries)} weekly #1s (current #1: {top['artist']} - {top.get('title', '')}).",
-        summary_ko=f"써클 디지털 차트 - 주간 1위 {len(entries)}건 (현재 1위: {top['artist']}).",
+        summary_en=f"Circle Digital Chart - {len(entries)} weekly #1s (current #1: {top.get('artist', '')} - {top.get('title', '')}).",
+        summary_ko=f"써클 디지털 차트 - 주간 1위 {len(entries)}건 (현재 1위: {top.get('artist', '')}).",
         data={"entries": entries, "source_url": chart.get("source_url")},
         provenance=Provenance(
             sources=[chart.get("citation", "Circle Chart")],

@@ -87,11 +87,21 @@ async def artist_status(artist_id: str, *, db_path: str | None = None) -> dict:
 
 
 async def kculture_calendar(window_days: int = 30, *, db_path: str | None = None) -> dict:
-    """Upcoming Korean culture events (comebacks, releases, concerts) with provenance."""
+    """Recent verified Korean culture events (comebacks, releases, concerts) with provenance.
+
+    Phase 1: `window_days` is advisory (echoed, not yet a hard filter) - date-window filtering
+    activates once upcoming-event dates are ingested; today this returns the recent verified
+    event snapshots so the response never silently claims a filter it doesn't apply.
+    """
     await _log("query", "kculture_calendar", db_path)
     recs = await store.recent(500, db_path=db_path)
     items = [_item(r) for r in recs if r.kind in _CALENDAR_KINDS]
-    return {"window_days": window_days, "count": len(items), "items": items}
+    return {
+        "window_days": window_days,
+        "count": len(items),
+        "items": items,
+        "note": "Recent verified events; window_days is advisory at Phase 1 (not yet a hard filter).",
+    }
 
 
 def _norm_name(s: str | None) -> str:
@@ -114,7 +124,9 @@ async def agency(name: str, *, db_path: str | None = None) -> dict:
             if rec is None:
                 continue
             ag_en, ag_ko = _norm_name(rec.data.get("agency_en")), _norm_name(rec.data.get("agency_ko"))
-            if (ag_en and target in ag_en) or (ag_ko and target in ag_ko):
+            # Prefix match, not substring: "SM" matches "SM Entertainment" but NOT "Cosmic ... Agency"
+            # (whose normalized form happens to contain "sm"). Agency queries lead with the brand.
+            if (ag_en and ag_en.startswith(target)) or (ag_ko and ag_ko.startswith(target)):
                 seen.add(e["entity_id"])
                 members.append(_item(rec))
     return {"agency": name, "count": len(members), "members": members}

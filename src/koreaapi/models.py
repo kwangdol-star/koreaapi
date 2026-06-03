@@ -6,13 +6,22 @@ See SCOPE.md S5 (bilingual model) and S1/S4 (verification moat).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 TranslationSource = Literal["official", "llm", "human"]
 Confidence = Literal["high", "medium", "low"]
+
+
+def _to_utc(v: datetime) -> datetime:
+    """Normalize a datetime to timezone-aware UTC. A naive value is assumed UTC.
+
+    Keeps every stored timestamp aware + UTC so (a) sorting records never mixes naive/aware
+    (which raises), and (b) ISO strings sort lexically == chronologically in SQLite ORDER BY.
+    """
+    return v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
 
 
 class Name(BaseModel):
@@ -46,6 +55,8 @@ class Provenance(BaseModel):
     translation: TranslationProvenance = Field(default_factory=TranslationProvenance)
     cache_age_seconds: int = 0
 
+    _utc_fetched = field_validator("fetched_at")(_to_utc)
+
 
 class Record(BaseModel):
     """Base append-only record. Stored snapshots are never overwritten.
@@ -61,3 +72,5 @@ class Record(BaseModel):
     summary_ko: Optional[str] = None
     data: dict  # kind-specific payload (bilingual fields inside)
     provenance: Provenance
+
+    _utc_snapshot = field_validator("snapshot_at")(_to_utc)

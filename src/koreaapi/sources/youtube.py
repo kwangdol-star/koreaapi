@@ -183,10 +183,10 @@ class YouTubeSource:
         if not channel_id:
             return None
         ch = parse_channel(self._get(self._channels_url(channel_id)))
-        # Identity guard: a search-resolved channel already passed pick_channel; only a curated
-        # _CHANNELS id bypasses search, so that is the sole case still needing verification here.
-        if entity_id in _CHANNELS and not _channel_ok(ch.get("title"), _alias_norms(entity_id)):
-            return None  # invariant 2: a wrong curated id must not ship
+        # A search-resolved channel already passed pick_channel's identity guard. A curated
+        # _CHANNELS id is operator-verified, so it's trusted as-is - re-checking its title against
+        # the alias set would false-reject a brand-titled official channel (e.g. BTS's "BANGTANTV");
+        # parse_channel already confirms it resolved to a real channel.
         latest = None
         if ch.get("uploads_playlist"):
             try:

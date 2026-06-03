@@ -84,6 +84,16 @@ def _grounded(entries: list[dict], html: str, *, limit: int = 100) -> list[dict]
     return out[:limit]
 
 
+def _wikitext_from_response(raw: str) -> str:
+    """Pull the wikitext out of a MediaWiki action=parse JSON response. The JSON \\u-escapes
+    non-ASCII (Korean) and backslash-escapes quotes; decoding gives literal text so the LLM's
+    unescaped output actually grounds (otherwise Korean + quoted titles silently fail the guard)."""
+    try:
+        return ((json.loads(raw).get("parse") or {}).get("wikitext") or {}).get("*", "") or ""
+    except (ValueError, TypeError, AttributeError):
+        return ""
+
+
 def extract_chart(html: str, *, limit: int = 20) -> list[dict]:
     """Best-effort: LLM-extract chart entries from HTML, then GROUND them against the HTML (drop
     anything not literally present). [] without a key / on any failure / when nothing is grounded."""
@@ -115,12 +125,15 @@ class CircleChartSource:
     async def fetch_chart(self, *, limit: int = 20) -> dict:
         """Fetch the #1-list source + LLM-extract + ground the entries. Best-effort: [] on failure."""
         try:
-            html = await asyncio.to_thread(self._http_get_html, CIRCLECHART_URL)
+            raw = await asyncio.to_thread(self._http_get_html, CIRCLECHART_URL)
         except Exception:
-            html = ""
-        entries = await asyncio.to_thread(extract_chart, html, limit=limit)
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            raw = ""
         via_wiki = "wikipedia.org" in CIRCLECHART_URL
+        # For the MediaWiki API, decode JSON -> literal wikitext BEFORE extract/ground (so Korean +
+        # quoted titles aren't lost to JSON escaping). Other sources (e.g. a circlechart.kr XHR) pass through.
+        content = _wikitext_from_response(raw) if via_wiki else raw
+        entries = await asyncio.to_thread(extract_chart, content, limit=limit)
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         citation = f"Circle Digital Chart #1 (via Wikipedia) {ts}" if via_wiki else f"Circle Chart {ts}"
         source_url = (
             f"https://en.wikipedia.org/wiki/{_CIRCLE_NO1_PAGE}" if via_wiki else CIRCLECHART_URL
@@ -129,5 +142,5 @@ class CircleChartSource:
             "entries": entries,
             "citation": citation,
             "source_url": source_url,  # human-readable origin (the article, not the API URL)
-            "html_len": len(html),  # diagnostic: 0 = fetch blocked; large but 0 entries = not grounded
+            "html_len": len(content),  # diagnostic: 0 = fetch/decoded empty; >0 but 0 entries = not grounded
         }

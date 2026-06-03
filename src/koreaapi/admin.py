@@ -134,6 +134,9 @@ async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
     """
     recs = await store.recent(2000, db_path=db_path)
     have = {r.entity_id for r in recs}
+    have_qids = {
+        m2.group(0) for r in recs for s in r.provenance.sources if (m2 := re.search(r"\bQ\d+\b", s))
+    }
     agencies = _agency_qids_from_store(recs)
     candidates: list[dict] = []
     for qid in agencies:
@@ -145,9 +148,13 @@ async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
     seen: set[str] = set()
     for m in candidates:
         eid = f"artist:{m['slug']}"
-        if eid in have or m["slug"] in seen:
+        # Dedup by Q-id (reliable) as well as slug-id/run-local: a discovered act already in the
+        # store under a different entity_id (its Wikidata label slugifies differently than the
+        # hand-authored id) must not be re-ingested as a DUPLICATE entity that splits its history.
+        if eid in have or m["qid"] in have_qids or m["slug"] in seen or m["qid"] in seen:
             continue
         seen.add(m["slug"])
+        seen.add(m["qid"])
         todo.append((eid, m["en"]))
     todo = todo[:max_new]
     n_candidates = len(candidates)
@@ -266,7 +273,14 @@ def _jsonld(records: list, generated_iso: str) -> str:
             *groups,
         ],
     }
-    return json.dumps(doc, ensure_ascii=False, indent=2)
+    # Escape <, >, & so a field value containing "</script>" (LLM/scraped prose) cannot break out
+    # of the inline <script type="application/ld+json"> block and inject HTML into the public page.
+    return (
+        json.dumps(doc, ensure_ascii=False, indent=2)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
 
 
 async def report_html(db_path: str | None = None, out_path: str = "report.html") -> str:
@@ -379,9 +393,11 @@ async def markdown_digest(db_path: str | None = None, out_path: str = "data/kore
     if chart is not None and (chart.data.get("entries") or []):
         top = chart.data["entries"][0]
         src = "; ".join(chart.provenance.sources)
+        name = top.get("artist") or "—"
+        title = top.get("title") or ""  # drop the em-dash when the title is missing/empty
         out += [
             "## 🏆 Circle Digital Chart — current #1",
-            f"**{top.get('artist')} — {top.get('title')}**  ",
+            f"**{name}**" + (f" — {title}" if title else "") + "  ",
             f"_{src} · Skill Score {chart.provenance.skill_score:.2f}_",
             "",
         ]
