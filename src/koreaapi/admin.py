@@ -363,11 +363,13 @@ def _main(argv: list[str]) -> int:
                     print("  YOUTUBE_API_KEY is NOT visible to this run -> add it as a GitHub Actions "
                           "secret named YOUTUBE_API_KEY (repo Settings -> Secrets and variables -> Actions).")
                     break
-                line = f"  {eid}: search returned {d['candidates'] or 'no candidates'}"
+                line = f"  {eid}: picked={d['picked']!r} step={d['step']}"
                 if d["error"]:
-                    line += f" | API error -> {d['error']}"
-                elif not d["picked"]:
-                    line += f" | none == aliases {d['aliases']} (guard skip; add the official title to _ALIASES)"
+                    line += f" | error -> {d['error']}"
+                elif d["step"] == "guard_skip":
+                    line += f" | none == aliases {d['aliases']} (add the official title to _ALIASES); candidates={d['candidates']}"
+                elif d["step"] == "ok":
+                    line += f" | channel={d['channel_title']!r} subs={d['subscribers']} (resolves OK - re-run should ingest)"
                 print(line)
     else:
         print(f"unknown command: {cmd}")

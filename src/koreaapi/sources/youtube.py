@@ -179,8 +179,11 @@ class YouTubeSource:
             if not channel_id:
                 return None
             ch = parse_channel(await asyncio.to_thread(self._get, self._channels_url(channel_id)))
-            if not _channel_ok(ch.get("title"), _alias_norms(entity_id)):
-                return None  # guard a wrong curated id too (invariant 2)
+            # Identity guard: a search-resolved channel already passed pick_channel, so re-checking
+            # the channels.list title is redundant (and the two titles can differ harmlessly). Only
+            # a curated _CHANNELS id bypasses search, so that is the case that still needs verifying.
+            if entity_id in _CHANNELS and not _channel_ok(ch.get("title"), _alias_norms(entity_id)):
+                return None  # invariant 2: a wrong curated id must not ship
             latest = None
             if ch.get("uploads_playlist"):
                 try:
@@ -204,32 +207,45 @@ class YouTubeSource:
             return None  # graceful degradation: never break the loop
 
     def diagnose(self, entity_id: str) -> dict:
-        """Why did resolution fail? Reports key presence (boolean only - never the value), the
-        channel titles search returned, the accepted aliases, and any API error. Used by
-        `admin youtube` on a 0-ingested run to pinpoint keyless vs API-disabled vs guard-skip."""
+        """Walk the full fetch chain and report the exact step that fails. Reports key presence
+        (boolean only - never the value), what search returned, the pick, and - critically - the
+        channels.list result, so a 0-ingested run pinpoints keyless vs API-disabled vs guard-skip
+        vs a downstream channels.list failure (the step `fetch` otherwise swallows)."""
         info: dict = {
             "entity": entity_id,
             "key_present": bool(os.environ.get("YOUTUBE_API_KEY")),
             "aliases": sorted(_alias_norms(entity_id)),
             "candidates": [],
             "picked": None,
+            "channel_title": None,
+            "subscribers": None,
+            "step": "no_key",
             "error": None,
         }
         if not info["key_present"]:
             return info
         try:
+            info["step"] = "search"
             term = ARTISTS.get(entity_id) or entity_id.split(":", 1)[-1].strip()
             cands = parse_search(self._get(self._search_url(term)))
             info["candidates"] = [c["title"] for c in cands]
             picked = pick_channel(cands, _alias_norms(entity_id))
             info["picked"] = picked["title"] if picked else None
+            if not picked:
+                info["step"] = "guard_skip"
+                return info
+            info["step"] = "channels.list"
+            ch = parse_channel(self._get(self._channels_url(picked["channel_id"])))
+            info["channel_title"] = ch.get("title")
+            info["subscribers"] = ch.get("subscribers")
+            info["step"] = "ok"  # search-resolved + channels.list succeeded -> fetch will ingest
         except urllib.error.HTTPError as e:
             body = ""
             try:
                 body = e.read().decode("utf-8", "replace")[:300]
             except Exception:
                 pass
-            info["error"] = f"HTTP {e.code}: {body or e.reason}"  # surfaces 'API not enabled' etc.
+            info["error"] = f"HTTP {e.code} at {info['step']}: {body or e.reason}"  # 'API not enabled' etc.
         except Exception as e:
-            info["error"] = f"{type(e).__name__}: {e}"
+            info["error"] = f"{type(e).__name__} at {info['step']}: {e}"
         return info
