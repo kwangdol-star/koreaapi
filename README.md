@@ -157,3 +157,6 @@ PYTHONPATH=src python -m koreaapi.server      # serves over MCP (stdio)
 
 Logic lives in `service.py` (pure, offline-tested); `server.py` is the thin MCP
 binding. Tools register cleanly (verified in an isolated venv).
+
+**Install / connect it in your agent:** see [`docs/MCP_INSTALL.md`](./docs/MCP_INSTALL.md)
+(run command, Claude-Desktop config, and [`smithery.yaml`](./smithery.yaml) for the Smithery registry).

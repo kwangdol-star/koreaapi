@@ -1,0 +1,37 @@
+# Smithery registry config for the KoreaAPI MCP server (agent discovery).
+# The "agent-era backlink": listing here lets agents find + install KoreaAPI.
+# Validate against the current schema at https://smithery.ai/docs before publishing.
+#
+# NOTE: cleanest to publish once koreaapi/ is its own repo (it currently lives in a subdir of
+# weatherplan-ai). The server tools are READ-ONLY over the verified store and need NO secrets;
+# the optional keys below are only for self-ingestion (romanization / chart / YouTube).
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      koreaapiDb:
+        type: string
+        description: >-
+          Path to the append-only SQLite store the tools read (default: koreaapi.db).
+          Point at a populated store (e.g. one built by `admin pull`/`sweep`/`chart`/`youtube`,
+          or the published dataset) for real verified data.
+      anthropicApiKey:
+        type: string
+        description: "Optional. Only for self-ingestion (romanization / Circle Chart extraction); the agent tools need no key."
+      youtubeApiKey:
+        type: string
+        description: "Optional. Only for self-ingestion of YouTube official-channel release data."
+    required: []
+  commandFunction: |
+    (config) => ({
+      command: 'python',
+      args: ['-m', 'koreaapi.server'],
+      env: {
+        ...(config.koreaapiDb ? { KOREAAPI_DB: config.koreaapiDb } : {}),
+        ...(config.anthropicApiKey ? { ANTHROPIC_API_KEY: config.anthropicApiKey } : {}),
+        ...(config.youtubeApiKey ? { YOUTUBE_API_KEY: config.youtubeApiKey } : {})
+      }
+    })
+  exampleConfig: {}

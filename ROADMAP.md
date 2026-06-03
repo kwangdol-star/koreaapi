@@ -30,6 +30,7 @@
 | **Public GEO page deployed (GitHub Pages, built from live data)** | ✅ **LIVE → https://wrxfoundation.github.io/weatherplan-ai/** |
 | **Behavioral signal (engine ②)**: queries + buy-intent logged append-only; `korea_rising` ranks by observed demand; `admin signals` | ✅ |
 | **CI**: `.github/workflows/test.yml` runs `pytest` + `ruff` on push (the suite is now gated) | ✅ |
+| **MCP discovery prep** (distribution): `smithery.yaml` (registry start command) + `docs/MCP_INSTALL.md` (run + Claude-Desktop config + tools); server already packaged (`koreaapi-mcp` entry point, no secrets to serve) | ✅ ready to list (cleanest after the own-repo split) |
 | Production Postgres backend (behind the same insert-only contract) | ⬜ planned (scale step) |
 
 Tests: 56 passed, 3 live-skip (egress / key); ruff clean. Tracked on PR #1.
