@@ -31,6 +31,7 @@
 | **Behavioral signal (engine ②)**: queries + buy-intent logged append-only; `korea_rising` ranks by observed demand; `admin signals` | ✅ |
 | **CI**: `.github/workflows/test.yml` runs `pytest` + `ruff` on push (the suite is now gated) | ✅ |
 | **MCP discovery prep** (distribution): `smithery.yaml` (registry start command) + `docs/MCP_INSTALL.md` (run + Claude-Desktop config + tools); server already packaged (`koreaapi-mcp` entry point, no secrets to serve) | ✅ ready to list (cleanest after the own-repo split) |
+| **"Korea Rising" digest + launch copy** (distribution): `admin digest` → shareable `data/korea-rising.md` (current Circle #1 + latest releases + verified roster by agency, all cited), published at `/korea-rising.md`; `docs/LAUNCH.md` = ready-to-post copy. The free, linkable magnet (earned citations > bought backlinks). | ✅ |
 | Production Postgres backend (behind the same insert-only contract) | ⬜ planned (scale step) |
 
 Tests: 56 passed, 3 live-skip (egress / key); ruff clean. Tracked on PR #1.

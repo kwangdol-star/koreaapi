@@ -16,6 +16,7 @@ CLI:
   python -m koreaapi.admin stats    # print a data-quality summary
   python -m koreaapi.admin dump     # print recent snapshots
   python -m koreaapi.admin report   # write report.html (open it in a browser)
+  python -m koreaapi.admin digest   # write data/korea-rising.md (shareable verified digest)
 
 For zero-code interactive browse / query / JSON API:  datasette koreaapi.db
 """
@@ -355,6 +356,66 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     return out_path
 
 
+async def markdown_digest(db_path: str | None = None, out_path: str = "data/korea-rising.md") -> str:
+    """A shareable 'Korea Rising' digest from the verified store: the current Circle #1, latest
+    official releases, and the verified roster by agency - every line cross-verified + citable.
+    This is the free, linkable magnet (earned citations > bought backlinks)."""
+    ents = await store.entities(db_path=db_path)
+    recs: dict[tuple[str, str], object] = {}
+    for e in ents:
+        rec = await store.latest(e["entity_id"], e["kind"], db_path=db_path)
+        if rec is not None:
+            recs[(e["entity_id"], e["kind"])] = rec
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    out: list[str] = [
+        f"# Korea Rising — verified K-pop snapshot ({today})",
+        "",
+        "Every line is **cross-verified** (≥2 independent sources agree on the canonical name) and "
+        "carries its source + Skill Score. Full data + Schema.org JSON-LD: "
+        "<https://wrxfoundation.github.io/weatherplan-ai/> · via KoreaAPI (MCP).",
+        "",
+    ]
+    chart = recs.get(("chart:circle-digital", "chart"))
+    if chart is not None and (chart.data.get("entries") or []):
+        top = chart.data["entries"][0]
+        src = "; ".join(chart.provenance.sources)
+        out += [
+            "## 🏆 Circle Digital Chart — current #1",
+            f"**{top.get('artist')} — {top.get('title')}**  ",
+            f"_{src} · Skill Score {chart.provenance.skill_score:.2f}_",
+            "",
+        ]
+    releases = [r for (_eid, k), r in recs.items() if k == "release"]
+    if releases:
+        out.append("## 🎬 Latest official releases (YouTube)")
+        for r in releases[:6]:
+            latest = (r.data or {}).get("latest") or {}
+            out.append(f"- **{r.name.en_official or r.name.ko}** — {latest.get('title') or '—'}")
+        out.append("")
+    artists = [r for (_eid, k), r in recs.items() if k == "facts"]
+    if artists:
+        by_agency: dict[str, list[str]] = {}
+        for r in artists:
+            ag = (r.data or {}).get("agency_en") or (r.data or {}).get("agency_ko") or "—"
+            by_agency.setdefault(ag, []).append(r.name.en_official or r.name.ko)
+        out.append(f"## 🎤 Verified roster ({len(artists)} acts)")
+        for ag in sorted(by_agency):
+            out.append(f"- **{ag}**: {', '.join(sorted(by_agency[ag]))}")
+        out.append("")
+    out += [
+        "---",
+        "Cite as: `Name — kind, as of <date> · source · Skill Score · via KoreaAPI`. "
+        "MCP tools: get_artist_status, get_agency, get_kculture_calendar, get_korea_rising, get_buy_options.",
+    ]
+    doc = "\n".join(out)
+    parent = os.path.dirname(out_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(doc)
+    return out_path
+
+
 def _main(argv: list[str]) -> int:
     cmd = argv[1] if len(argv) > 1 else "stats"
     if cmd == "seed":
@@ -371,6 +432,8 @@ def _main(argv: list[str]) -> int:
             )
     elif cmd == "report":
         print("wrote", asyncio.run(report_html()))
+    elif cmd == "digest":
+        print("wrote", asyncio.run(markdown_digest()))
     elif cmd == "pull":
         out = asyncio.run(pull())
         print(f"pull: ingested {len(out['ingested'])}/{len(out['requested'])} -> {store._db_path(None)}")

@@ -12,9 +12,12 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
+from datetime import datetime, timezone
 
 from koreaapi import admin, service
 from koreaapi.admin import _wikidata_url, seed
+from koreaapi.models import Name, Provenance, Record
+from koreaapi.pipeline import store
 
 
 def _seeded_db() -> str:
@@ -45,6 +48,31 @@ def test_report_emits_jsonld_structured_data(tmp_path):
     assert "BTS" in page  # a verified entity surfaced as structured data
     assert '"recordLabel"' in page  # the verified artist -> 소속사 edge, citable by engines
     assert "Big Hit Music" in page  # the agency name surfaced in the structured data
+
+
+def test_markdown_digest_renders_verified_snapshot(tmp_path):
+    db = str(tmp_path / "d.db")
+    now = datetime.now(timezone.utc)
+    asyncio.run(store.append_record(Record(
+        entity_id="artist:bts", kind="facts", name=Name(ko="방탄소년단", en_official="BTS"),
+        snapshot_at=now, summary_en="BTS - facts.", data={"agency_en": "Big Hit Music"},
+        provenance=Provenance(sources=["Wikidata Q13580495", "Wikipedia BTS"], fetched_at=now,
+                              skill_score=1.0, confidence="high"),
+    ), db_path=db))
+    asyncio.run(store.append_record(Record(
+        entity_id="chart:circle-digital", kind="chart",
+        name=Name(ko="써클 디지털 차트", en_official="Circle Digital Chart"), snapshot_at=now,
+        summary_en="Circle Digital Chart.", data={"entries": [{"rank": 1, "artist": "Cortis", "title": "RedRed"}]},
+        provenance=Provenance(sources=["Circle Digital Chart #1 (via Wikipedia)"], fetched_at=now,
+                              skill_score=0.7, confidence="medium"),
+    ), db_path=db))
+    out = str(tmp_path / "korea-rising.md")
+    asyncio.run(admin.markdown_digest(db_path=db, out_path=out))
+    md = open(out, encoding="utf-8").read()
+
+    assert "Korea Rising" in md and "via KoreaAPI" in md  # title + cite line
+    assert "Cortis" in md and "current #1" in md  # settlement headline
+    assert "Big Hit Music" in md and "BTS" in md  # verified roster by agency
 
 
 def test_service_item_carries_reproducible_citation():
