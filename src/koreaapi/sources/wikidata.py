@@ -219,13 +219,15 @@ class WikidataSource:
 # Wikidata+Wikipedia cross-verification, so only verified labelmates are ingested (the moat holds).
 
 
-def build_labelmates_query(label_qid: str, *, limit: int = 12) -> str:
-    """Pure: a SPARQL query for artists (group/duo/human) whose record label (P264) is label_qid."""
+def build_labelmates_query(label_qid: str, *, limit: int = 8) -> str:
+    """Pure: SPARQL for artists in the same agency FAMILY as label_qid - either directly on that
+    label (P264) OR on any sibling label sharing the same parent org (P749), e.g. every HYBE
+    sublabel (BigHit/ADOR/Source/Pledis). Filtered to groups/humans; ORDER BY -> deterministic."""
     return (
-        "SELECT ?item ?en ?ko WHERE { "
-        f"?item wdt:P264 wd:{label_qid} . "
-        "{ ?item wdt:P31 wd:Q215380 } UNION { ?item wdt:P31 wd:Q5 } "
-        "UNION { ?item wdt:P31 wd:Q4439542 } UNION { ?item wdt:P31 wd:Q864897 } "
+        "SELECT DISTINCT ?item ?en ?ko WHERE { "
+        f"{{ ?item wdt:P264 wd:{label_qid} }} UNION "
+        f"{{ wd:{label_qid} wdt:P749 ?parent . ?label wdt:P749 ?parent . ?item wdt:P264 ?label }} "
+        "?item wdt:P31 ?type . VALUES ?type { wd:Q215380 wd:Q5 wd:Q4439542 wd:Q864897 } "
         '?item rdfs:label ?en . FILTER(LANG(?en) = "en") '
         'OPTIONAL { ?item rdfs:label ?ko . FILTER(LANG(?ko) = "ko") } '
         f"}} ORDER BY ?item LIMIT {limit}"  # ORDER BY -> deterministic roster run-to-run

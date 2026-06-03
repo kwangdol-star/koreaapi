@@ -68,10 +68,11 @@ def test_parse_labelmates_dedups_and_slugs():
     assert mates[1]["ko"] is None  # ko is optional
 
 
-def test_build_labelmates_query_targets_the_label():
+def test_build_labelmates_query_targets_the_label_and_family():
     q = build_labelmates_query("Q50602100", limit=5)
     assert "wdt:P264 wd:Q50602100" in q and "LIMIT 5" in q
     assert "ORDER BY ?item" in q  # deterministic results run-to-run
+    assert "wdt:P749 ?parent" in q  # family: sibling labels under the same parent org (HYBE etc.)
 
 
 def test_claim_qids_prefers_preferred_rank_and_skips_novalue():

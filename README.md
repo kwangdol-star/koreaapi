@@ -7,9 +7,22 @@ KoreaAPI exposes Korean culture, entertainment, and commerce data to AI agents v
 Anthropic's Model Context Protocol (MCP). Every response carries machine-readable
 **provenance** and a **Skill Score** so an agent can decide whether to trust and cite it.
 
-> **Status:** Phase 1 (cold-start). The locked spec is in [`SCOPE.md`](./SCOPE.md).
+> **Status:** Phase 1 (cold-start). The locked spec is in [`SCOPE.md`](./SCOPE.md); what is
+> built / decided and why is in [`ROADMAP.md`](./ROADMAP.md).
+> **Live, verified, public data (Schema.org JSON-LD + `/llms.txt`):**
+> **https://wrxfoundation.github.io/weatherplan-ai/**
 > **Hosting:** Temporarily inside the `weatherplan-ai` repo under `koreaapi/`; to be
 > moved to its own repository later.
+
+## What's live now (verified, on the public page + via MCP)
+- **Cross-verification** — Wikidata + Wikipedia must agree on the canonical bilingual name
+  before a fact clears the single-source cap (high Skill Score = independent concurrence).
+- **Identity guard** (rejects a contradictory label) + **hallucination guard** (LLM-extracted
+  data must appear verbatim in its source, else dropped — caught a fabricated chart entry live).
+- **소속사/Agency hub** — each artist anchored to its label (Wikidata P264); the roster grows by
+  discovering cross-verified **labelmates** (SPARQL) and is queryable via `get_agency`.
+- **YouTube** official-channel release/stats (live-state) · **LLM romanization** at ingest.
+- **GEO/AEO** — JSON-LD (incl. `recordLabel`) + a ready-to-cite line on every record + `/llms.txt`.
 
 ## Why this exists
 Raw Korean API wrappers are a commodity (20+ already exist on GitHub). Our moat is the
@@ -63,13 +76,24 @@ uv sync                      # or: pip install pydantic pytest
 PYTHONPATH=src python -m pytest tests -q
 ```
 
-The append-only ingestion heart (store + ingest + Skill Score + bilingual
-normalization) is implemented and **tested offline** via a `MockSource`. The first
-real adapter — **Wikidata** — is implemented: a curated entity→Q-id fast path (each
-anchor's identity is verified, so a contradictory label is **rejected, not ingested** —
-invariant 2) plus live `wbsearchentities` resolution. The parse/verify steps are
-fixture-tested offline and a **live smoke test** (`tests/test_wikidata_live.py`)
-auto-skips when egress is unavailable. **Wikipedia** is the second source — ingest cross-verifies the bilingual name across both, so the Skill Score clears the single-source cap when they agree. Spotify / Circle Chart next.
+The append-only ingestion heart (store + ingest + Skill Score + bilingual normalization) is
+implemented and **tested offline** via a `MockSource`. Real source adapters, all with pure
+fixture-tested parse steps + best-effort live fetch (graceful when egress/keys are absent):
+
+- **Wikidata** (#1) — bilingual labels via a curated entity→Q-id fast path (each anchor's
+  identity verified, so a contradictory label is **rejected, not ingested**) + live
+  `wbsearchentities`. Also pulls the **소속사/label** (P264) and discovers **labelmates** (SPARQL).
+- **Wikipedia** (#2) — independent cross-check; when both agree on the bilingual name the Skill
+  Score clears the single-source cap (the verification moat).
+- **YouTube Data API** (#3.5) — official-channel stats + latest release (live-state event data),
+  identity-guarded; deliberately *not* a name cross-verifier.
+- **Circle Chart** (#3) — official chart, LLM-extracted **with an anti-hallucination grounding
+  guard** (entries must appear verbatim in the page HTML). The page is JS-rendered, so the raw
+  chart awaits a data endpoint; the guard ensures it ships *nothing* over anything false.
+- **LLM romanization** (Haiku) fills `romanized` at ingest — "cheap AI as collection labor".
+
+Spotify is **skipped** (its Web API now requires Premium, 2026); a keyless EN-mostly source
+would only lower the cross-verified scores. See [`ROADMAP.md`](./ROADMAP.md) for the full log.
 
 > **Egress note:** the live pull needs outbound access to `*.wikidata.org`. In the
 > web/sandbox environment egress is allowlist-gated — if Wikidata isn't allowlisted the
@@ -84,8 +108,12 @@ agents, and a read-only console for you.
 ```bash
 cd koreaapi
 PYTHONPATH=src python -m koreaapi.admin seed     # populate koreaapi.db (offline sample)
-PYTHONPATH=src python -m koreaapi.admin pull     # LIVE: pull real Wikidata snapshots (needs egress)
+PYTHONPATH=src python -m koreaapi.admin pull     # LIVE: Wikidata+Wikipedia cross-verified snapshots (+agency)
+PYTHONPATH=src python -m koreaapi.admin sweep    # LIVE: discover labelmates from each anchored agency (SPARQL)
+PYTHONPATH=src python -m koreaapi.admin youtube  # LIVE: official-channel release snapshots (needs YOUTUBE_API_KEY)
+PYTHONPATH=src python -m koreaapi.admin chart    # LIVE: Circle Chart (LLM-extract, grounding-guarded; needs key)
 PYTHONPATH=src python -m koreaapi.admin export   # write data/ asset (history + latest.json)
+PYTHONPATH=src python -m koreaapi.admin signals  # top behavioral signals (engine 2: what agents query)
 PYTHONPATH=src python -m koreaapi.admin stats    # data-quality summary
 PYTHONPATH=src python -m koreaapi.admin dump     # print recent snapshots
 PYTHONPATH=src python -m koreaapi.admin report   # -> report.html (open in a browser)
@@ -110,14 +138,15 @@ Watch the headline metric of a verifiable-data business: **avg Skill Score,
 freshness, and source agreement** - that is literally watching the moat.
 
 ## Agent face (MCP server)
-The product itself: an MCP server exposing 4 tools, each returning verified, bilingual,
-provenance-bearing data from the same store the console reads.
+The product itself: an MCP server exposing 5 tools, each returning verified, bilingual,
+provenance-bearing data (with a ready-to-cite line) from the same store the console reads.
 
 | Tool | Returns |
 |---|---|
-| `get_artist_status(artist_id)` | latest comeback/chart status + verified facts |
+| `get_artist_status(artist_id)` | latest status across kinds + verified facts + agency |
 | `get_kculture_calendar(window_days)` | upcoming comebacks / releases / concerts |
-| `get_korea_rising(category, limit)` | what's rising now, ranked from accumulated snapshots |
+| `get_agency(name)` | artists verified under a 소속사/label (the agency hub) |
+| `get_korea_rising(category, limit)` | what's rising now, ranked by observed demand + Skill Score |
 | `get_buy_options(item)` | where to buy (Phase 1: rail pending; logs buy-intent) |
 
 ```bash

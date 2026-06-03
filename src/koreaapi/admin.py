@@ -125,30 +125,37 @@ def _agency_qids_from_store(recs: list) -> dict[str, str]:
     return out
 
 
-async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
-    """Agency-hub discovery: for each anchored 소속사 (Wikidata label), find labelmate artists via
-    SPARQL and ingest the NEW ones through the SAME Wikidata+Wikipedia cross-verification, so the
-    verified roster grows from the agency hub ('정보가 계속 나온다') without lowering the bar - only
-    cross-verified labelmates are kept. Bounded per run; needs open network (SPARQL on a runner).
+async def sweep(*, db_path: str | None = None, max_new: int = 12, per_agency: int = 2) -> dict:
+    """Agency-hub discovery: for each anchored 소속사 (Wikidata label), find FAMILY artists via
+    SPARQL (same label or any sibling label under the same parent org) and ingest the NEW ones
+    through the SAME Wikidata+Wikipedia cross-verification, so the verified roster grows from the
+    agency hub ('정보가 계속 나온다') without lowering the bar. Balanced (a per-agency cap) so every
+    family is represented, not just the best-covered one. Bounded per run; needs open network.
     """
     recs = await store.recent(2000, db_path=db_path)
     have = {r.entity_id for r in recs}
     agencies = _agency_qids_from_store(recs)
-    candidates: list[dict] = []
-    for qid in agencies:
-        try:
-            candidates.extend(await asyncio.to_thread(fetch_labelmates, qid))
-        except Exception:
-            continue  # graceful: skip an agency whose SPARQL failed
     todo: list[tuple[str, str]] = []
     seen: set[str] = set()
-    for m in candidates:
-        eid = f"artist:{m['slug']}"
-        if eid in have or m["slug"] in seen:
-            continue
-        seen.add(m["slug"])
-        todo.append((eid, m["en"]))
-    todo = todo[:max_new]
+    n_candidates = 0
+    for qid in agencies:
+        try:
+            mates = await asyncio.to_thread(fetch_labelmates, qid)
+        except Exception:
+            mates = []  # graceful: skip an agency whose SPARQL failed
+        n_candidates += len(mates)
+        taken = 0
+        for m in mates:  # per-agency cap -> balanced representation across families
+            eid = f"artist:{m['slug']}"
+            if eid in have or m["slug"] in seen:
+                continue
+            seen.add(m["slug"])
+            todo.append((eid, m["en"]))
+            taken += 1
+            if taken >= per_agency or len(todo) >= max_new:
+                break
+        if len(todo) >= max_new:
+            break
     aliases = dict(todo)
     sources = [WikidataSource(aliases=aliases), WikipediaSource(aliases=aliases)]
     ingested: list[str] = []
@@ -156,7 +163,7 @@ async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
         rec = await ingest_one("facts", eid, sources, db_path=db_path)
         if rec is not None:
             ingested.append(eid)
-    return {"agencies": list(agencies.values()), "candidates": len(candidates), "ingested": ingested}
+    return {"agencies": list(agencies.values()), "candidates": n_candidates, "ingested": ingested}
 
 
 async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
@@ -305,7 +312,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     generated = now.strftime("%Y-%m-%d %H:%M UTC")
     jsonld = _jsonld(recs, now.isoformat())
     doc = f"""<!doctype html><html><head><meta charset="utf-8">
-<title>KoreaAPI - Data Console</title>
+<title>KoreaAPI — verifiable Korean-culture data for AI agents</title>
 <meta name="description" content="KoreaAPI - verifiable, bilingual Korean culture data for AI agents. Every record carries its source and a Skill Score.">
 <meta name="robots" content="index,follow">
 <script type="application/ld+json">
@@ -325,9 +332,17 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  .fresh{{color:#10B981}} .stale{{color:#EF4444;font-weight:700}}
  footer{{color:#6B7585;margin-top:16px;font-size:12px}}
  code{{background:#1A2036;padding:1px 6px;border-radius:4px}}
+ a{{color:#7DA2FF;text-decoration:none}} a:hover{{text-decoration:underline}}
+ .intro{{background:#131829;border:1px solid #2A3349;border-radius:10px;padding:14px 18px;margin-bottom:20px;max-width:1100px;line-height:1.55}}
+ .intro p{{margin:6px 0;font-size:13px;color:#C9D2E3}} .intro b{{color:#F5F7FA}}
 </style></head><body>
-<h1>KoreaAPI &middot; Data Console</h1>
-<div class="sub">Read-only human view over the append-only store. Agents read the same store via MCP.</div>
+<h1>KoreaAPI</h1>
+<div class="sub">The verifiable data layer for Korean culture &mdash; callable by any AI agent (MCP), citable by any answer engine.</div>
+<div class="intro">
+ <p>Every row below is <b>verified</b>: cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, and stamped with a transparent <b>Skill Score</b> + <b>provenance</b>. Korean is canonical; English + romanization for distribution. Each artist is anchored to its <b>소속사 (agency)</b>, and the roster grows by discovering cross-verified labelmates.</p>
+ <p><b>Agents</b> call 5 MCP tools &mdash; <code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_buy_options</code>. <b>Answer engines</b>: this page ships Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name &mdash; kind, as of date &middot; source &middot; Skill Score &middot; via KoreaAPI&rdquo;.</p>
+ <p><a href="https://github.com/wrxfoundation/weatherplan-ai">Source &amp; docs on GitHub</a> &middot; <a href="./llms.txt">llms.txt</a></p>
+</div>
 <div class="cards">
  <div class="card"><div class="v">{s.get('entities', 0)}</div><div class="k">entities</div></div>
  <div class="card"><div class="v">{s.get('snapshots', 0)}</div><div class="k">snapshots (append-only)</div></div>
@@ -339,7 +354,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 <tr><th>Name (EN / KO / rom)</th><th>Kind</th><th>Agency (소속사)</th><th>Skill Score</th><th>Translation</th><th>Freshness</th><th>Snapshots</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>
 {''.join(rows)}
 </table>
-<footer>Generated {generated} &middot; KoreaAPI Phase 1 &middot; interactive query: <code>datasette koreaapi.db</code></footer>
+<footer>Generated {generated} &middot; KoreaAPI Phase 1 (cold-start) &middot; verifiable Korean-culture data for AI agents &middot; <a href="./llms.txt">/llms.txt</a> &middot; <a href="https://github.com/wrxfoundation/weatherplan-ai">GitHub</a></footer>
 </body></html>"""
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(doc)
