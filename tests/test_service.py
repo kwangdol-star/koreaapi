@@ -9,9 +9,12 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
+from datetime import datetime, timezone
 
 from koreaapi import service
 from koreaapi.admin import seed
+from koreaapi.models import Name, Provenance, Record
+from koreaapi.pipeline import store
 
 
 def _seeded_db() -> str:
@@ -19,6 +22,26 @@ def _seeded_db() -> str:
     os.close(fd)
     os.unlink(path)
     asyncio.run(seed(db_path=path))
+    return path
+
+
+def _agency_db() -> str:
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.unlink(path)
+    now = datetime.now(timezone.utc)
+    rows = [
+        ("artist:straykids", "스트레이키즈", "Stray Kids", "JYP Entertainment"),
+        ("artist:2pm", "투피엠", "2PM", "JYP Entertainment"),
+        ("artist:aespa", "에스파", "aespa", "SM Entertainment"),
+    ]
+    for eid, ko, en, agency in rows:
+        rec = Record(
+            entity_id=eid, kind="facts", name=Name(ko=ko, en_official=en),
+            snapshot_at=now, summary_en=f"{en} - facts.", data={"agency_en": agency},
+            provenance=Provenance(sources=["Wikidata Q1"], fetched_at=now, skill_score=0.9, confidence="high"),
+        )
+        asyncio.run(store.append_record(rec, db_path=path))
     return path
 
 
@@ -43,6 +66,17 @@ def test_korea_rising_ranks_high_skill_first():
     assert scores == sorted(scores, reverse=True)
     # BTS/NewJeans (1.0) outrank aespa (0.7, single-source)
     assert scores[0] >= scores[-1]
+
+
+def test_agency_lists_only_that_agencys_verified_members():
+    db = _agency_db()
+    out = asyncio.run(service.agency("JYP", db_path=db))  # substring match on the label
+    names = {m["name"]["en_official"] for m in out["members"]}
+    assert names == {"Stray Kids", "2PM"} and out["count"] == 2  # SM's aespa excluded
+    assert out["members"][0]["provenance"]["sources"]  # provenance carried
+    # the full label name resolves the same; an unknown agency returns nobody
+    assert asyncio.run(service.agency("JYP Entertainment", db_path=db))["count"] == 2
+    assert asyncio.run(service.agency("YG", db_path=db))["count"] == 0
 
 
 def test_buy_options_phase1_stub_is_honest():

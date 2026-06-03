@@ -94,6 +94,32 @@ async def kculture_calendar(window_days: int = 30, *, db_path: str | None = None
     return {"window_days": window_days, "count": len(items), "items": items}
 
 
+def _norm_name(s: str | None) -> str:
+    return (s or "").casefold().replace(" ", "")
+
+
+async def agency(name: str, *, db_path: str | None = None) -> dict:
+    """Artists verified under a 소속사/label - the agency HUB made queryable. `name` matches the
+    agency recorded on each artist (Wikidata P264 label), e.g. 'JYP Entertainment' or 'JYP'.
+    Powers 'who is under HYBE/SM/JYP?' for an agent; every member carries provenance + citation."""
+    await _log("query", f"agency:{name}", db_path)
+    target = _norm_name(name)
+    members: list[dict] = []
+    if target:
+        seen: set[str] = set()
+        for e in await store.entities(db_path=db_path):
+            if e["entity_id"] in seen:
+                continue
+            rec = await store.latest(e["entity_id"], e["kind"], db_path=db_path)
+            if rec is None:
+                continue
+            ag_en, ag_ko = _norm_name(rec.data.get("agency_en")), _norm_name(rec.data.get("agency_ko"))
+            if (ag_en and target in ag_en) or (ag_ko and target in ag_ko):
+                seen.add(e["entity_id"])
+                members.append(_item(rec))
+    return {"agency": name, "count": len(members), "members": members}
+
+
 async def korea_rising(category: str = "all", limit: int = 10, *, db_path: str | None = None) -> dict:
     """What is rising in Korea now: verified snapshots ranked by observed DEMAND (the captured
     behavioral signal) then Skill Score - engine 2 turning usage into the trend product."""

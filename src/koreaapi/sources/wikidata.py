@@ -228,7 +228,7 @@ def build_labelmates_query(label_qid: str, *, limit: int = 12) -> str:
         "UNION { ?item wdt:P31 wd:Q4439542 } UNION { ?item wdt:P31 wd:Q864897 } "
         '?item rdfs:label ?en . FILTER(LANG(?en) = "en") '
         'OPTIONAL { ?item rdfs:label ?ko . FILTER(LANG(?ko) = "ko") } '
-        f"}} LIMIT {limit}"
+        f"}} ORDER BY ?item LIMIT {limit}"  # ORDER BY -> deterministic roster run-to-run
     )
 
 

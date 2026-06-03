@@ -1,6 +1,6 @@
 """Offline smoke test for the MCP server - the agent product surface.
 
-server.py is a thin FastMCP binding over service.py; this verifies the 4 tools register and
+server.py is a thin FastMCP binding over service.py; this verifies the tools register and
 that a bound tool returns verified, provenance-bearing data end to end. fastmcp is a project
 dependency; the test skips cleanly if it isn't installed (e.g. a pydantic-only minimal env).
 
@@ -22,6 +22,7 @@ from koreaapi.admin import seed  # noqa: E402
 EXPECTED_TOOLS = {
     "get_artist_status",
     "get_kculture_calendar",
+    "get_agency",
     "get_korea_rising",
     "get_buy_options",
 }
@@ -34,7 +35,7 @@ def _tool_names() -> set[str]:
     return {t.name for t in res}
 
 
-def test_server_registers_the_four_tools():
+def test_server_registers_its_tools():
     assert _tool_names() == EXPECTED_TOOLS
 
 

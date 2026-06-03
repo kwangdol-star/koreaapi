@@ -19,10 +19,11 @@
 | Live-verified Q-ids | ✅ BTS `Q13580495` · NewJeans `Q113189277` · aespa `Q100877982` |
 | **Artist roster (6)**: + BLACKPINK · LE SSERAFIM · Stray Kids — Q-ids resolved LIVE on GitHub (never hardcoded), identity-guarded against the roster name | ✅ |
 | **LLM romanization** (Haiku fills `romanized` at ingest — "cheap AI as collection labor"; best-effort, skipped without key) | ✅ |
-| **Circle Chart source #3** (official chart → LLM-extracted weekly entries → `admin chart` = settlement-grade outcome data) | 🟡 built + wired into `pages`/`collect`. Live CI: page **fetches fine (212 KB HTML)** but LLM-extract is **blocked — `ANTHROPIC_API_KEY` is not a GitHub Actions secret** (`present=False` on the runner). Add it as a repo secret, then confirm server- vs JS-rendered |
+| **Circle Chart source #3** (official chart → LLM-extracted weekly entries → `admin chart`) + **anti-hallucination grounding guard** (extracted entries must appear verbatim in the HTML, else dropped — caught Haiku fabricating a stale '#1' on a live run) | 🟡 built; key works (`present=True`). Page is **JS-rendered** (212 KB shell, no chart in HTML) → 0 grounded entries (correct: ships nothing over false). Raw chart needs a **data endpoint**; autonomous discovery blocked (WebFetch 403 bot-block, not indexed) → **needs the XHR URL from the owner's browser**, then set `CIRCLECHART_URL` |
 | **YouTube source #3.5** (official-channel stats + latest release → `admin youtube` → `kind='release'` live-state event; identity-guarded; **NOT** a name cross-verifier — channels are EN/brand-titled, would lower scores = the Spotify lesson) | ✅ **LIVE (2026-06-03)** — 6/6 release snapshots on the public page (BANGTANTV 84.6M · BLACKPINK 101M · Stray Kids 23.9M · aespa 8.45M · NewJeans 8.39M · LE SSERAFIM 7.47M subs). Wired into `pages`/`collect`; `YOUTUBE_API_KEY` set |
 | **Agency anchor (소속사)**: artist → label/agency from Wikidata **P264** (record label), resolved to ko/en and shown on the public page; a verified **hub**. Verifiable, **no scraping**. | ✅ built + LIVE on the page |
-| **Agency SWEEP (roster discovery)**: each anchored agency → SPARQL `wdt:P264 wd:<label>` → labelmate artists → run through the SAME Wikidata+Wikipedia cross-verification → only verified ones join the roster (grows 6 → many; "정보가 계속 나온다"). Bounded per run; `admin sweep`; wired into pages/collect. | 🟡 built (pure parse + query tested); live-validates on a runner (SPARQL needs open net) |
+| **Agency SWEEP (roster discovery)**: each anchored agency → SPARQL `wdt:P264 wd:<label>` (`ORDER BY ?item`, deterministic) → labelmate artists → run through the SAME Wikidata+Wikipedia cross-verification → only verified ones join the roster ("정보가 계속 나온다"). Bounded per run; `admin sweep`; in pages/collect. | ✅ **LIVE** — grew roster 6 → 16 (JYP family cross-verified) |
+| **MCP `get_agency(name)`**: the agency hub made agent-queryable ("who's under JYP/HYBE?") from cross-verified records, with provenance | ✅ built (5 MCP tools now) |
 | `admin pull` — turnkey live ingestion | ✅ first real external data ingested (3/3) |
 | AEO/GEO surface: JSON-LD in `report.html` + `citation` field in MCP output | ✅ |
 | Cold-start data infra: `admin export` (JSONL + latest.json) + daily GitHub Actions collector | ✅ (collector runs on open-network runners → solves the sandbox egress block) |
@@ -31,7 +32,7 @@
 | **CI**: `.github/workflows/test.yml` runs `pytest` + `ruff` on push (the suite is now gated) | ✅ |
 | Production Postgres backend (behind the same insert-only contract) | ⬜ planned (scale step) |
 
-Tests: 47 passed, 3 live-skip (egress / key); ruff clean. Tracked on PR #1.
+Tests: 56 passed, 3 live-skip (egress / key); ruff clean. Tracked on PR #1.
 
 ---
 

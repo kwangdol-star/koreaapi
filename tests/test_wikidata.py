@@ -71,6 +71,7 @@ def test_parse_labelmates_dedups_and_slugs():
 def test_build_labelmates_query_targets_the_label():
     q = build_labelmates_query("Q50602100", limit=5)
     assert "wdt:P264 wd:Q50602100" in q and "LIMIT 5" in q
+    assert "ORDER BY ?item" in q  # deterministic results run-to-run
 
 
 def test_claim_qids_prefers_preferred_rank_and_skips_novalue():

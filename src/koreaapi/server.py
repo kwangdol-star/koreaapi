@@ -31,6 +31,13 @@ async def get_kculture_calendar(window_days: int = 30) -> dict:
 
 
 @mcp.tool
+async def get_agency(name: str) -> dict:
+    """Artists verified under a Korean agency/label (소속사), e.g. 'JYP Entertainment' or 'HYBE'.
+    The agency hub: answers 'who is under <agency>?' from cross-verified records, with provenance."""
+    return await service.agency(name)
+
+
+@mcp.tool
 async def get_korea_rising(category: str = "all", limit: int = 10) -> dict:
     """What is rising in Korea now, ranked from accumulated verified snapshots."""
     return await service.korea_rising(category, limit)
