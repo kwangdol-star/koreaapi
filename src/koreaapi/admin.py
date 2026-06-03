@@ -334,9 +334,12 @@ def _main(argv: list[str]) -> int:
         chart = asyncio.run(CircleChartSource().fetch_chart())
         n = len(chart.get("entries") or [])
         if not n:
+            key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+            html_len = chart.get("html_len", 0)
             print(
-                "chart: 0 entries - needs open network + ANTHROPIC_API_KEY (run on a GitHub job or "
-                "your machine). If the page is JS-rendered, set CIRCLECHART_URL to a data endpoint."
+                f"chart: 0 entries - diagnosing: ANTHROPIC_API_KEY present={key}, fetched HTML "
+                f"{html_len} bytes. HTML=0 -> fetch blocked; HTML>0 but 0 entries -> the page is "
+                "JS-rendered (set CIRCLECHART_URL to a data/JSON endpoint); key=False -> add the secret."
             )
         else:
             asyncio.run(ingest_chart(chart, db_path=None))
@@ -345,16 +348,27 @@ def _main(argv: list[str]) -> int:
     elif cmd == "youtube":
         out = asyncio.run(youtube())
         total = len(out["ingested"]) + len(out["skipped"])
-        if not out["ingested"]:
-            print(
-                "youtube: 0 ingested - needs YOUTUBE_API_KEY + open network (run on a GitHub job or "
-                "your machine). Channels that fail the identity guard are skipped (never poisoned)."
-            )
-        else:
+        if out["ingested"]:
             print(f"youtube: ingested {len(out['ingested'])}/{total} release snapshot(s) -> {store._db_path(None)}")
             print("  ok:", ", ".join(out["ingested"]))
-        if out["skipped"]:
-            print("  skipped (unresolved / guard / keyless):", ", ".join(out["skipped"]))
+            if out["skipped"]:
+                print("  skipped (unresolved / guard):", ", ".join(out["skipped"]))
+        else:
+            # Pinpoint the cause (no secret is ever printed - only a present/absent boolean).
+            print("youtube: 0 ingested - diagnosing (no secrets printed):")
+            src = YouTubeSource()
+            for eid in out["skipped"] or list(ARTISTS):
+                d = src.diagnose(eid)
+                if not d["key_present"]:
+                    print("  YOUTUBE_API_KEY is NOT visible to this run -> add it as a GitHub Actions "
+                          "secret named YOUTUBE_API_KEY (repo Settings -> Secrets and variables -> Actions).")
+                    break
+                line = f"  {eid}: search returned {d['candidates'] or 'no candidates'}"
+                if d["error"]:
+                    line += f" | API error -> {d['error']}"
+                elif not d["picked"]:
+                    line += f" | none == aliases {d['aliases']} (guard skip; add the official title to _ALIASES)"
+                print(line)
     else:
         print(f"unknown command: {cmd}")
         return 2

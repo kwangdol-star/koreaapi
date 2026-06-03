@@ -111,6 +111,16 @@ def test_ingest_youtube_none_payload_is_noop():
     assert asyncio.run(ingest_youtube("artist:bts", {"title": "x"}, db_path=_tmp_db())) is None
 
 
+def test_diagnose_reports_missing_key_without_network(monkeypatch):
+    from koreaapi.sources.youtube import YouTubeSource
+
+    monkeypatch.delenv("YOUTUBE_API_KEY", raising=False)
+    d = YouTubeSource().diagnose("artist:bts")
+    assert d["key_present"] is False  # no network touched when the key is absent
+    assert d["candidates"] == [] and d["picked"] is None and d["error"] is None
+    assert "bangtantv" in d["aliases"]  # roster name + curated alias, normalized
+
+
 if __name__ == "__main__":
     import pytest
 

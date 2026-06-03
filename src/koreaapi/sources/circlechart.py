@@ -93,4 +93,9 @@ class CircleChartSource:
             html = ""
         entries = await asyncio.to_thread(extract_chart, html, limit=limit)
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        return {"entries": entries, "citation": f"Circle Chart {ts}", "source_url": CIRCLECHART_URL}
+        return {
+            "entries": entries,
+            "citation": f"Circle Chart {ts}",
+            "source_url": CIRCLECHART_URL,
+            "html_len": len(html),  # diagnostic: 0 = fetch blocked; large but 0 entries = JS-rendered
+        }

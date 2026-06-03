@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -201,3 +202,34 @@ class YouTubeSource:
             }
         except Exception:
             return None  # graceful degradation: never break the loop
+
+    def diagnose(self, entity_id: str) -> dict:
+        """Why did resolution fail? Reports key presence (boolean only - never the value), the
+        channel titles search returned, the accepted aliases, and any API error. Used by
+        `admin youtube` on a 0-ingested run to pinpoint keyless vs API-disabled vs guard-skip."""
+        info: dict = {
+            "entity": entity_id,
+            "key_present": bool(os.environ.get("YOUTUBE_API_KEY")),
+            "aliases": sorted(_alias_norms(entity_id)),
+            "candidates": [],
+            "picked": None,
+            "error": None,
+        }
+        if not info["key_present"]:
+            return info
+        try:
+            term = ARTISTS.get(entity_id) or entity_id.split(":", 1)[-1].strip()
+            cands = parse_search(self._get(self._search_url(term)))
+            info["candidates"] = [c["title"] for c in cands]
+            picked = pick_channel(cands, _alias_norms(entity_id))
+            info["picked"] = picked["title"] if picked else None
+        except urllib.error.HTTPError as e:
+            body = ""
+            try:
+                body = e.read().decode("utf-8", "replace")[:300]
+            except Exception:
+                pass
+            info["error"] = f"HTTP {e.code}: {body or e.reason}"  # surfaces 'API not enabled' etc.
+        except Exception as e:
+            info["error"] = f"{type(e).__name__}: {e}"
+        return info
