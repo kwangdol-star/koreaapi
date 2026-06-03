@@ -17,8 +17,8 @@
 | Service | What it buys us | Cost | Sign up | Env var |
 |---|---|---|---|---|
 | **Anthropic (Claude)** | LLM extract + bilingual translation at ingest (cheap collection labor; Haiku) | usage (cheap) | console.anthropic.com → API keys | `ANTHROPIC_API_KEY` |
-| **Spotify for Developers** | artist / album / popularity = a 3rd independent verified source | free | developer.spotify.com/dashboard → Create app | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` |
-| **YouTube Data API v3** | views / release signals (verified source) | free quota | console.cloud.google.com → enable "YouTube Data API v3" → API key | `YOUTUBE_API_KEY` |
+| ~~Spotify~~ ⚠️ **gated (skip)** | Web API now demands **Premium** (2026 policy change) — **skip it**; we already cross-verify with Wikidata + Wikipedia. A keyless 3rd source isn't worth it (EN-mostly → would *lower* the 1.00 scores). | — | — | — |
+| **YouTube Data API v3** | views / release signals (verified source) — *if* a 3rd source is ever wanted | free quota | console.cloud.google.com → enable "YouTube Data API v3" → API key | `YOUTUBE_API_KEY` |
 
 ## 🟡 Phase-1 revenue — light approval (site review, no sales threshold)
 | Service | What it buys us | Cost | Sign up | Env var |
