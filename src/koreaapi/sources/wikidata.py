@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -25,6 +26,7 @@ from datetime import datetime, timezone
 from ..roster import ARTISTS
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
+WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"  # agency-hub roster discovery (sweep)
 # Wikimedia User-Agent policy: descriptive client/version + a contact URL + library.
 # https://meta.wikimedia.org/wiki/User-Agent_policy  (repo URL is the reachable contact)
 _UA = {
@@ -127,9 +129,12 @@ class WikidataSource:
     name = "Wikidata"
     is_fallback = False
 
-    def __init__(self) -> None:
+    def __init__(self, aliases: dict[str, str] | None = None) -> None:
         # entity_id -> Q-id discovered via live search (memoized to spare the API).
         self._discovered: dict[str, str] = {}
+        # entity_id -> search name for ids outside the curated roster (e.g. swept labelmates),
+        # so discovered artists resolve + identity-guard against their known name too.
+        self._aliases: dict[str, str] = aliases or {}
 
     def _entity_url(self, qid: str) -> str:
         return (
@@ -169,7 +174,7 @@ class WikidataSource:
             return _QID[entity_id]
         if entity_id in self._discovered:
             return self._discovered[entity_id]
-        term = ARTISTS.get(entity_id) or entity_id.split(":", 1)[-1].strip()
+        term = ARTISTS.get(entity_id) or self._aliases.get(entity_id) or entity_id.split(":", 1)[-1].strip()
         if not term:
             raise ValueError(f"cannot derive a search term from entity_id {entity_id!r}")
         raw = await asyncio.to_thread(self._http_get, self._search_url(term))
@@ -183,8 +188,10 @@ class WikidataSource:
         qid = await self.resolve_qid(entity_id)
         raw = await asyncio.to_thread(self._http_get, self._entity_url(qid))
         payload = parse_entity(raw, entity_id, kind)
-        expected = _CURATED.get(entity_id) or (
-            {"en": ARTISTS[entity_id]} if entity_id in ARTISTS else None
+        expected = (
+            _CURATED.get(entity_id)
+            or ({"en": ARTISTS[entity_id]} if entity_id in ARTISTS else None)
+            or ({"en": self._aliases[entity_id]} if entity_id in self._aliases else None)
         )
         if expected:
             _verify_identity(payload, expected)  # reject contradictory data (invariant 2)
@@ -204,3 +211,56 @@ class WikidataSource:
 
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         return {"payload": payload, "citation": f"Wikidata {qid} {ts}"}
+
+
+# --- Agency-hub sweep: discover an agency's other artists (labelmates) via SPARQL -------------
+# 소속사 is a hub - given a label's Q-id, list the artists under it so the roster grows from the
+# agency (the user's "정보가 계속 나온다"). Discovered names are then run through the normal
+# Wikidata+Wikipedia cross-verification, so only verified labelmates are ingested (the moat holds).
+
+
+def build_labelmates_query(label_qid: str, *, limit: int = 12) -> str:
+    """Pure: a SPARQL query for artists (group/duo/human) whose record label (P264) is label_qid."""
+    return (
+        "SELECT ?item ?en ?ko WHERE { "
+        f"?item wdt:P264 wd:{label_qid} . "
+        "{ ?item wdt:P31 wd:Q215380 } UNION { ?item wdt:P31 wd:Q5 } "
+        "UNION { ?item wdt:P31 wd:Q4439542 } UNION { ?item wdt:P31 wd:Q864897 } "
+        '?item rdfs:label ?en . FILTER(LANG(?en) = "en") '
+        'OPTIONAL { ?item rdfs:label ?ko . FILTER(LANG(?ko) = "ko") } '
+        f"}} LIMIT {limit}"
+    )
+
+
+def _slug(name: str) -> str:
+    """A stable entity-id slug from an English name: 'Red Velvet' -> 'redvelvet'."""
+    return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+
+def parse_labelmates(raw: dict) -> list[dict]:
+    """Pure: SPARQL bindings -> [{qid, en, ko, slug}], de-duped by slug (drops blanks)."""
+    out: list[dict] = []
+    seen: set[str] = set()
+    for b in raw.get("results", {}).get("bindings", []):
+        uri = (b.get("item") or {}).get("value", "")
+        qid = uri.rsplit("/", 1)[-1] if uri else ""
+        en = (b.get("en") or {}).get("value")
+        if not qid or not en:
+            continue
+        slug = _slug(en)
+        if not slug or slug in seen:
+            continue
+        seen.add(slug)
+        out.append({"qid": qid, "en": en, "ko": (b.get("ko") or {}).get("value"), "slug": slug})
+    return out
+
+
+def fetch_labelmates(label_qid: str, *, limit: int = 12) -> list[dict]:
+    """Live: query.wikidata.org SPARQL -> labelmate artists. Sync (call via asyncio.to_thread);
+    needs open network (GitHub runner). Raises on transport error (caller degrades gracefully)."""
+    url = f"{WIKIDATA_SPARQL}?" + urllib.parse.urlencode(
+        {"query": build_labelmates_query(label_qid, limit=limit), "format": "json"}
+    )
+    req = urllib.request.Request(url, headers={**_UA, "Accept": "application/sparql-results+json"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return parse_labelmates(json.load(r))

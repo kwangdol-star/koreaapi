@@ -9,12 +9,20 @@ from __future__ import annotations
 import json
 import pathlib
 
-from koreaapi.sources.wikidata import _claim_qids, parse_entity, parse_label, parse_search
+from koreaapi.sources.wikidata import (
+    _claim_qids,
+    build_labelmates_query,
+    parse_entity,
+    parse_label,
+    parse_labelmates,
+    parse_search,
+)
 
 FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_bts.json"
 SEARCH_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_search_bts.json"
 AGENCY_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_bts_agency.json"
 LABEL_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_label_bighit.json"
+LABELMATES_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_labelmates.json"
 
 
 def test_parse_extracts_bilingual_official_name():
@@ -50,6 +58,19 @@ def test_parse_entity_without_claims_has_no_agency():
 def test_parse_label_extracts_bilingual_name():
     raw = json.loads(LABEL_FIXTURE.read_text(encoding="utf-8"))
     assert parse_label(raw) == {"ko": "빅히트 뮤직", "en": "Big Hit Music"}
+
+
+def test_parse_labelmates_dedups_and_slugs():
+    raw = json.loads(LABELMATES_FIXTURE.read_text(encoding="utf-8"))
+    mates = parse_labelmates(raw)
+    assert [m["slug"] for m in mates] == ["redvelvet", "nct"]  # dup dropped, blank-uri dropped
+    assert mates[0] == {"qid": "Q484939", "en": "Red Velvet", "ko": "레드벨벳", "slug": "redvelvet"}
+    assert mates[1]["ko"] is None  # ko is optional
+
+
+def test_build_labelmates_query_targets_the_label():
+    q = build_labelmates_query("Q50602100", limit=5)
+    assert "wdt:P264 wd:Q50602100" in q and "LIMIT 5" in q
 
 
 def test_claim_qids_prefers_preferred_rank_and_skips_novalue():

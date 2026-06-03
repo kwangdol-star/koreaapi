@@ -10,6 +10,7 @@ CLI:
   python -m koreaapi.admin pull     # LIVE: pull real Wikidata snapshots (needs network egress)
   python -m koreaapi.admin chart    # LIVE: Circle Chart weekly + LLM-extract (needs egress + key)
   python -m koreaapi.admin youtube  # LIVE: official-channel release snapshots (needs YOUTUBE_API_KEY)
+  python -m koreaapi.admin sweep    # LIVE: discover labelmates from each anchored agency (SPARQL)
   python -m koreaapi.admin export   # write data/ asset (snapshots.jsonl history + latest.json)
   python -m koreaapi.admin signals  # top behavioral signals (engine 2: what agents query)
   python -m koreaapi.admin stats    # print a data-quality summary
@@ -35,7 +36,7 @@ from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS
 from .sources.circlechart import CircleChartSource
 from .sources.mock import MockSource
-from .sources.wikidata import WikidataSource
+from .sources.wikidata import WikidataSource, fetch_labelmates
 from .sources.wikipedia import WikipediaSource
 from .sources.youtube import YouTubeSource
 
@@ -111,6 +112,51 @@ async def youtube(entity_ids: list[str] | None = None, *, db_path: str | None = 
         rec = await ingest_youtube(entity_id, payload, db_path=db_path) if payload else None
         (ingested if rec is not None else skipped).append(entity_id)
     return {"ingested": ingested, "skipped": skipped}
+
+
+def _agency_qids_from_store(recs: list) -> dict[str, str]:
+    """agency Q-id -> agency name, mined from already-ingested artists' `agency_source`."""
+    out: dict[str, str] = {}
+    for r in recs:
+        src = (r.data or {}).get("agency_source") or ""
+        m = re.search(r"\bQ\d+\b", src)
+        if m:
+            out.setdefault(m.group(0), r.data.get("agency_en") or r.data.get("agency_ko") or m.group(0))
+    return out
+
+
+async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
+    """Agency-hub discovery: for each anchored 소속사 (Wikidata label), find labelmate artists via
+    SPARQL and ingest the NEW ones through the SAME Wikidata+Wikipedia cross-verification, so the
+    verified roster grows from the agency hub ('정보가 계속 나온다') without lowering the bar - only
+    cross-verified labelmates are kept. Bounded per run; needs open network (SPARQL on a runner).
+    """
+    recs = await store.recent(2000, db_path=db_path)
+    have = {r.entity_id for r in recs}
+    agencies = _agency_qids_from_store(recs)
+    candidates: list[dict] = []
+    for qid in agencies:
+        try:
+            candidates.extend(await asyncio.to_thread(fetch_labelmates, qid))
+        except Exception:
+            continue  # graceful: skip an agency whose SPARQL failed
+    todo: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for m in candidates:
+        eid = f"artist:{m['slug']}"
+        if eid in have or m["slug"] in seen:
+            continue
+        seen.add(m["slug"])
+        todo.append((eid, m["en"]))
+    todo = todo[:max_new]
+    aliases = dict(todo)
+    sources = [WikidataSource(aliases=aliases), WikipediaSource(aliases=aliases)]
+    ingested: list[str] = []
+    for eid, _name in todo:
+        rec = await ingest_one("facts", eid, sources, db_path=db_path)
+        if rec is not None:
+            ingested.append(eid)
+    return {"agencies": list(agencies.values()), "candidates": len(candidates), "ingested": ingested}
 
 
 async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
@@ -351,6 +397,16 @@ def _main(argv: list[str]) -> int:
             asyncio.run(ingest_chart(chart, db_path=None))
             top = chart["entries"][0]
             print(f"chart: ingested top {n} -> #1 {top['artist']} - {top.get('title', '')}")
+    elif cmd == "sweep":
+        out = asyncio.run(sweep())
+        print(
+            f"sweep: {len(out['ingested'])} new labelmate(s) cross-verified from "
+            f"{len(out['agencies'])} agencies ({out['candidates']} candidates) -> {store._db_path(None)}"
+        )
+        if out["ingested"]:
+            print("  +", ", ".join(out["ingested"]))
+        if not out["agencies"]:
+            print("  (no agency anchors in the store yet - run `pull` first)")
     elif cmd == "youtube":
         out = asyncio.run(youtube())
         total = len(out["ingested"]) + len(out["skipped"])

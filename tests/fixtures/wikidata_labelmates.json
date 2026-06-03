@@ -1,0 +1,25 @@
+{
+  "head": { "vars": ["item", "en", "ko"] },
+  "results": {
+    "bindings": [
+      {
+        "item": { "type": "uri", "value": "http://www.wikidata.org/entity/Q484939" },
+        "en": { "xml:lang": "en", "value": "Red Velvet" },
+        "ko": { "xml:lang": "ko", "value": "레드벨벳" }
+      },
+      {
+        "item": { "type": "uri", "value": "http://www.wikidata.org/entity/Q18650086" },
+        "en": { "xml:lang": "en", "value": "NCT" }
+      },
+      {
+        "item": { "type": "uri", "value": "http://www.wikidata.org/entity/Q484939" },
+        "en": { "xml:lang": "en", "value": "Red Velvet" },
+        "ko": { "xml:lang": "ko", "value": "레드벨벳" }
+      },
+      {
+        "item": { "type": "uri", "value": "" },
+        "en": { "xml:lang": "en", "value": "Broken Binding" }
+      }
+    ]
+  }
+}

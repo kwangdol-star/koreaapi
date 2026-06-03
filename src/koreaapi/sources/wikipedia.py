@@ -62,8 +62,12 @@ class WikipediaSource:
     name = "Wikipedia"
     is_fallback = False
 
+    def __init__(self, aliases: dict[str, str] | None = None) -> None:
+        # entity_id -> article title for ids outside the curated map (e.g. swept labelmates).
+        self._aliases: dict[str, str] = aliases or {}
+
     def _title(self, entity_id: str) -> str:
-        return _TITLES.get(entity_id) or entity_id.split(":", 1)[-1].strip()
+        return _TITLES.get(entity_id) or self._aliases.get(entity_id) or entity_id.split(":", 1)[-1].strip()
 
     def _url(self, title: str) -> str:
         query = urllib.parse.urlencode(
