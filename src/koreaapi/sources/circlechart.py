@@ -1,16 +1,18 @@
-"""Circle Chart source (real source #3, decision-gated outcome data).
+"""Circle Chart settlement source (real source #3, prediction-market outcome data).
 
-Circle Chart is Korea's OFFICIAL music chart - the authoritative, public, settlement-grade
-source for chart-position outcomes (the prediction-market vertical). No official API, so we
-fetch the public weekly chart page and LLM-EXTRACT the entries ("cheap AI as collection
-labor"; LLM extraction absorbs layout drift). Provenance cites Circle Chart + the week.
+Circle Chart is Korea's OFFICIAL music chart - the settlement-grade source for chart-position
+outcomes. Its own site (circlechart.kr) is **JS-rendered** (the HTML carries no chart), and it
+403-blocks automated fetchers, so we cannot read it server-side. But the settlement-grade datum
+- the **weekly #1** - is maintained, server-rendered and verifiable on Wikipedia's "List of
+Circle Digital Chart number ones of <year>". So we fetch that via the MediaWiki API (compact
+wikitext), LLM-EXTRACT the weekly #1s, and **GROUND** every entry against the fetched text
+(`_grounded`) so a hallucinated/stale entry is dropped - verification over trust.
 
-The PARSE step (`parse_chart`) is pure + fixture-tested offline. The HTTP + LLM steps are
-best-effort and need the open network + ANTHROPIC_API_KEY (GitHub runners / deploy); a no-key
-/ blocked / changed-page run returns [] (never breaks). URL is overridable via CIRCLECHART_URL.
-
-NOTE: the live fetch is unverifiable from the egress-blocked sandbox - validate on a GitHub run
-(or your own machine). If the page is JS-rendered, swap CIRCLECHART_URL for a data endpoint.
+`parse_chart` + `_grounded` are pure + fixture-tested offline. The HTTP + LLM steps are
+best-effort and need open network + ANTHROPIC_API_KEY (GitHub runners / deploy); no key /
+blocked / nothing-grounded returns [] (never breaks). `CIRCLECHART_URL` is overridable - point
+it at circlechart.kr's real XHR/JSON endpoint (from the site's Network tab) for the full daily
+top-100; the grounding guard then applies there too.
 """
 
 from __future__ import annotations
@@ -21,19 +23,24 @@ import os
 import urllib.request
 from datetime import datetime, timezone
 
-# Official Circle digital chart (weekly). Overridable; e.g. global.circle?termGbn=week.
+# Settlement source: Circle Digital Chart weekly #1s, server-rendered on Wikipedia, fetched as
+# compact wikitext via the MediaWiki API. Overridable (e.g. circlechart.kr's own XHR endpoint).
+_CIRCLE_NO1_PAGE = "List_of_Circle_Digital_Chart_number_ones_of_2026"
 CIRCLECHART_URL = os.environ.get(
-    "CIRCLECHART_URL", "https://circlechart.kr/page_chart/onoff.circle?serviceGbn=ALL"
+    "CIRCLECHART_URL",
+    f"https://en.wikipedia.org/w/api.php?action=parse&page={_CIRCLE_NO1_PAGE}"
+    "&prop=wikitext&format=json",
 )
 _UA = {
     "User-Agent": "KoreaAPI/0.1 (https://github.com/wrxfoundation/weatherplan-ai) python-urllib"
 }
 _MODEL = "claude-haiku-4-5-20251001"  # cheap extraction labor
 _SYSTEM = (
-    "You extract a music chart from raw HTML. Output ONLY a JSON array of the chart entries, each "
-    '{"rank": <int>, "artist": "<name>", "title": "<song title>"}, copied VERBATIM from the HTML. '
-    "If the HTML contains no visible chart, output []. Never invent entries or recall them from "
-    "memory - extract only what is literally present. No prose, no code fence."
+    "You extract Korean music chart number-one songs from the page content (e.g. a Wikipedia "
+    "table of weekly Circle Digital Chart #1s). Output ONLY a JSON array, each "
+    '{"rank": 1, "artist": "<name>", "title": "<song title>"}, copied VERBATIM from the content, '
+    "ordered MOST RECENT FIRST. If the content has no such chart/list, output []. Never invent "
+    "entries or recall them from memory - extract only what is literally present. No prose, no code fence."
 )
 
 
@@ -106,16 +113,21 @@ class CircleChartSource:
             return r.read().decode("utf-8", errors="replace")
 
     async def fetch_chart(self, *, limit: int = 20) -> dict:
-        """Fetch the public chart page + LLM-extract entries. Best-effort: {} entries on failure."""
+        """Fetch the #1-list source + LLM-extract + ground the entries. Best-effort: [] on failure."""
         try:
             html = await asyncio.to_thread(self._http_get_html, CIRCLECHART_URL)
         except Exception:
             html = ""
         entries = await asyncio.to_thread(extract_chart, html, limit=limit)
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        via_wiki = "wikipedia.org" in CIRCLECHART_URL
+        citation = f"Circle Digital Chart #1 (via Wikipedia) {ts}" if via_wiki else f"Circle Chart {ts}"
+        source_url = (
+            f"https://en.wikipedia.org/wiki/{_CIRCLE_NO1_PAGE}" if via_wiki else CIRCLECHART_URL
+        )
         return {
             "entries": entries,
-            "citation": f"Circle Chart {ts}",
-            "source_url": CIRCLECHART_URL,
-            "html_len": len(html),  # diagnostic: 0 = fetch blocked; large but 0 entries = JS-rendered
+            "citation": citation,
+            "source_url": source_url,  # human-readable origin (the article, not the API URL)
+            "html_len": len(html),  # diagnostic: 0 = fetch blocked; large but 0 entries = not grounded
         }

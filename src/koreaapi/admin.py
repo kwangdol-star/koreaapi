@@ -401,14 +401,14 @@ def _main(argv: list[str]) -> int:
             key = bool(os.environ.get("ANTHROPIC_API_KEY"))
             html_len = chart.get("html_len", 0)
             print(
-                f"chart: 0 entries - diagnosing: ANTHROPIC_API_KEY present={key}, fetched HTML "
-                f"{html_len} bytes. HTML=0 -> fetch blocked; HTML>0 but 0 entries -> the page is "
-                "JS-rendered (set CIRCLECHART_URL to a data/JSON endpoint); key=False -> add the secret."
+                f"chart: 0 entries - diagnosing: ANTHROPIC_API_KEY present={key}, fetched "
+                f"{html_len} bytes. fetched=0 -> blocked; fetched>0 but 0 entries -> nothing grounded "
+                "(page changed / not the #1 table); key=False -> add the secret."
             )
         else:
             asyncio.run(ingest_chart(chart, db_path=None))
             top = chart["entries"][0]
-            print(f"chart: ingested top {n} -> #1 {top['artist']} - {top.get('title', '')}")
+            print(f"chart: ingested {n} weekly #1(s) -> current #1 {top['artist']} - {top.get('title', '')}")
     elif cmd == "sweep":
         out = asyncio.run(sweep())
         print(
