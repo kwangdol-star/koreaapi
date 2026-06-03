@@ -71,18 +71,19 @@ async def artist_status(artist_id: str, *, db_path: str | None = None) -> dict:
     if not ents:
         return {"artist_id": artist_id, "found": False, "note": "no verified snapshot yet"}
     items: list[dict] = []
-    name: dict | None = None
+    best: tuple[float, dict] | None = None
     for e in ents:
         rec = await store.latest(artist_id, e["kind"], db_path=db_path)
         if rec is None:
             continue
         items.append(_item(rec))
-        if name is None:
-            name = {
-                "ko": rec.name.ko,
-                "en_official": rec.name.en_official,
-                "romanized": rec.name.romanized,
-            }
+        # The canonical display name comes from the best-verified record (the cross-verified
+        # 'facts' snapshot), not whichever kind happens to sort first - so a 'release' record's
+        # placeholder name (ko set to the English stage name) never overrides 방탄소년단.
+        cand = {"ko": rec.name.ko, "en_official": rec.name.en_official, "romanized": rec.name.romanized}
+        if best is None or rec.provenance.skill_score > best[0]:
+            best = (rec.provenance.skill_score, cand)
+    name = best[1] if best else None
     return {"artist_id": artist_id, "found": True, "name": name, "status": items}
 
 

@@ -93,14 +93,32 @@ async def ingest_one(
     )
 
     now = datetime.now(timezone.utc)
+
+    # Agent-facing summary: the source's "X - facts (Wikidata labels)." is dev-ish + low-context.
+    # For a verified profile build a natural bilingual sentence (name + agency); other kinds keep
+    # the source's specific summary (e.g. "BTS comeback scheduled 2026-06-13").
+    summary_en = chosen.get("summary_en", "")
+    summary_ko = chosen.get("summary_ko")
+    if kind == "facts":
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        agency = chosen.get("agency_en") or chosen.get("agency_ko")
+        noun = "artist" if entity_id.startswith("artist:") else "entity"
+        summary_en = f"{disp}{ko_part} — verified Korean {noun}." + (f" Agency: {agency}." if agency else "")
+        summary_ko = f"{name.ko} — 검증된 K-{'아티스트' if noun == 'artist' else '엔티티'}." + (
+            f" 소속사: {agency}." if agency else ""
+        )
+    # Drop the now-redundant prose from the stored payload (it duplicates summary_* + names above).
+    data = {k: v for k, v in chosen.items() if k not in ("summary_en", "summary_ko")}
+
     record = Record(
         entity_id=entity_id,
         kind=kind,
         name=name,
         snapshot_at=now,
-        summary_en=chosen.get("summary_en", ""),
-        summary_ko=chosen.get("summary_ko"),
-        data=chosen,
+        summary_en=summary_en,
+        summary_ko=summary_ko,
+        data=data,
         provenance=Provenance(
             sources=citations,
             fetched_at=now,
@@ -170,6 +188,11 @@ async def ingest_youtube(
         return None
     now = datetime.now(timezone.utc)
     name_en = payload.get("name_en") or payload.get("title") or entity_id.split(":", 1)[-1]
+    # Borrow the cross-verified Korean name + romanization from the artist's facts record (pulled
+    # earlier this cycle) so a release record doesn't carry English in its Korean field.
+    facts = await store.latest(entity_id, "facts", db_path=db_path)
+    name_ko = (facts.name.ko if facts and facts.name.ko else None) or name_en
+    name_rom = facts.name.romanized if facts else None
     subs, views = payload.get("subscribers"), payload.get("views")
     latest = payload.get("latest") or {}
     score = compute_skill_score(
@@ -180,22 +203,25 @@ async def ingest_youtube(
         used_fallback_only=False,
         translation_official=True,
     )
-    stat_parts = []
+    en_parts, ko_parts = [], []
     if subs is not None:
-        stat_parts.append(f"{subs:,} subscribers")
+        en_parts.append(f"{subs:,} subscribers")
+        ko_parts.append(f"구독자 {subs:,}명")
     if views is not None:
-        stat_parts.append(f"{views:,} views")
-    stat = ", ".join(stat_parts) if stat_parts else "channel stats"
-    rel = ""
-    if latest.get("title"):
-        rel = f"; latest: '{latest['title']}' ({(latest.get('published_at') or '')[:10]})"
+        en_parts.append(f"{views:,} views")
+        ko_parts.append(f"조회수 {views:,}회")
+    stat_en = ", ".join(en_parts) if en_parts else "channel stats"
+    stat_ko = ", ".join(ko_parts) if ko_parts else "채널 통계"
+    date = (latest.get("published_at") or "")[:10]
+    rel_en = f"; latest: '{latest['title']}' ({date})" if latest.get("title") else ""
+    rel_ko = f"; 최신: '{latest['title']}' ({date})" if latest.get("title") else ""
     record = Record(
         entity_id=entity_id,
         kind="release",
-        name=Name(ko=name_en, en_official=name_en, en_source="official", en_confidence="high"),
+        name=Name(ko=name_ko, en_official=name_en, romanized=name_rom, en_source="official", en_confidence="high"),
         snapshot_at=now,
-        summary_en=f"{name_en} - YouTube official channel: {stat}{rel}.",
-        summary_ko=f"{name_en} - 유튜브 공식 채널: {stat}{rel}.",
+        summary_en=f"{name_en} — YouTube official channel: {stat_en}{rel_en}.",
+        summary_ko=f"{name_ko} — 유튜브 공식 채널: {stat_ko}{rel_ko}.",
         data={
             "channel_id": payload["channel_id"],
             "channel_title": payload.get("title"),

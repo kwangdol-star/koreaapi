@@ -97,6 +97,15 @@ def test_record_timestamps_normalized_to_aware_utc():
     assert rec.provenance.fetched_at.tzinfo is not None
 
 
+def test_monitor_html_renders_quality_cockpit(tmp_path):
+    out = str(tmp_path / "monitor.html")
+    asyncio.run(admin.monitor_html(db_path=_seeded_db(), out_path=out))
+    page = open(out, encoding="utf-8").read()
+    assert "KoreaAPI" in page and "Monitor" in page
+    assert "SKILL SCORE" in page and "BY SOURCE" in page and "WATCH-LIST" in page
+    assert 'name="robots" content="noindex"' in page  # the cockpit is not a public/indexed page
+
+
 def test_service_item_carries_reproducible_citation():
     out = asyncio.run(service.artist_status("artist:bts", db_path=_seeded_db()))
     item = out["status"][0]

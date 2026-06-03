@@ -89,6 +89,28 @@ def test_agency_prefix_match_excludes_substring_false_positives():
     assert names == {"aespa"}  # NOT BandX ("Cosmic Music" merely *contains* "sm")
 
 
+def test_artist_status_name_comes_from_best_verified_record():
+    fd, db = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.unlink(db)
+    now = datetime.now(timezone.utc)
+    # a 'release' record (single-source 0.7, English placeholder in the ko field) ...
+    asyncio.run(store.append_record(Record(
+        entity_id="artist:bts", kind="release", name=Name(ko="BTS", en_official="BTS"),
+        snapshot_at=now, summary_en="release", data={},
+        provenance=Provenance(sources=["YouTube"], fetched_at=now, skill_score=0.7, confidence="medium"),
+    ), db_path=db))
+    # ... and the cross-verified 'facts' record (1.0, canonical Korean name).
+    asyncio.run(store.append_record(Record(
+        entity_id="artist:bts", kind="facts",
+        name=Name(ko="방탄소년단", en_official="BTS", romanized="Bangtan Sonyeondan"),
+        snapshot_at=now, summary_en="facts", data={},
+        provenance=Provenance(sources=["Wikidata", "Wikipedia"], fetched_at=now, skill_score=1.0, confidence="high"),
+    ), db_path=db))
+    out = asyncio.run(service.artist_status("artist:bts", db_path=db))
+    assert out["name"] == {"ko": "방탄소년단", "en_official": "BTS", "romanized": "Bangtan Sonyeondan"}
+
+
 def test_buy_options_phase1_stub_is_honest():
     db = _seeded_db()
     out = asyncio.run(service.buy_options("BTS album", db_path=db))

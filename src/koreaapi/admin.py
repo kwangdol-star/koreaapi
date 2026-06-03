@@ -17,6 +17,7 @@ CLI:
   python -m koreaapi.admin dump     # print recent snapshots
   python -m koreaapi.admin report   # write report.html (open it in a browser)
   python -m koreaapi.admin digest   # write data/korea-rising.md (shareable verified digest)
+  python -m koreaapi.admin monitor  # write monitor.html (human data-quality cockpit)
 
 For zero-code interactive browse / query / JSON API:  datasette koreaapi.db
 """
@@ -432,6 +433,142 @@ async def markdown_digest(db_path: str | None = None, out_path: str = "data/kore
     return out_path
 
 
+def _src_name(s: str) -> str:
+    """Friendly source name from a provenance citation string."""
+    sl = s.lower()
+    if "circle" in sl:
+        return "Circle Chart"
+    if "wikidata" in sl:
+        return "Wikidata"
+    if "wikipedia" in sl:
+        return "Wikipedia"
+    if "youtube" in sl:
+        return "YouTube"
+    return s.split(" ", 1)[0] or "other"
+
+
+async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html") -> str:
+    """Human ops dashboard over the verified store - the cockpit (distinct from report.html, the
+    public magnet). Shows data-quality health a human watches: Skill-Score distribution,
+    cross-verification rate, per-source contribution, daily accumulation, recent activity, and a
+    watch-list (stale / low-confidence / single-source). Self-contained (data embedded)."""
+    ents = await store.entities(db_path=db_path)
+    all_recs = await store.recent(5000, db_path=db_path)
+    latest = []
+    for e in ents:
+        rec = await store.latest(e["entity_id"], e["kind"], db_path=db_path)
+        if rec is not None:
+            latest.append((e, rec))
+
+    n_snapshots = sum(e["snapshots"] for e in ents)
+    scores = [r.provenance.skill_score for _, r in latest]
+    avg = round(sum(scores) / len(scores), 3) if scores else 0.0
+    hi = sum(1 for s in scores if s >= 0.8)
+    md = sum(1 for s in scores if 0.5 <= s < 0.8)
+    lo = sum(1 for s in scores if s < 0.5)
+    fresh = sum(1 for e, _ in latest if _fresh(e["latest_at"], e["kind"]))
+    xver = sum(1 for _, r in latest if len(r.provenance.sources) >= 2)
+    total = len(latest) or 1
+
+    src_counts: dict[str, int] = {}
+    for _, r in latest:
+        for nm in {_src_name(s) for s in r.provenance.sources}:
+            src_counts[nm] = src_counts.get(nm, 0) + 1
+    kind_counts: dict[str, int] = {}
+    for e in ents:
+        kind_counts[e["kind"]] = kind_counts.get(e["kind"], 0) + e["snapshots"]
+    by_day: dict[str, int] = {}
+    for r in all_recs:
+        d = r.snapshot_at.date().isoformat()
+        by_day[d] = by_day.get(d, 0) + 1
+
+    def bar(n: int, denom: int, color: str) -> str:
+        pct = (n / denom * 100) if denom else 0
+        return f'<div class="bw"><div class="b" style="width:{pct:.0f}%;background:{color}"></div></div>'
+
+    q = (
+        f"<tr><td>high (≥0.8)</td><td>{hi}</td><td>{bar(hi, total, '#10B981')}</td></tr>"
+        f"<tr><td>medium (0.5–0.8)</td><td>{md}</td><td>{bar(md, total, '#F59E0B')}</td></tr>"
+        f"<tr><td>low (&lt;0.5)</td><td>{lo}</td><td>{bar(lo, total, '#EF4444')}</td></tr>"
+        f"<tr><td>cross-verified (≥2 sources)</td><td>{xver}</td><td>{bar(xver, total, '#7DA2FF')}</td></tr>"
+    )
+    srcs = "".join(
+        f"<tr><td>{html.escape(k)}</td><td>{v}</td></tr>"
+        for k, v in sorted(src_counts.items(), key=lambda x: -x[1])
+    )
+    kinds = "".join(
+        f"<tr><td>{html.escape(k)}</td><td>{v}</td></tr>"
+        for k, v in sorted(kind_counts.items(), key=lambda x: -x[1])
+    )
+    dmax = max(by_day.values()) if by_day else 1
+    days = "".join(
+        f"<tr><td>{d}</td><td>{c}</td><td>{bar(c, dmax, '#7DA2FF')}</td></tr>"
+        for d, c in sorted(by_day.items(), reverse=True)[:14]
+    )
+    recent = ""
+    for r in all_recs[:15]:
+        sc = r.provenance.skill_score
+        col = "#10B981" if sc >= 0.8 else ("#F59E0B" if sc >= 0.5 else "#EF4444")
+        recent += (
+            f"<tr><td>{html.escape(r.name.en_official or r.name.ko)}</td><td>{html.escape(r.kind)}</td>"
+            f"<td><span class=pill style=\"background:{col}\">{sc:.2f}</span></td>"
+            f"<td>{html.escape('; '.join(sorted({_src_name(s) for s in r.provenance.sources})))}</td>"
+            f"<td>{r.snapshot_at.strftime('%m-%d %H:%M')}</td></tr>"
+        )
+    watch = ""
+    for e, r in latest:
+        flags = []
+        if not _fresh(e["latest_at"], e["kind"]):
+            flags.append("STALE")
+        if r.provenance.confidence == "low":
+            flags.append("low-confidence")
+        if len(r.provenance.sources) < 2 and r.kind == "facts":
+            flags.append("single-source")
+        if flags:
+            watch += (
+                f"<tr><td>{html.escape(r.name.en_official or r.name.ko)}</td>"
+                f"<td>{html.escape(e['kind'])}</td><td class=warn>{', '.join(flags)}</td></tr>"
+            )
+    watch = watch or "<tr><td colspan=3 class=ok>✓ nothing flagged</td></tr>"
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    doc = f"""<!doctype html><html><head><meta charset="utf-8">
+<title>KoreaAPI · Monitor</title><meta name="robots" content="noindex">
+<style>
+ body{{font-family:system-ui,-apple-system,sans-serif;background:#0A0E1A;color:#F5F7FA;margin:0;padding:24px}}
+ h1{{margin:0 0 2px}} h2{{font-size:14px;color:#A0AEC0;margin:22px 0 8px}} .sub{{color:#A0AEC0;margin-bottom:18px;font-size:13px}}
+ .cards{{display:flex;gap:12px;flex-wrap:wrap}} .card{{background:#131829;border:1px solid #2A3349;border-radius:10px;padding:12px 16px;min-width:120px}}
+ .card .v{{font-size:24px;font-weight:700}} .card .k{{color:#A0AEC0;font-size:12px}}
+ .grid{{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}} .panel{{flex:1;min-width:300px}}
+ table{{width:100%;border-collapse:collapse;background:#131829;border:1px solid #2A3349;border-radius:10px;overflow:hidden}}
+ th,td{{padding:7px 12px;text-align:left;border-bottom:1px solid #1F2638;font-size:13px}} th{{color:#A0AEC0;background:#1A2036}}
+ .bw{{background:#1F2638;border-radius:4px;height:10px;width:120px;overflow:hidden}} .b{{height:10px}}
+ .pill{{color:#0A0E1A;font-weight:700;padding:1px 7px;border-radius:5px;font-size:12px}}
+ .warn{{color:#F59E0B;font-weight:600}} .ok{{color:#10B981}} footer{{color:#6B7585;margin-top:18px;font-size:12px}}
+</style></head><body>
+<h1>KoreaAPI &middot; Monitor</h1>
+<div class="sub">Data-quality cockpit over the append-only verified store. (Public view: <a href="./index.html" style="color:#7DA2FF">index.html</a>.)</div>
+<div class="cards">
+ <div class="card"><div class="v">{len(ents)}</div><div class="k">entity+kind rows</div></div>
+ <div class="card"><div class="v">{n_snapshots}</div><div class="k">snapshots (accumulated)</div></div>
+ <div class="card"><div class="v">{avg}</div><div class="k">avg Skill Score</div></div>
+ <div class="card"><div class="v">{fresh}/{len(latest)}</div><div class="k">fresh</div></div>
+ <div class="card"><div class="v">{xver}/{len(latest)}</div><div class="k">cross-verified</div></div>
+</div>
+<div class="grid">
+ <div class="panel"><h2>SKILL SCORE / VERIFICATION (latest per entity)</h2><table>{q}</table></div>
+ <div class="panel"><h2>BY SOURCE</h2><table><tr><th>source</th><th>records</th></tr>{srcs}</table>
+  <h2>BY KIND</h2><table><tr><th>kind</th><th>snapshots</th></tr>{kinds}</table></div>
+</div>
+<h2>ACCUMULATION (snapshots per day)</h2><table><tr><th>day (UTC)</th><th>n</th><th></th></tr>{days}</table>
+<h2>WATCH-LIST (stale / low-confidence / single-source)</h2><table><tr><th>name</th><th>kind</th><th>flags</th></tr>{watch}</table>
+<h2>RECENT ACTIVITY</h2><table><tr><th>name</th><th>kind</th><th>score</th><th>sources</th><th>at (UTC)</th></tr>{recent}</table>
+<footer>Generated {generated} &middot; KoreaAPI monitor &middot; interactive: <code>datasette koreaapi.db</code></footer>
+</body></html>"""
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(doc)
+    return out_path
+
+
 def _main(argv: list[str]) -> int:
     cmd = argv[1] if len(argv) > 1 else "stats"
     if cmd == "seed":
@@ -450,6 +587,8 @@ def _main(argv: list[str]) -> int:
         print("wrote", asyncio.run(report_html()))
     elif cmd == "digest":
         print("wrote", asyncio.run(markdown_digest()))
+    elif cmd == "monitor":
+        print("wrote", asyncio.run(monitor_html()))
     elif cmd == "pull":
         out = asyncio.run(pull())
         print(f"pull: ingested {len(out['ingested'])}/{len(out['requested'])} -> {store._db_path(None)}")
