@@ -42,10 +42,18 @@ Tests: 47 passed, 3 live-skip (egress / key); ruff clean. Tracked on PR #1.
 2. **Don't compete with Wikipedia on static facts** (we'd lose — free + in every training
    set). Win on *live-state + verification + append-only history + behavioral signal +
    transaction-attached revenue*.
-3. **Community data (theqoo / Threads / forums) = a trend SIGNAL, not a verified fact.**
-   Ingest as `confidence: low` + `provenance: community, unverified`; cross-verify against an
-   official source before promoting to fact. Scraping is last-resort (gray source — see
-   SCOPE §4). The signal feeds engine ② (trend), it never ships as ground truth.
+3. **Community + social (theqoo 더쿠 / instiz 인스티즈 / Threads) = a trend SIGNAL, not a verified
+   fact** (refined 2026-06-03 from user Q). Two tiers by defensibility:
+   - **(a) Threads API** = an *official* Meta API (NOT scraping). Official artist/agency accounts
+     post teasers/announcements + carry engagement → defensible, **preferred**. Use for
+     early-announcement + buzz signal (needs a Meta app + token; Phase-2).
+   - **(b) theqoo / instiz** = no official API → scraping is **last-resort** (gray, fragile,
+     ToS/IP risk — SCOPE §4). Pure buzz signal only; lowest priority.
+   BOTH ingest as `confidence: low` + `provenance: community, unverified`, feed **engine ②
+   (rising/buzz)**, and must **cross-verify against an official source before promoting to fact**.
+   For the **prediction-market vertical**: community tells you *what's hot to bet on* (demand
+   signal) but is **never the settlement source** (rumor ≠ settlement — settle on Circle Chart /
+   YouTube / Wikidata-anchored agency). It must never pollute the verified store — that's the moat.
 4. **Cold-start sequence first** (free magnet + GEO + affiliate buy-intent signal). Money
    rails come after traffic/agent demand exists.
 5. **소속사/Agency is a HUB, not just a field** (user insight 2026-06-03). K-culture info radiates
