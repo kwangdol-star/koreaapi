@@ -120,9 +120,12 @@ def _channel_ok(title: str | None, alias_norms: set[str]) -> bool:
 
 
 def pick_channel(candidates: list[dict], alias_norms: set[str]) -> dict | None:
-    """Pick the first search candidate that passes the identity guard (else None — drop it)."""
+    """Pick the first search candidate that passes the identity guard (else None — drop it).
+
+    Defensive: skip non-dict entries, so passing a raw (un-parsed) response degrades to "no
+    match" instead of crashing on a stray string."""
     for c in candidates:
-        if _channel_ok(c.get("title"), alias_norms):
+        if isinstance(c, dict) and _channel_ok(c.get("title"), alias_norms):
             return c
     return None
 
@@ -168,7 +171,8 @@ class YouTubeSource:
         term = ARTISTS.get(entity_id) or entity_id.split(":", 1)[-1].strip()
         if not term:
             return None
-        picked = pick_channel(self._get(self._search_url(term)), _alias_norms(entity_id))
+        cands = parse_search(self._get(self._search_url(term)))  # parse BEFORE picking (not raw)
+        picked = pick_channel(cands, _alias_norms(entity_id))
         return picked["channel_id"] if picked else None
 
     def _fetch_sync(self, entity_id: str) -> dict | None:

@@ -55,6 +55,15 @@ def test_identity_guard_rejects_when_no_alias_matches():
     assert pick_channel(parse_search(SEARCH), _alias_norms("artist:aespa")) is None
 
 
+def test_pick_channel_tolerates_non_dict_entries():
+    # Regression: a raw (un-parsed) response yields string keys; pick_channel must not crash on
+    # them (the bug that made fetch silently return None for every artist).
+    assert pick_channel(["kind", "items", {"title": "BANGTANTV"}], _alias_norms("artist:bts")) == {
+        "title": "BANGTANTV"
+    }
+    assert pick_channel(["kind", "items"], _alias_norms("artist:bts")) is None
+
+
 def test_parse_channel_extracts_stats_and_uploads():
     ch = parse_channel(CHANNEL)
     assert ch["channel_id"] == "UCLkAepWjdylmXSltofFvsYQ"
