@@ -7,10 +7,12 @@ never break the loop. Overwrite = wrapper; append = asset.
 
 from __future__ import annotations
 
+import asyncio
 from collections import Counter
 from datetime import datetime, timezone
 
 from ..models import Name, Provenance, Record, TranslationProvenance
+from ..romanize import romanize
 from ..skill_score import compute_skill_score, to_confidence
 from . import store
 from .scheduler import CADENCE
@@ -69,6 +71,11 @@ async def ingest_one(
     keys = [_verify_key(p) for p in payloads]
     modal_key, n_agree = Counter(keys).most_common(1)[0]
     chosen = payloads[keys.index(modal_key)]
+
+    if not chosen.get("name_romanized") and chosen.get("name_ko"):
+        rom = await asyncio.to_thread(romanize, chosen["name_ko"])  # cheap LLM; best-effort
+        if rom:
+            chosen["name_romanized"] = rom
 
     name = _build_name(chosen)
     translation_official = (

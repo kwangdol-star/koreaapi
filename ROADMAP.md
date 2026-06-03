@@ -18,6 +18,7 @@
 | **Identity guard** (anti-poison): reject a label that contradicts a curated anchor | ✅ — caught a real bug in production |
 | Live-verified Q-ids | ✅ BTS `Q13580495` · NewJeans `Q113189277` · aespa `Q100877982` |
 | **Artist roster (6)**: + BLACKPINK · LE SSERAFIM · Stray Kids — Q-ids resolved LIVE on GitHub (never hardcoded), identity-guarded against the roster name | ✅ |
+| **LLM romanization** (Haiku fills `romanized` at ingest — "cheap AI as collection labor"; best-effort, skipped without key) | ✅ |
 | `admin pull` — turnkey live ingestion | ✅ first real external data ingested (3/3) |
 | AEO/GEO surface: JSON-LD in `report.html` + `citation` field in MCP output | ✅ |
 | Cold-start data infra: `admin export` (JSONL + latest.json) + daily GitHub Actions collector | ✅ (collector runs on open-network runners → solves the sandbox egress block) |
@@ -115,9 +116,12 @@ exactly in that gap.
 2. **Status discipline** — `rumored | announced | confirmed | resolved`. For betting,
    mislabelling rumor as fact = liability, so this tightens the existing translation.source /
    confidence model. The verification moat matters MORE here.
-3. **Outcome sources** (the real cost): official agency announcements, Circle Chart (charts),
-   award orgs, Spotify/YouTube (milestones). → the "more sources" investment; needs a
-   source/credentials decision.
+3. **Outcome sources — DECIDED (2026-06-03):** primary = **Circle Chart** (the official Korean
+   chart; public; the authoritative *settlement* source for chart-position outcomes; LLM-extract
+   the public weekly charts = "cheap AI as collection labor"). Complement = **YouTube Data API**
+   (free key) for official-channel release / view-milestone events. **Avoid**: news APIs (rumor ≠
+   settlement) and agency-site / social scraping (fragile, gray, undermines the moat); Spotify
+   gated (skip). Rationale: official source first + live-state + verifiable settlement (the 대명제).
 4. **Settlement output**: extend the existing `citation` field into a machine-citable
    *"verified claim, as-of <date>, source X, Skill Score Y, status Z"* an agent attaches to a bet.
 5. **MCP tool**: `get_claim_status(claim_id)` / `resolve_outcome(...)` → verified outcome +
