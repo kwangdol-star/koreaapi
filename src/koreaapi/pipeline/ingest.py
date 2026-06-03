@@ -116,3 +116,41 @@ async def ingest_one(
 
     await store.append_record(record, db_path=db_path)
     return record
+
+
+async def ingest_chart(chart: dict, *, db_path: str | None = None) -> Record | None:
+    """Append a Circle Chart weekly snapshot (kind='chart') - settlement-grade outcome data.
+
+    One official source, so the Skill Score is single-source-capped (honest: un-cross-verified).
+    Empty entries (egress blocked / no key / page changed) -> nothing appended (never break).
+    """
+    entries = chart.get("entries") or []
+    if not entries:
+        return None
+    now = datetime.now(timezone.utc)
+    top = entries[0]
+    score = compute_skill_score(
+        age_seconds=0,
+        ttl_seconds=CADENCE.get("charts", 43200),
+        n_sources_agree=1,
+        n_sources_total=1,
+        used_fallback_only=False,
+        translation_official=True,
+    )
+    record = Record(
+        entity_id="chart:circle-digital",
+        kind="chart",
+        name=Name(ko="써클 디지털 차트", en_official="Circle Digital Chart"),
+        snapshot_at=now,
+        summary_en=f"Circle Digital Chart - top {len(entries)} (#1: {top['artist']}).",
+        summary_ko=f"써클 디지털 차트 - Top {len(entries)} (1위: {top['artist']}).",
+        data={"entries": entries, "source_url": chart.get("source_url")},
+        provenance=Provenance(
+            sources=[chart.get("citation", "Circle Chart")],
+            fetched_at=now,
+            skill_score=score,
+            confidence=to_confidence(score),
+        ),
+    )
+    await store.append_record(record, db_path=db_path)
+    return record

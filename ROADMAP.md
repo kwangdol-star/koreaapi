@@ -19,6 +19,7 @@
 | Live-verified Q-ids | ✅ BTS `Q13580495` · NewJeans `Q113189277` · aespa `Q100877982` |
 | **Artist roster (6)**: + BLACKPINK · LE SSERAFIM · Stray Kids — Q-ids resolved LIVE on GitHub (never hardcoded), identity-guarded against the roster name | ✅ |
 | **LLM romanization** (Haiku fills `romanized` at ingest — "cheap AI as collection labor"; best-effort, skipped without key) | ✅ |
+| **Circle Chart source #3** (official chart → LLM-extracted weekly entries → `admin chart` = settlement-grade outcome data) | 🟡 built (parse tested); live fetch+LLM-extract validate on a GitHub/local run |
 | `admin pull` — turnkey live ingestion | ✅ first real external data ingested (3/3) |
 | AEO/GEO surface: JSON-LD in `report.html` + `citation` field in MCP output | ✅ |
 | Cold-start data infra: `admin export` (JSONL + latest.json) + daily GitHub Actions collector | ✅ (collector runs on open-network runners → solves the sandbox egress block) |
@@ -157,3 +158,15 @@ egress block); auto-refreshes on push + daily.
    merged to the default branch.
 
 (Production may later move this to the product domain / a Postgres-backed renderer — Phase 2.)
+
+### Backlinks / off-site authority (reviewed, 2026-06-03)
+Traditional SEO backlinks help the web/GEO surface a *little* (authority → citation likelihood)
+but are NOT the main lever for an agent-first product. The agent-era equivalents matter more:
+- **MCP registry / directory listings** (Smithery, etc.) = the discovery "backlinks" of the agent world.
+- **Citations by answer engines / agents** = the new backlink; compounds with our provenance moat.
+- **llms.txt + JSON-LD** (done) = how engines find + trust us.
+
+⛔ **No black-hat** (link farms, PBNs, paid/spam links) — antithetical to a *verifiable / trust*
+brand and a penalty risk. ✅ **Earn** citations by being the verifiable default (provenance + Skill
+Score + the public GEO page + a genuinely useful free "Korea Rising" digest people link/share).
+Earned ≫ bought → prioritise registry listings + citation-worthiness, not a backlink campaign.

@@ -8,6 +8,7 @@ agents read - never a second data path.
 CLI:
   python -m koreaapi.admin seed     # populate koreaapi.db with sample snapshots (offline)
   python -m koreaapi.admin pull     # LIVE: pull real Wikidata snapshots (needs network egress)
+  python -m koreaapi.admin chart    # LIVE: Circle Chart weekly + LLM-extract (needs egress + key)
   python -m koreaapi.admin export   # write data/ asset (snapshots.jsonl history + latest.json)
   python -m koreaapi.admin signals  # top behavioral signals (engine 2: what agents query)
   python -m koreaapi.admin stats    # print a data-quality summary
@@ -28,9 +29,10 @@ import sys
 from datetime import datetime, timezone
 
 from .pipeline import store
-from .pipeline.ingest import ingest_one
+from .pipeline.ingest import ingest_chart, ingest_one
 from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS
+from .sources.circlechart import CircleChartSource
 from .sources.mock import MockSource
 from .sources.wikidata import WikidataSource
 from .sources.wikipedia import WikipediaSource
@@ -303,6 +305,18 @@ def _main(argv: list[str]) -> int:
             print("top behavioral signals (engine 2 - what agents ask for):")
             for s in sig:
                 print(f"  {s['count']:>4}  [{s['kind']}] {s['key']}")
+    elif cmd == "chart":
+        chart = asyncio.run(CircleChartSource().fetch_chart())
+        n = len(chart.get("entries") or [])
+        if not n:
+            print(
+                "chart: 0 entries - needs open network + ANTHROPIC_API_KEY (run on a GitHub job or "
+                "your machine). If the page is JS-rendered, set CIRCLECHART_URL to a data endpoint."
+            )
+        else:
+            asyncio.run(ingest_chart(chart, db_path=None))
+            top = chart["entries"][0]
+            print(f"chart: ingested top {n} -> #1 {top['artist']} - {top.get('title', '')}")
     else:
         print(f"unknown command: {cmd}")
         return 2
