@@ -45,19 +45,19 @@ from .sources.youtube import YouTubeSource
 _SAMPLES = [
     ("comeback", "artist:bts", {
         "name_ko": "방탄소년단", "name_en_official": "BTS", "name_romanized": "Bangtan Sonyeondan",
-        "name_en_source": "official", "date": "2026-06-13",
+        "name_en_source": "official", "date": "2026-06-13", "agency_en": "Big Hit Music",
         "summary_en": "BTS comeback scheduled 2026-06-13.",
         "summary_ko": "방탄소년단 컴백 2026-06-13.",
     }, 2),
     ("chart", "artist:newjeans", {
         "name_ko": "뉴진스", "name_en_official": "NewJeans", "name_romanized": "Nyujinseu",
-        "name_en_source": "official", "rank": 1,
+        "name_en_source": "official", "rank": 1, "agency_en": "ADOR",
         "summary_en": "NewJeans #1 on the weekly chart.",
         "summary_ko": "뉴진스 주간 차트 1위.",
     }, 2),
     ("comeback", "artist:aespa", {
         "name_ko": "에스파", "name_en_official": "aespa", "name_romanized": "Eseupa",
-        "name_en_source": "official", "date": "2026-07-01",
+        "name_en_source": "official", "date": "2026-07-01", "agency_en": "SM Entertainment",
         "summary_en": "aespa comeback scheduled 2026-07-01.",
         "summary_ko": "에스파 컴백 2026-07-01.",
     }, 1),
@@ -244,6 +244,9 @@ def _jsonld(records: list, generated_iso: str) -> str:
         wd = _wikidata_url(r.provenance.sources)
         if wd:
             node["sameAs"] = wd
+        agency = r.data.get("agency_en") or r.data.get("agency_ko")
+        if agency:  # the verified artist -> 소속사 edge, citable by answer engines (the agency hub)
+            node["recordLabel"] = {"@type": "Organization", "name": agency}
         groups.append(node)
     doc = {
         "@context": "https://schema.org",

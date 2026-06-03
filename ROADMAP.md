@@ -25,7 +25,7 @@
 | **Agency SWEEP (roster discovery)**: each anchored agency → SPARQL `wdt:P264 wd:<label>` (`ORDER BY ?item`, deterministic) → labelmate artists → run through the SAME Wikidata+Wikipedia cross-verification → only verified ones join the roster ("정보가 계속 나온다"). Bounded per run; `admin sweep`; in pages/collect. | ✅ **LIVE** — grew roster 6 → 16 (JYP family cross-verified) |
 | **MCP `get_agency(name)`**: the agency hub made agent-queryable ("who's under JYP/HYBE?") from cross-verified records, with provenance | ✅ built (5 MCP tools now) |
 | `admin pull` — turnkey live ingestion | ✅ first real external data ingested (3/3) |
-| AEO/GEO surface: JSON-LD in `report.html` + `citation` field in MCP output | ✅ |
+| AEO/GEO surface: JSON-LD in `report.html` (now incl. `recordLabel` = the verified artist→소속사 edge) + `citation` in MCP output + **`llms.txt` published at the site root** (`/llms.txt`, lists the 5 tools + verification story) | ✅ |
 | Cold-start data infra: `admin export` (JSONL + latest.json) + daily GitHub Actions collector | ✅ (collector runs on open-network runners → solves the sandbox egress block) |
 | **Public GEO page deployed (GitHub Pages, built from live data)** | ✅ **LIVE → https://wrxfoundation.github.io/weatherplan-ai/** |
 | **Behavioral signal (engine ②)**: queries + buy-intent logged append-only; `korea_rising` ranks by observed demand; `admin signals` | ✅ |

@@ -43,6 +43,8 @@ def test_report_emits_jsonld_structured_data(tmp_path):
     assert '"@type": "MusicGroup"' in page
     assert 'name="description"' in page  # AEO meta for answer engines
     assert "BTS" in page  # a verified entity surfaced as structured data
+    assert '"recordLabel"' in page  # the verified artist -> 소속사 edge, citable by engines
+    assert "Big Hit Music" in page  # the agency name surfaced in the structured data
 
 
 def test_service_item_carries_reproducible_citation():
