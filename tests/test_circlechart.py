@@ -15,7 +15,7 @@ import tempfile
 
 from koreaapi.pipeline import store
 from koreaapi.pipeline.ingest import ingest_chart
-from koreaapi.sources.circlechart import parse_chart
+from koreaapi.sources.circlechart import _grounded, parse_chart
 
 _LLM_REPLY = """Sure, here is the chart:
 [
@@ -43,6 +43,23 @@ def test_parse_chart_is_tolerant():
 def test_parse_chart_garbage_returns_empty():
     assert parse_chart("no json here at all") == []
     assert parse_chart("[not valid json]") == []
+
+
+def test_grounded_rejects_hallucinated_entries():
+    # The anti-hallucination guard: only entries whose artist AND title are literally in the HTML
+    # survive. A JS-rendered page (no chart in HTML) -> a model that invents a stale '#1' is dropped.
+    entries = [
+        {"rank": 1, "artist": "NewJeans", "title": "Super Shy"},   # invented; not on the page
+        {"rank": 2, "artist": "aespa", "title": "Whiplash"},       # really on the page
+        {"rank": 3, "artist": "BTS", "title": ""},                 # no title -> cannot ground
+    ]
+    html = "<html><body><div>aespa</div><div>Whiplash</div> ... nav: NewJeans</body></html>"
+    grounded = _grounded(entries, html)
+    assert grounded == [{"rank": 2, "artist": "aespa", "title": "Whiplash"}]
+
+
+def test_grounded_empty_when_page_has_no_chart():
+    assert _grounded([{"rank": 1, "artist": "X", "title": "Y"}], "<html>js shell only</html>") == []
 
 
 def test_ingest_chart_appends_a_chart_snapshot():

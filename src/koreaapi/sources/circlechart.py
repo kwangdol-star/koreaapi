@@ -30,8 +30,10 @@ _UA = {
 }
 _MODEL = "claude-haiku-4-5-20251001"  # cheap extraction labor
 _SYSTEM = (
-    "You extract a music chart from raw HTML. Output ONLY a JSON array of the top entries, each "
-    '{"rank": <int>, "artist": "<name>", "title": "<song title>"}. No prose, no code fence.'
+    "You extract a music chart from raw HTML. Output ONLY a JSON array of the chart entries, each "
+    '{"rank": <int>, "artist": "<name>", "title": "<song title>"}, copied VERBATIM from the HTML. '
+    "If the HTML contains no visible chart, output []. Never invent entries or recall them from "
+    "memory - extract only what is literally present. No prose, no code fence."
 )
 
 
@@ -58,8 +60,26 @@ def parse_chart(text: str, *, limit: int = 100) -> list[dict]:
     return out[:limit]
 
 
+def _grounded(entries: list[dict], html: str, *, limit: int = 100) -> list[dict]:
+    """Anti-hallucination guard: keep only entries whose artist AND title literally appear in the
+    source HTML. A JS-rendered page carries no chart in its HTML, so a model that invents entries
+    from training memory (e.g. a stale '#1') is rejected here - verification over trust, the same
+    doctrine as the identity guard. Without this, LLM extraction can fabricate a chart."""
+    hay = html.casefold()
+    out = [
+        e
+        for e in entries
+        if (a := (e.get("artist") or "").casefold().strip())
+        and (t := (e.get("title") or "").casefold().strip())
+        and a in hay
+        and t in hay
+    ]
+    return out[:limit]
+
+
 def extract_chart(html: str, *, limit: int = 20) -> list[dict]:
-    """Best-effort: LLM-extract chart entries from HTML. [] without a key / on any failure."""
+    """Best-effort: LLM-extract chart entries from HTML, then GROUND them against the HTML (drop
+    anything not literally present). [] without a key / on any failure / when nothing is grounded."""
     if not html or not os.environ.get("ANTHROPIC_API_KEY"):
         return []
     try:
@@ -72,7 +92,7 @@ def extract_chart(html: str, *, limit: int = 20) -> list[dict]:
             messages=[{"role": "user", "content": html[:40000]}],
         )
         text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
-        return parse_chart(text, limit=limit)
+        return _grounded(parse_chart(text, limit=limit), html, limit=limit)  # reject hallucinations
     except Exception:
         return []
 
