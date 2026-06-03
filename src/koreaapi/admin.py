@@ -125,37 +125,31 @@ def _agency_qids_from_store(recs: list) -> dict[str, str]:
     return out
 
 
-async def sweep(*, db_path: str | None = None, max_new: int = 12, per_agency: int = 2) -> dict:
-    """Agency-hub discovery: for each anchored 소속사 (Wikidata label), find FAMILY artists via
-    SPARQL (same label or any sibling label under the same parent org) and ingest the NEW ones
-    through the SAME Wikidata+Wikipedia cross-verification, so the verified roster grows from the
-    agency hub ('정보가 계속 나온다') without lowering the bar. Balanced (a per-agency cap) so every
-    family is represented, not just the best-covered one. Bounded per run; needs open network.
+async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
+    """Agency-hub discovery: for each anchored 소속사 (Wikidata label), find direct labelmate artists
+    via SPARQL and ingest the NEW ones through the SAME Wikidata+Wikipedia cross-verification, so the
+    verified roster grows from the agency hub ('정보가 계속 나온다') without lowering the bar - only
+    cross-verified labelmates are kept. Bounded per run; needs open network (SPARQL on a runner).
     """
     recs = await store.recent(2000, db_path=db_path)
     have = {r.entity_id for r in recs}
     agencies = _agency_qids_from_store(recs)
-    todo: list[tuple[str, str]] = []
-    seen: set[str] = set()
-    n_candidates = 0
+    candidates: list[dict] = []
     for qid in agencies:
         try:
-            mates = await asyncio.to_thread(fetch_labelmates, qid)
+            candidates.extend(await asyncio.to_thread(fetch_labelmates, qid))
         except Exception:
-            mates = []  # graceful: skip an agency whose SPARQL failed
-        n_candidates += len(mates)
-        taken = 0
-        for m in mates:  # per-agency cap -> balanced representation across families
-            eid = f"artist:{m['slug']}"
-            if eid in have or m["slug"] in seen:
-                continue
-            seen.add(m["slug"])
-            todo.append((eid, m["en"]))
-            taken += 1
-            if taken >= per_agency or len(todo) >= max_new:
-                break
-        if len(todo) >= max_new:
-            break
+            continue  # graceful: skip an agency whose SPARQL failed
+    todo: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for m in candidates:
+        eid = f"artist:{m['slug']}"
+        if eid in have or m["slug"] in seen:
+            continue
+        seen.add(m["slug"])
+        todo.append((eid, m["en"]))
+    todo = todo[:max_new]
+    n_candidates = len(candidates)
     aliases = dict(todo)
     sources = [WikidataSource(aliases=aliases), WikipediaSource(aliases=aliases)]
     ingested: list[str] = []
