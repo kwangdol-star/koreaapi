@@ -231,12 +231,18 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
         sc = rec.provenance.skill_score
         color = "#10B981" if sc >= 0.8 else ("#F59E0B" if sc >= 0.5 else "#EF4444")
         is_fresh = _fresh(e["latest_at"], e["kind"])
+        agency_en = rec.data.get("agency_en") or rec.data.get("agency_ko") or ""
+        agency_ko = rec.data.get("agency_ko") or ""
+        agency_cell = html.escape(agency_en)
+        if agency_ko and agency_ko != agency_en:
+            agency_cell += f"<br><span class=ko>{html.escape(agency_ko)}</span>"
         rows.append(
             "<tr>"
             f"<td><b>{html.escape(rec.name.en_official or '')}</b>"
             f"<br><span class=ko>{html.escape(rec.name.ko)}</span>"
             f"<br><span class=rom>{html.escape(rec.name.romanized or '')}</span></td>"
             f"<td>{html.escape(e['kind'])}</td>"
+            f"<td>{agency_cell}</td>"
             f"<td><span class=badge style=\"background:{color}\">"
             f"{sc:.2f} {html.escape(rec.provenance.confidence)}</span></td>"
             f"<td>{html.escape(rec.provenance.translation.source)}</td>"
@@ -281,7 +287,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <div class="card"><div class="v">{s.get('low_confidence', 0)}</div><div class="k">low confidence</div></div>
 </div>
 <table>
-<tr><th>Name (EN / KO / rom)</th><th>Kind</th><th>Skill Score</th><th>Translation</th><th>Freshness</th><th>Snapshots</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>
+<tr><th>Name (EN / KO / rom)</th><th>Kind</th><th>Agency (소속사)</th><th>Skill Score</th><th>Translation</th><th>Freshness</th><th>Snapshots</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>
 {''.join(rows)}
 </table>
 <footer>Generated {generated} &middot; KoreaAPI Phase 1 &middot; interactive query: <code>datasette koreaapi.db</code></footer>

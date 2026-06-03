@@ -1,0 +1,11 @@
+{
+  "entities": {
+    "Q50602100": {
+      "id": "Q50602100",
+      "labels": {
+        "ko": { "language": "ko", "value": "빅히트 뮤직" },
+        "en": { "language": "en", "value": "Big Hit Music" }
+      }
+    }
+  }
+}

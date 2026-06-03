@@ -46,6 +46,20 @@ _CURATED = {
 _QID = {eid: meta["qid"] for eid, meta in _CURATED.items()}
 
 
+def _claim_qids(item: dict, prop: str) -> list[str]:
+    """Pure: the entity Q-ids a property points to, 'preferred'-rank first (e.g. P264 label)."""
+    ranked: list[tuple[int, str]] = []
+    for claim in item.get("claims", {}).get(prop, []):
+        ms = claim.get("mainsnak", {})
+        if ms.get("snaktype") != "value":
+            continue  # skip 'novalue'/'somevalue'
+        qid = ((ms.get("datavalue") or {}).get("value") or {}).get("id")
+        if qid:
+            ranked.append((0 if claim.get("rank") == "preferred" else 1, qid))
+    ranked.sort(key=lambda r: r[0])
+    return [q for _, q in ranked]
+
+
 def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
     """Pure: turn a Wikidata `wbgetentities` response into our payload shape."""
     ents = raw.get("entities", {})
@@ -63,9 +77,19 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         "name_romanized": None,  # Wikidata rarely carries clean romanization; filled elsewhere
         "name_en_source": "official" if en else "llm",
         "name_en_confidence": "high" if en else "low",
+        # 소속사/label anchor: P264 (record label) Q-ids, resolved to names in fetch(). The agency
+        # is a verified HUB - anchoring artist->agency lets us cross-link comebacks/roster later.
+        "agency_qids": _claim_qids(item, "P264"),
         "summary_en": f"{en or ko} - {kind} (Wikidata labels).",
         "summary_ko": f"{ko or en} - {kind} (위키데이터 라벨).",
     }
+
+
+def parse_label(raw: dict) -> dict:
+    """Pure: the ko/en label of a resolved Wikidata entity (e.g. an agency/label item)."""
+    item = next(iter(raw.get("entities", {}).values()), {})
+    labels = item.get("labels", {})
+    return {"ko": labels.get("ko", {}).get("value"), "en": labels.get("en", {}).get("value")}
 
 
 def parse_search(raw: dict) -> str | None:
@@ -110,7 +134,14 @@ class WikidataSource:
     def _entity_url(self, qid: str) -> str:
         return (
             f"{WIKIDATA_API}?action=wbgetentities&ids={qid}"
-            "&props=labels|aliases&languages=ko|en&format=json"
+            "&props=labels|aliases|claims&languages=ko|en&format=json"  # claims -> P264 agency
+        )
+
+    def _label_url(self, qid: str) -> str:
+        # Lean: just the ko/en label of the agency/label entity (no claims).
+        return (
+            f"{WIKIDATA_API}?action=wbgetentities&ids={qid}"
+            "&props=labels&languages=ko|en&format=json"
         )
 
     def _search_url(self, term: str) -> str:
@@ -157,5 +188,19 @@ class WikidataSource:
         )
         if expected:
             _verify_identity(payload, expected)  # reject contradictory data (invariant 2)
+
+        # Resolve the 소속사/label anchor: the first P264 Q-id -> its ko/en name (one extra call).
+        agency_qids = payload.pop("agency_qids", [])
+        if agency_qids:
+            try:
+                ag = await asyncio.to_thread(self._http_get, self._label_url(agency_qids[0]))
+                label = parse_label(ag)
+                if label.get("en") or label.get("ko"):
+                    payload["agency_en"] = label.get("en")
+                    payload["agency_ko"] = label.get("ko")
+                    payload["agency_source"] = f"Wikidata {agency_qids[0]}"
+            except Exception:
+                pass  # agency is supplementary; never fail the artist fetch for it
+
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         return {"payload": payload, "citation": f"Wikidata {qid} {ts}"}

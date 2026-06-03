@@ -9,10 +9,12 @@ from __future__ import annotations
 import json
 import pathlib
 
-from koreaapi.sources.wikidata import parse_entity, parse_search
+from koreaapi.sources.wikidata import _claim_qids, parse_entity, parse_label, parse_search
 
 FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_bts.json"
 SEARCH_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_search_bts.json"
+AGENCY_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_bts_agency.json"
+LABEL_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_label_bighit.json"
 
 
 def test_parse_extracts_bilingual_official_name():
@@ -32,6 +34,35 @@ def test_parse_search_picks_top_hit():
 
 def test_parse_search_no_hit_returns_none():
     assert parse_search({"search": []}) is None
+
+
+def test_parse_entity_extracts_agency_qids():
+    raw = json.loads(AGENCY_FIXTURE.read_text(encoding="utf-8"))
+    payload = parse_entity(raw, "artist:bts", "facts")
+    assert payload["agency_qids"] == ["Q50602100"]  # P264 (record label) -> resolved in fetch()
+
+
+def test_parse_entity_without_claims_has_no_agency():
+    raw = json.loads(FIXTURE.read_text(encoding="utf-8"))  # no claims in this fixture
+    assert parse_entity(raw, "artist:bts", "facts")["agency_qids"] == []
+
+
+def test_parse_label_extracts_bilingual_name():
+    raw = json.loads(LABEL_FIXTURE.read_text(encoding="utf-8"))
+    assert parse_label(raw) == {"ko": "빅히트 뮤직", "en": "Big Hit Music"}
+
+
+def test_claim_qids_prefers_preferred_rank_and_skips_novalue():
+    item = {
+        "claims": {
+            "P264": [
+                {"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "Q2"}}}, "rank": "normal"},
+                {"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "Q1"}}}, "rank": "preferred"},
+                {"mainsnak": {"snaktype": "novalue"}, "rank": "normal"},
+            ]
+        }
+    }
+    assert _claim_qids(item, "P264") == ["Q1", "Q2"]  # preferred first; novalue dropped
 
 
 if __name__ == "__main__":
