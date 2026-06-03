@@ -42,6 +42,37 @@ Tests: 56 passed, 3 live-skip (egress / key); ruff clean. Tracked on PR #1.
 
 ---
 
+## K-culture breadth — one platform, many verticals (K-pop is the wedge, not the ceiling)
+
+The 대명제 is **"Korean culture & commerce"** (SCOPE positioning). K-pop is the **Phase-1 wedge**
+(go deep on one vertical first — cold-start strategy), NOT the scope limit. What's built is
+deliberately K-pop-first; the **foundation is domain-agnostic** and the same pipeline extends to
+every K-culture vertical.
+
+**Domain-agnostic core (reused as-is by every vertical):** append-only store · cross-verification
+(≥2 sources agree on the canonical name) · Skill Score + provenance · bilingual (ko canonical /
+en + romanization) · identity + hallucination guards · GEO/JSON-LD + `/llms.txt` · MCP tools ·
+behavioral signal. `entity_id` is already namespaced (`artist:` → `drama:` / `film:` / `brand:` /
+`place:` …), and Wikidata + Wikipedia + YouTube are **universal** sources (any entity).
+
+**Per-vertical extension pattern** = namespace + sources + a "hub" anchor + an outcome/"chart" +
+a commerce rail:
+
+| Vertical | entity_id | hub anchor (K-pop's `agency`/P264 analog) | outcome / "chart" | commerce |
+|---|---|---|---|---|
+| **K-pop** (NOW) | `artist:` | agency / label (Wikidata **P264**) | Circle Chart #1 · YouTube releases | goods / tickets |
+| **K-drama / film** (next) | `drama:` / `film:` | studio / network / distributor (**P272/P449**) | Netflix Top-10 · viewership · box office | streaming / merch |
+| **K-beauty** | `brand:` / `product:` | parent company (**P749**) | rankings / bestsellers | affiliate (Skimlinks/Amazon) |
+| **Travel-local (맛집)** — SCOPE's designated first travel vertical | `place:` / `restaurant:` | area / near-venue | verified open + reservation availability | booking commission |
+
+**Generalization the surfaces still need** (when the 2nd vertical lands, not before — avoid
+diluting the K-pop wedge now): rename/extend `get_artist_status` → a generic `get_entity_status`
+(keep an artist alias), generalize the `agency` hub to a per-domain org property, and shift the
+page/digest framing from "artists/agency" to "K-culture entities". Until then the framing stays
+honestly K-pop-content (no claiming drama/film data we don't yet have).
+
+---
+
 ## Key decisions (and why)
 
 1. **Verification is the product, not the data.** Wikidata labels are a commodity the model
