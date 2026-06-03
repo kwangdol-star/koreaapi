@@ -9,6 +9,7 @@ CLI:
   python -m koreaapi.admin seed     # populate koreaapi.db with sample snapshots (offline)
   python -m koreaapi.admin pull     # LIVE: pull real Wikidata snapshots (needs network egress)
   python -m koreaapi.admin chart    # LIVE: Circle Chart weekly + LLM-extract (needs egress + key)
+  python -m koreaapi.admin youtube  # LIVE: official-channel release snapshots (needs YOUTUBE_API_KEY)
   python -m koreaapi.admin export   # write data/ asset (snapshots.jsonl history + latest.json)
   python -m koreaapi.admin signals  # top behavioral signals (engine 2: what agents query)
   python -m koreaapi.admin stats    # print a data-quality summary
@@ -29,13 +30,14 @@ import sys
 from datetime import datetime, timezone
 
 from .pipeline import store
-from .pipeline.ingest import ingest_chart, ingest_one
+from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS
 from .sources.circlechart import CircleChartSource
 from .sources.mock import MockSource
 from .sources.wikidata import WikidataSource
 from .sources.wikipedia import WikipediaSource
+from .sources.youtube import YouTubeSource
 
 # Offline sample data for `seed` (replace with real source adapters later).
 # The third entry has a single source -> demonstrates the single-source Skill cap.
@@ -86,6 +88,29 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
         rec = await ingest_one("facts", entity_id, sources, db_path=db_path)
         (ingested if rec is not None else failed).append(entity_id)
     return {"requested": ids, "ingested": ingested, "failed": failed}
+
+
+async def youtube(entity_ids: list[str] | None = None, *, db_path: str | None = None) -> dict:
+    """Live-pull each artist's OFFICIAL YouTube channel (stats + latest release) -> kind='release'.
+
+    Live-state event data for the prediction-market vertical + engine 2 (view velocity). NOT a
+    name cross-verifier (channels are EN/brand-titled - that would lower scores; the Spotify
+    lesson) - it appends its own single-source-capped snapshot. The identity guard drops any
+    channel whose title doesn't match the artist's known aliases, so a fan/impostor channel is
+    skipped, never poisoned. Needs YOUTUBE_API_KEY + egress; keyless/blocked/unresolved -> skip.
+    """
+    ids = entity_ids or list(ARTISTS)
+    src = YouTubeSource()
+    ingested: list[str] = []
+    skipped: list[str] = []
+    for entity_id in ids:
+        try:
+            payload = await src.fetch(entity_id)
+        except Exception:
+            payload = None
+        rec = await ingest_youtube(entity_id, payload, db_path=db_path) if payload else None
+        (ingested if rec is not None else skipped).append(entity_id)
+    return {"ingested": ingested, "skipped": skipped}
 
 
 async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
@@ -317,6 +342,19 @@ def _main(argv: list[str]) -> int:
             asyncio.run(ingest_chart(chart, db_path=None))
             top = chart["entries"][0]
             print(f"chart: ingested top {n} -> #1 {top['artist']} - {top.get('title', '')}")
+    elif cmd == "youtube":
+        out = asyncio.run(youtube())
+        total = len(out["ingested"]) + len(out["skipped"])
+        if not out["ingested"]:
+            print(
+                "youtube: 0 ingested - needs YOUTUBE_API_KEY + open network (run on a GitHub job or "
+                "your machine). Channels that fail the identity guard are skipped (never poisoned)."
+            )
+        else:
+            print(f"youtube: ingested {len(out['ingested'])}/{total} release snapshot(s) -> {store._db_path(None)}")
+            print("  ok:", ", ".join(out["ingested"]))
+        if out["skipped"]:
+            print("  skipped (unresolved / guard / keyless):", ", ".join(out["skipped"]))
     else:
         print(f"unknown command: {cmd}")
         return 2

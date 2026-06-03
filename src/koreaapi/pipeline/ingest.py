@@ -154,3 +154,63 @@ async def ingest_chart(chart: dict, *, db_path: str | None = None) -> Record | N
     )
     await store.append_record(record, db_path=db_path)
     return record
+
+
+async def ingest_youtube(
+    entity_id: str, payload: dict | None, *, db_path: str | None = None
+) -> Record | None:
+    """Append a YouTube official-channel snapshot (kind='release') - live-state event data.
+
+    One official source (the artist's own channel), so the Skill Score is single-source-capped
+    (honest: not cross-verified). Feeds the prediction-market vertical (release / milestone
+    outcomes) + engine 2 (view velocity). No payload (no key / unresolved channel / blocked /
+    failed the identity guard) -> nothing appended (graceful, never break).
+    """
+    if not payload or not payload.get("channel_id"):
+        return None
+    now = datetime.now(timezone.utc)
+    name_en = payload.get("name_en") or payload.get("title") or entity_id.split(":", 1)[-1]
+    subs, views = payload.get("subscribers"), payload.get("views")
+    latest = payload.get("latest") or {}
+    score = compute_skill_score(
+        age_seconds=0,
+        ttl_seconds=CADENCE.get("events", 86400),
+        n_sources_agree=1,
+        n_sources_total=1,  # single official source -> capped at 0.7 (honest)
+        used_fallback_only=False,
+        translation_official=True,
+    )
+    stat_parts = []
+    if subs is not None:
+        stat_parts.append(f"{subs:,} subscribers")
+    if views is not None:
+        stat_parts.append(f"{views:,} views")
+    stat = ", ".join(stat_parts) if stat_parts else "channel stats"
+    rel = ""
+    if latest.get("title"):
+        rel = f"; latest: '{latest['title']}' ({(latest.get('published_at') or '')[:10]})"
+    record = Record(
+        entity_id=entity_id,
+        kind="release",
+        name=Name(ko=name_en, en_official=name_en, en_source="official", en_confidence="high"),
+        snapshot_at=now,
+        summary_en=f"{name_en} - YouTube official channel: {stat}{rel}.",
+        summary_ko=f"{name_en} - 유튜브 공식 채널: {stat}{rel}.",
+        data={
+            "channel_id": payload["channel_id"],
+            "channel_title": payload.get("title"),
+            "subscribers": subs,
+            "views": views,
+            "videos": payload.get("videos"),
+            "latest": latest or None,
+            "source_url": payload.get("source_url"),
+        },
+        provenance=Provenance(
+            sources=[payload.get("citation", "YouTube Data API")],
+            fetched_at=now,
+            skill_score=score,
+            confidence=to_confidence(score),
+        ),
+    )
+    await store.append_record(record, db_path=db_path)
+    return record

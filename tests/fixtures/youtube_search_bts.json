@@ -1,0 +1,23 @@
+{
+  "kind": "youtube#searchListResponse",
+  "items": [
+    {
+      "kind": "youtube#searchResult",
+      "id": { "kind": "youtube#channel", "channelId": "UCLkAepWjdylmXSltofFvsYQ" },
+      "snippet": {
+        "title": "BANGTANTV",
+        "description": "방탄소년단 (BTS) Official YouTube Channel",
+        "channelTitle": "BANGTANTV"
+      }
+    },
+    {
+      "kind": "youtube#searchResult",
+      "id": { "kind": "youtube#channel", "channelId": "UCfanfanfanfanfanfan0001" },
+      "snippet": {
+        "title": "BTS Army Fanbase",
+        "description": "unofficial fan compilation channel",
+        "channelTitle": "BTS Army Fanbase"
+      }
+    }
+  ]
+}

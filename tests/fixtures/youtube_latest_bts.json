@@ -1,0 +1,17 @@
+{
+  "kind": "youtube#playlistItemListResponse",
+  "items": [
+    {
+      "kind": "youtube#playlistItem",
+      "snippet": {
+        "title": "BTS (방탄소년단) 'Spring Day 2026' Official MV",
+        "publishedAt": "2026-06-01T09:00:00Z",
+        "resourceId": { "kind": "youtube#video", "videoId": "abc123XYZ45" }
+      },
+      "contentDetails": {
+        "videoId": "abc123XYZ45",
+        "videoPublishedAt": "2026-06-01T09:00:00Z"
+      }
+    }
+  ]
+}

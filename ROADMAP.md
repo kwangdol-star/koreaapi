@@ -20,6 +20,7 @@
 | **Artist roster (6)**: + BLACKPINK · LE SSERAFIM · Stray Kids — Q-ids resolved LIVE on GitHub (never hardcoded), identity-guarded against the roster name | ✅ |
 | **LLM romanization** (Haiku fills `romanized` at ingest — "cheap AI as collection labor"; best-effort, skipped without key) | ✅ |
 | **Circle Chart source #3** (official chart → LLM-extracted weekly entries → `admin chart` = settlement-grade outcome data) | 🟡 built (parse tested); live fetch+LLM-extract validate on a GitHub/local run |
+| **YouTube source #3.5** (official-channel stats + latest release → `admin youtube` → `kind='release'` live-state event; identity-guarded; **NOT** a name cross-verifier — channels are EN/brand-titled, would lower scores = the Spotify lesson) | 🟡 built (parse + identity guard tested); live fetch validates on a run with `YOUTUBE_API_KEY` |
 | `admin pull` — turnkey live ingestion | ✅ first real external data ingested (3/3) |
 | AEO/GEO surface: JSON-LD in `report.html` + `citation` field in MCP output | ✅ |
 | Cold-start data infra: `admin export` (JSONL + latest.json) + daily GitHub Actions collector | ✅ (collector runs on open-network runners → solves the sandbox egress block) |
@@ -28,7 +29,7 @@
 | **CI**: `.github/workflows/test.yml` runs `pytest` + `ruff` on push (the suite is now gated) | ✅ |
 | Production Postgres backend (behind the same insert-only contract) | ⬜ planned (scale step) |
 
-Tests: 18 passed, 2 live-skip (egress); ruff clean. Tracked on PR #1.
+Tests: 45 passed, 3 live-skip (egress / key); ruff clean. Tracked on PR #1.
 
 ---
 
@@ -120,9 +121,13 @@ exactly in that gap.
 3. **Outcome sources — DECIDED (2026-06-03):** primary = **Circle Chart** (the official Korean
    chart; public; the authoritative *settlement* source for chart-position outcomes; LLM-extract
    the public weekly charts = "cheap AI as collection labor"). Complement = **YouTube Data API**
-   (free key) for official-channel release / view-milestone events. **Avoid**: news APIs (rumor ≠
-   settlement) and agency-site / social scraping (fragile, gray, undermines the moat); Spotify
-   gated (skip). Rationale: official source first + live-state + verifiable settlement (the 대명제).
+   (free key) for official-channel release / view-milestone events — **BUILT 2026-06-03**
+   (`sources/youtube.py` + `admin youtube`, `kind='release'`; identity-guarded so a fan/impostor
+   channel is never ingested; deliberately NOT a name cross-verifier; set `YOUTUBE_API_KEY` to
+   activate, then promote live-verified channel ids into `_CHANNELS`). **Avoid**: news APIs
+   (rumor ≠ settlement) and agency-site / social scraping (fragile, gray, undermines the moat);
+   Spotify gated (skip). Rationale: official source first + live-state + verifiable settlement
+   (the 대명제).
 4. **Settlement output**: extend the existing `citation` field into a machine-citable
    *"verified claim, as-of <date>, source X, Skill Score Y, status Z"* an agent attaches to a bet.
 5. **MCP tool**: `get_claim_status(claim_id)` / `resolve_outcome(...)` → verified outcome +

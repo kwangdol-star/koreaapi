@@ -1,0 +1,24 @@
+{
+  "kind": "youtube#channelListResponse",
+  "items": [
+    {
+      "kind": "youtube#channel",
+      "id": "UCLkAepWjdylmXSltofFvsYQ",
+      "snippet": {
+        "title": "BANGTANTV",
+        "description": "방탄소년단 (BTS) Official YouTube Channel"
+      },
+      "statistics": {
+        "viewCount": "23456789012",
+        "subscriberCount": "77100000",
+        "hiddenSubscriberCount": false,
+        "videoCount": "2345"
+      },
+      "contentDetails": {
+        "relatedPlaylists": {
+          "uploads": "UULkAepWjdylmXSltofFvsYQ"
+        }
+      }
+    }
+  ]
+}
