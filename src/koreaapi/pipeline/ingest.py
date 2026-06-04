@@ -103,10 +103,20 @@ async def ingest_one(
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
         agency = chosen.get("agency_en") or chosen.get("agency_ko")
+        debut = chosen.get("debut")
+        members = chosen.get("members") or []
         noun = "artist" if entity_id.startswith("artist:") else "entity"
-        summary_en = f"{disp}{ko_part} — verified Korean {noun}." + (f" Agency: {agency}." if agency else "")
-        summary_ko = f"{name.ko} — 검증된 K-{'아티스트' if noun == 'artist' else '엔티티'}." + (
-            f" 소속사: {agency}." if agency else ""
+        summary_en = (
+            f"{disp}{ko_part} — verified Korean {noun}."
+            + (f" Debut {debut}." if debut else "")
+            + (f" Agency: {agency}." if agency else "")
+            + (f" {len(members)} members." if members else "")
+        )
+        summary_ko = (
+            f"{name.ko} — 검증된 K-{'아티스트' if noun == 'artist' else '엔티티'}."
+            + (f" 데뷔 {debut}." if debut else "")
+            + (f" 소속사: {agency}." if agency else "")
+            + (f" 멤버 {len(members)}명." if members else "")
         )
     # Drop the now-redundant prose from the stored payload (it duplicates summary_* + names above).
     data = {k: v for k, v in chosen.items() if k not in ("summary_en", "summary_ko")}

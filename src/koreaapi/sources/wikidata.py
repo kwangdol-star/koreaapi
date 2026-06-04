@@ -62,8 +62,26 @@ def _claim_qids(item: dict, prop: str) -> list[str]:
     return [q for _, q in ranked]
 
 
+def _claim_time(item: dict, prop: str) -> str | None:
+    """Pure: a date string ('2013' or '2013-06-13') from a time-valued claim (e.g. P571 inception)."""
+    for claim in item.get("claims", {}).get(prop, []):
+        ms = claim.get("mainsnak", {})
+        if ms.get("snaktype") != "value":
+            continue
+        t = ((ms.get("datavalue") or {}).get("value") or {}).get("time")  # "+2013-06-13T00:00:00Z"
+        if not t:
+            continue
+        date = t.lstrip("+").split("T")[0]  # "2013-06-13" or "2013-00-00"
+        y, m, d = (date.split("-") + ["00", "00"])[:3]
+        if not y or y == "0000":
+            continue
+        return y if m in ("00", "") else (f"{y}-{m}" if d in ("00", "") else f"{y}-{m}-{d}")
+    return None
+
+
 def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
-    """Pure: turn a Wikidata `wbgetentities` response into our payload shape."""
+    """Pure: turn a Wikidata `wbgetentities` response into our payload shape (incl. verified K-pop
+    facts an agent/fan asks for: agency, debut, active status, member Q-ids)."""
     ents = raw.get("entities", {})
     if not ents:
         raise ValueError("no entity in Wikidata response")
@@ -82,9 +100,27 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         # 소속사/label anchor: P264 (record label) Q-ids, resolved to names in fetch(). The agency
         # is a verified HUB - anchoring artist->agency lets us cross-link comebacks/roster later.
         "agency_qids": _claim_qids(item, "P264"),
+        # Verified K-pop depth: debut (P571 inception), active status (P576 dissolution), and member
+        # Q-ids (P527 has-part) - resolved to names in fetch(). The dates need no extra call.
+        "debut": _claim_time(item, "P571"),
+        "active": "disbanded" if _claim_time(item, "P576") else "active",
+        "member_qids": _claim_qids(item, "P527"),
         "summary_en": f"{en or ko} - {kind} (Wikidata labels).",
         "summary_ko": f"{ko or en} - {kind} (위키데이터 라벨).",
     }
+
+
+def parse_member_names(raw: dict, qids: list[str]) -> list[str]:
+    """Pure: resolve member Q-ids -> EN (or KO) names from a batched wbgetentities labels response,
+    preserving the P527 order and dropping any that didn't resolve."""
+    ents = raw.get("entities", {})
+    out: list[str] = []
+    for q in qids:
+        labels = (ents.get(q) or {}).get("labels", {})
+        nm = labels.get("en", {}).get("value") or labels.get("ko", {}).get("value")
+        if nm:
+            out.append(nm)
+    return out
 
 
 def parse_label(raw: dict) -> dict:
@@ -149,6 +185,19 @@ class WikidataSource:
             "&props=labels&languages=ko|en&format=json"
         )
 
+    def _labels_url(self, qids: list[str]) -> str:
+        # Batch: ko/en labels for many ids in ONE call (members), | encoded by urlencode.
+        query = urllib.parse.urlencode(
+            {
+                "action": "wbgetentities",
+                "ids": "|".join(qids),
+                "props": "labels",
+                "languages": "ko|en",
+                "format": "json",
+            }
+        )
+        return f"{WIKIDATA_API}?{query}"
+
     def _search_url(self, term: str) -> str:
         query = urllib.parse.urlencode(
             {
@@ -208,6 +257,17 @@ class WikidataSource:
                     payload["agency_source"] = f"Wikidata {agency_qids[0]}"
             except Exception:
                 pass  # agency is supplementary; never fail the artist fetch for it
+
+        # Resolve members (P527 Q-ids) -> names in ONE batched call (best-effort; never fail for it).
+        member_qids = payload.pop("member_qids", [])
+        if member_qids:
+            try:
+                raw_m = await asyncio.to_thread(self._http_get, self._labels_url(member_qids[:25]))
+                members = parse_member_names(raw_m, member_qids[:25])
+                if members:
+                    payload["members"] = members
+            except Exception:
+                pass
 
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         return {"payload": payload, "citation": f"Wikidata {qid} {ts}"}

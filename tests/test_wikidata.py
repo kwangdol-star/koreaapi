@@ -11,10 +11,12 @@ import pathlib
 
 from koreaapi.sources.wikidata import (
     _claim_qids,
+    _claim_time,
     build_labelmates_query,
     parse_entity,
     parse_label,
     parse_labelmates,
+    parse_member_names,
     parse_search,
 )
 
@@ -23,6 +25,8 @@ SEARCH_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_search_b
 AGENCY_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_bts_agency.json"
 LABEL_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_label_bighit.json"
 LABELMATES_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_labelmates.json"
+FULL_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_bts_full.json"
+MEMBERS_FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "wikidata_members.json"
 
 
 def test_parse_extracts_bilingual_official_name():
@@ -58,6 +62,28 @@ def test_parse_entity_without_claims_has_no_agency():
 def test_parse_label_extracts_bilingual_name():
     raw = json.loads(LABEL_FIXTURE.read_text(encoding="utf-8"))
     assert parse_label(raw) == {"ko": "빅히트 뮤직", "en": "Big Hit Music"}
+
+
+def test_parse_entity_extracts_debut_active_and_member_qids():
+    raw = json.loads(FULL_FIXTURE.read_text(encoding="utf-8"))
+    p = parse_entity(raw, "artist:bts", "facts")
+    assert p["debut"] == "2013-06-13"  # P571 inception, full date
+    assert p["active"] == "active"  # no P576 dissolution
+    assert p["member_qids"] == ["Q494528", "Q494529"]  # P527, resolved to names in fetch()
+    assert p["agency_qids"] == ["Q50602100"]
+
+
+def test_claim_time_year_only_and_disbanded():
+    year_only = {"claims": {"P571": [{"mainsnak": {"snaktype": "value",
+                "datavalue": {"value": {"time": "+2013-00-00T00:00:00Z"}}}}]}}
+    assert _claim_time(year_only, "P571") == "2013"  # month/day 00 -> year only
+    assert _claim_time({"claims": {}}, "P576") is None
+
+
+def test_parse_member_names_resolves_in_order_and_drops_missing():
+    raw = json.loads(MEMBERS_FIXTURE.read_text(encoding="utf-8"))
+    assert parse_member_names(raw, ["Q494528", "Q494529"]) == ["RM", "Jin"]
+    assert parse_member_names(raw, ["Q494528", "Q_missing"]) == ["RM"]  # unresolved dropped
 
 
 def test_parse_labelmates_dedups_and_slugs():

@@ -1,0 +1,31 @@
+{
+  "entities": {
+    "Q13580495": {
+      "id": "Q13580495",
+      "labels": {
+        "ko": { "language": "ko", "value": "방탄소년단" },
+        "en": { "language": "en", "value": "BTS" }
+      },
+      "claims": {
+        "P264": [
+          { "mainsnak": { "snaktype": "value", "property": "P264",
+            "datavalue": { "value": { "entity-type": "item", "id": "Q50602100" }, "type": "wikibase-entityid" } },
+            "rank": "normal" }
+        ],
+        "P571": [
+          { "mainsnak": { "snaktype": "value", "property": "P571",
+            "datavalue": { "value": { "time": "+2013-06-13T00:00:00Z", "precision": 11 }, "type": "time" } },
+            "rank": "normal" }
+        ],
+        "P527": [
+          { "mainsnak": { "snaktype": "value", "property": "P527",
+            "datavalue": { "value": { "entity-type": "item", "id": "Q494528" }, "type": "wikibase-entityid" } },
+            "rank": "normal" },
+          { "mainsnak": { "snaktype": "value", "property": "P527",
+            "datavalue": { "value": { "entity-type": "item", "id": "Q494529" }, "type": "wikibase-entityid" } },
+            "rank": "normal" }
+        ]
+      }
+    }
+  }
+}

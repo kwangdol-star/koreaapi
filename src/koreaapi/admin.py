@@ -257,6 +257,11 @@ def _jsonld(records: list, generated_iso: str) -> str:
         agency = r.data.get("agency_en") or r.data.get("agency_ko")
         if agency:  # the verified artist -> 소속사 edge, citable by answer engines (the agency hub)
             node["recordLabel"] = {"@type": "Organization", "name": agency}
+        if r.data.get("debut"):  # verified debut/formation -> citable "when did X debut?"
+            node["foundingDate"] = r.data["debut"]
+        members = r.data.get("members") or []
+        if members:  # verified members -> citable "who is in X?" (schema.org MusicGroup.member)
+            node["member"] = [{"@type": "Person", "name": m} for m in members]
         groups.append(node)
     doc = {
         "@context": "https://schema.org",
