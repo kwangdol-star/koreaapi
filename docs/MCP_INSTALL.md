@@ -8,6 +8,10 @@ cite it.
 Public, crawlable data (Schema.org JSON-LD + `/llms.txt`):
 **https://wrxfoundation.github.io/weatherplan-ai/**
 
+Prefer not to run a server? The verified data is also a plain JSON file you can fetch directly
+(latest snapshot per entity+kind, each with provenance + Skill Score):
+**https://wrxfoundation.github.io/weatherplan-ai/latest.json**
+
 ## Tools
 | Tool | Returns |
 |---|---|

@@ -356,7 +356,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 <div class="intro">
  <p>Every row below is <b>verified</b>: cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, and stamped with a transparent <b>Skill Score</b> + <b>provenance</b>. Korean is canonical; English + romanization for distribution. Each artist is anchored to its <b>소속사 (agency)</b>, and the roster grows by discovering cross-verified labelmates.</p>
  <p><b>Agents</b> call 5 MCP tools &mdash; <code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_buy_options</code>. <b>Answer engines</b>: this page ships Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name &mdash; kind, as of date &middot; source &middot; Skill Score &middot; via KoreaAPI&rdquo;.</p>
- <p><a href="https://github.com/wrxfoundation/weatherplan-ai">Source &amp; docs on GitHub</a> &middot; <a href="./llms.txt">llms.txt</a></p>
+ <p><b>Developers/agents:</b> fetch the verified data as JSON at <a href="./latest.json">/latest.json</a> (no MCP setup) &middot; <a href="https://github.com/wrxfoundation/weatherplan-ai">Source &amp; docs on GitHub</a> &middot; <a href="./llms.txt">llms.txt</a></p>
 </div>
 <div class="cards">
  <div class="card"><div class="v">{s.get('entities', 0)}</div><div class="k">entities</div></div>
@@ -369,7 +369,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 <tr><th>Name (EN / KO / rom)</th><th>Kind</th><th>Agency (소속사)</th><th>Skill Score</th><th>Translation</th><th>Freshness</th><th>Snapshots</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>
 {''.join(rows)}
 </table>
-<footer>Generated {generated} &middot; KoreaAPI Phase 1 (cold-start) &middot; verifiable Korean-culture data for AI agents &middot; <a href="./llms.txt">/llms.txt</a> &middot; <a href="https://github.com/wrxfoundation/weatherplan-ai">GitHub</a></footer>
+<footer>Generated {generated} &middot; KoreaAPI Phase 1 (cold-start) &middot; verifiable Korean-culture data for AI agents &middot; <a href="./latest.json">/latest.json (data)</a> &middot; <a href="./llms.txt">/llms.txt</a> &middot; <a href="https://github.com/wrxfoundation/weatherplan-ai">GitHub</a></footer>
 </body></html>"""
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(doc)

@@ -27,6 +27,7 @@
 | **K-pop depth (verified profile)**: members (Wikidata **P527**, batch-resolved to names) · debut/formation (**P571**) · active status (**P576**) — cross-verified, in the agent data + summary + JSON-LD (`member`/`foundingDate`, so answer engines can cite "who's in X?" / "when did X debut?") | ✅ |
 | `admin pull` — turnkey live ingestion | ✅ first real external data ingested (3/3) |
 | AEO/GEO surface: JSON-LD in `report.html` (now incl. `recordLabel` = the verified artist→소속사 edge) + `citation` in MCP output + **`llms.txt` published at the site root** (`/llms.txt`, lists the 5 tools + verification story) | ✅ |
+| **Open data endpoint** — `/latest.json` published on the site (latest record per entity+kind, full records w/ provenance + Skill Score). Verified data is now callable **3 ways**: MCP (agents) · JSON-LD (answer engines) · plain `/latest.json` fetch (any dev/agent, no setup) | ✅ |
 | Cold-start data infra: `admin export` (JSONL + latest.json) + daily GitHub Actions collector | ✅ (collector runs on open-network runners → solves the sandbox egress block) |
 | **Public GEO page deployed (GitHub Pages, built from live data)** | ✅ **LIVE → https://wrxfoundation.github.io/weatherplan-ai/** |
 | **Behavioral signal (engine ②)**: queries + buy-intent logged append-only; `korea_rising` ranks by observed demand; `admin signals` | ✅ |
