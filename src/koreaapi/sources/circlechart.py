@@ -32,7 +32,7 @@ CIRCLECHART_URL = os.environ.get(
     "&prop=wikitext&format=json",
 )
 _UA = {
-    "User-Agent": "KoreaAPI/0.1 (https://github.com/wrxfoundation/weatherplan-ai) python-urllib"
+    "User-Agent": "KoreaAPI/0.1 (https://github.com/kwangdol-star/koreaapi) python-urllib"
 }
 _MODEL = "claude-haiku-4-5-20251001"  # cheap extraction labor
 _SYSTEM = (

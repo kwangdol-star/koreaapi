@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 _UA = {
-    "User-Agent": "KoreaAPI/0.1 (https://github.com/wrxfoundation/weatherplan-ai) python-urllib"
+    "User-Agent": "KoreaAPI/0.1 (https://github.com/kwangdol-star/koreaapi) python-urllib"
 }
 
 # entity_id -> English Wikipedia article title (curated fast path; else derive from the id).

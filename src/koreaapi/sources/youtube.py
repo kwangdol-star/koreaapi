@@ -35,7 +35,7 @@ from ..roster import ARTISTS
 
 API = "https://www.googleapis.com/youtube/v3"
 _UA = {
-    "User-Agent": "KoreaAPI/0.1 (https://github.com/wrxfoundation/weatherplan-ai) python-urllib"
+    "User-Agent": "KoreaAPI/0.1 (https://github.com/kwangdol-star/koreaapi) python-urllib"
 }
 
 # entity_id -> LIVE-VERIFIED official channel id (high-precision fast path). Empty by default:

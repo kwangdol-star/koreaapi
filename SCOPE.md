@@ -139,6 +139,6 @@ behavioral-signal view (engine ②).
 
 ---
 
-> **Hosting note:** Temporarily committed inside the `weatherplan-ai` repo under `koreaapi/`
-> because this session's GitHub token cannot create a new repo. Move to a dedicated
-> `koreaapi` repository when available (git history transfer or subtree split).
+> **Hosting note:** Now in its own repository,
+> [`kwangdol-star/koreaapi`](https://github.com/kwangdol-star/koreaapi) — split out from its
+> incubation home (`weatherplan-ai/koreaapi/`) via subtree split, full git history preserved.

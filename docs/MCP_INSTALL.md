@@ -6,11 +6,11 @@ a source + a Skill Score + a ready-to-cite line, so an agent can decide whether 
 cite it.
 
 Public, crawlable data (Schema.org JSON-LD + `/llms.txt`):
-**https://wrxfoundation.github.io/weatherplan-ai/**
+**https://kwangdol-star.github.io/koreaapi/**
 
 Prefer not to run a server? The verified data is also a plain JSON file you can fetch directly
 (latest snapshot per entity+kind, each with provenance + Skill Score):
-**https://wrxfoundation.github.io/weatherplan-ai/latest.json**
+**https://kwangdol-star.github.io/koreaapi/latest.json**
 
 ## Tools
 | Tool | Returns |

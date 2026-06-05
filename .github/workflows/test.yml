@@ -1,0 +1,26 @@
+# koreaapi CI — run the test suite + linter on every push and PR.
+# On GitHub's open-network runners the live smoke tests actually exercise Wikidata/Wikipedia
+# (they auto-skip only on transient network failure), so this gates both offline correctness
+# and the live adapters.
+name: test
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --extra dev
+      - name: Lint
+        run: uv run ruff check src tests
+      - name: Test
+        run: uv run pytest -q

@@ -2,8 +2,8 @@
 # The "agent-era backlink": listing here lets agents find + install KoreaAPI.
 # Validate against the current schema at https://smithery.ai/docs before publishing.
 #
-# NOTE: cleanest to publish once koreaapi/ is its own repo (it currently lives in a subdir of
-# weatherplan-ai). The server tools are READ-ONLY over the verified store and need NO secrets;
+# NOTE: this now lives in its own repo (kwangdol-star/koreaapi), so it's ready to publish here.
+# The server tools are READ-ONLY over the verified store and need NO secrets;
 # the optional keys below are only for self-ingestion (romanization / chart / YouTube).
 
 startCommand:

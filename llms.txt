@@ -28,7 +28,7 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
 - Append-only time-series — history is the moat.
 
 ## Public verified data
-- Human + Schema.org JSON-LD: https://wrxfoundation.github.io/weatherplan-ai/
+- Human + Schema.org JSON-LD: https://kwangdol-star.github.io/koreaapi/
 - Machine-readable (JSON, latest snapshot per entity+kind, with provenance + Skill Score):
-  https://wrxfoundation.github.io/weatherplan-ai/latest.json  — fetch it directly, no MCP setup.
+  https://kwangdol-star.github.io/koreaapi/latest.json  — fetch it directly, no MCP setup.
 - Agent (MCP) + crawlable digest: /llms.txt · /korea-rising.md

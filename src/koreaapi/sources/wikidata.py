@@ -30,7 +30,7 @@ WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"  # agency-hub roster disco
 # Wikimedia User-Agent policy: descriptive client/version + a contact URL + library.
 # https://meta.wikimedia.org/wiki/User-Agent_policy  (repo URL is the reachable contact)
 _UA = {
-    "User-Agent": "KoreaAPI/0.1 (https://github.com/wrxfoundation/weatherplan-ai) python-urllib"
+    "User-Agent": "KoreaAPI/0.1 (https://github.com/kwangdol-star/koreaapi) python-urllib"
 }
 
 # Curated anchors: entity_id -> Q-id + expected identity (our highest-trust pins).

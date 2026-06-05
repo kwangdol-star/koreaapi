@@ -1,0 +1,63 @@
+# Public GEO page (answer-engine-crawlable) on GitHub Pages.
+# Builds report.html + monitor.html from LIVE data (the pull runs on GitHub's open-network
+# runner) and deploys to GitHub Pages — a free, public, JSON-LD-bearing URL that
+# Perplexity / ChatGPT / Google AI Overviews can crawl and cite.
+#
+# ONE-TIME ENABLE: repo Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+name: pages
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+  schedule:
+    - cron: "37 1 * * *" # daily, after the collect job
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv (Python env)
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build the public GEO page from live data
+        env:
+          PYTHONPATH: src
+          KOREAAPI_DB: ${{ runner.temp }}/koreaapi.db
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }} # romanization + Circle Chart extract (best-effort; skipped if unset)
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }} # official-channel release snapshots (best-effort; skipped if unset)
+        run: |
+          uv sync
+          uv run python -m koreaapi.admin pull
+          uv run python -m koreaapi.admin sweep
+          uv run python -m koreaapi.admin chart
+          uv run python -m koreaapi.admin youtube
+          uv run python -m koreaapi.admin report
+          uv run python -m koreaapi.admin digest
+          uv run python -m koreaapi.admin monitor
+          uv run python -m koreaapi.admin export
+          mkdir -p _site
+          cp report.html _site/index.html
+          cp monitor.html _site/monitor.html   # human data-quality cockpit at /monitor.html
+          cp llms.txt _site/llms.txt   # agent-discoverable at /llms.txt (AEO/GEO)
+          cp data/korea-rising.md _site/korea-rising.md   # shareable verified digest
+          cp data/latest.json _site/latest.json   # open machine-readable verified data
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3 # publishes ./_site by default
+      - id: deploy
+        uses: actions/deploy-pages@v4
