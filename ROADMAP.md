@@ -44,6 +44,49 @@ Tests: 56 passed, 3 live-skip (egress / key); ruff clean. Tracked on PR #1.
 
 ---
 
+## External validation & absorbed strategy — "2026 AI-agent opportunity" research
+
+An independent 100-opportunity ranking (sorted by *first-mover advantage × compounding moat ×
+2026 feasibility*; sources: a16z *Big Ideas 2026*, Seer Interactive AEO citation analysis 2025-10,
+Profound, Coinbase x402 stats, MCP adoption data) lands KoreaAPI on its **top squares** — this is
+validation, not a pivot:
+
+- **#1 vertical answer-authority hub (AEO)** = our public GEO page + JSON-LD + ready-to-cite line
+- **#2 first-party data / benchmark publisher** = verified records + `/latest.json`
+- **#3 vertical MCP server** = our 5 tools
+- **#4 x402 paid data feed** = the Phase-2 commerce rail (planned)
+- **#10 llms.txt / agent content layer** = `/llms.txt` (shipped)
+- **#28 Korean / multilingual agent-data localization** = our bilingual ko-canonical + romanization (this *is* our wedge)
+- primitives of **#25 vertical knowledge graph** (agency P264 hub), **#67 agent trust score** (Skill Score), **#70 content provenance verification** (provenance + hallucination guard)
+
+**The four moats it names → what we already accrue:** (1) *citation asset* → GEO page + freshness
+(daily collector; "AI citations concentrate on content refreshed in the last 1–3 yrs" — Seer); (2)
+*data asset* → append-only time-series ("history is the moat"); (3) *distribution asset* → Smithery
+listing + being high-trust **early** (only ~13% of public MCP servers are high-trust — quality early
+entrants take the distribution); (4) *workflow lock-in* → not us by design — we are
+**picks-and-shovels**, the asset the report says compounds, not an "AI wrapper" (wrappers ≈ $0 rev).
+
+**Absorbed proof points (for positioning copy):** high-trust MCP ≈13% · citation freshness 1–3 yr
+(Seer) · x402 ~160M+ cumulative payments in ~1 yr · MCP 10k+ public servers — *the land-grab window
+is now*.
+
+**Added to the roadmap (adjacent, compounding, substrate already exists):**
+
+| Add | Why (rank) | Hooks into |
+|---|---|---|
+| **Crawler-citation tracking** (GPTBot / ClaudeBot hits + answer-engine citations of our page) | report's 3–9 mo "measure the compounding moat" step (#29) | extend behavioral signal (engine ②) + monitor cockpit |
+| **x402-gated premium feed** | #4 / #16 / #61 — per-call USDC over verified data | meter `/latest.json` → paid endpoint (Phase 2) |
+| **Machine-readable K-commerce product cards** (albums / merch / tickets) | #6 / #9 / #31 / #94 — ACO for AI shopping agents | the rail behind `get_buy_options` |
+
+**Discipline (report's "avoid" + caveats):** the moat is the **data + citation incumbency, not the
+OSS MCP server itself** (an open-source server alone has weak direct-revenue moat) — don't drift into
+wrapper / single-feature territory. Agentic commerce today is **discovery/conversion-first**:
+consumer trust in autonomous payment is low and x402 volume is partly test/memecoin, so the commerce
+rail leads with *where-to-buy discovery*, not autonomous checkout. Regulated verticals
+(health/legal/finance) are out of lane.
+
+---
+
 ## K-culture breadth — one platform, many verticals (K-pop is the wedge, not the ceiling)
 
 The 대명제 is **"Korean culture & commerce"** (SCOPE positioning). K-pop is the **Phase-1 wedge**
