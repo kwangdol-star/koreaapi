@@ -231,6 +231,40 @@ def _wikidata_url(sources: list[str]) -> str | None:
     return None
 
 
+def _musicgroup_node(r) -> dict:
+    """One verified entity as a Schema.org MusicGroup node (shared by the index + entity pages)."""
+    node = {
+        "@type": "MusicGroup",
+        "name": r.name.en_official or r.name.ko,
+        "alternateName": [x for x in (r.name.ko, r.name.romanized) if x],
+        "description": r.summary_en,
+        "dateModified": r.snapshot_at.isoformat(),
+    }
+    wd = _wikidata_url(r.provenance.sources)
+    if wd:
+        node["sameAs"] = wd
+    agency = r.data.get("agency_en") or r.data.get("agency_ko")
+    if agency:  # the verified artist -> 소속사 edge, citable by answer engines (the agency hub)
+        node["recordLabel"] = {"@type": "Organization", "name": agency}
+    if r.data.get("debut"):  # verified debut/formation -> citable "when did X debut?"
+        node["foundingDate"] = r.data["debut"]
+    members = r.data.get("members") or []
+    if members:  # verified members -> citable "who is in X?" (schema.org MusicGroup.member)
+        node["member"] = [{"@type": "Person", "name": m} for m in members]
+    return node
+
+
+def _escape_jsonld(doc: dict) -> str:
+    # Escape <, >, & so a field value containing "</script>" (LLM/scraped prose) cannot break out
+    # of the inline <script type="application/ld+json"> block and inject HTML into the public page.
+    return (
+        json.dumps(doc, ensure_ascii=False, indent=2)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
 def _jsonld(records: list, generated_iso: str) -> str:
     """Schema.org JSON-LD for the verified entities (AEO/GEO: crawlable, citable structure).
 
@@ -244,25 +278,7 @@ def _jsonld(records: list, generated_iso: str) -> str:
         if r.entity_id in seen:
             continue
         seen.add(r.entity_id)
-        node = {
-            "@type": "MusicGroup",
-            "name": r.name.en_official or r.name.ko,
-            "alternateName": [x for x in (r.name.ko, r.name.romanized) if x],
-            "description": r.summary_en,
-            "dateModified": r.snapshot_at.isoformat(),
-        }
-        wd = _wikidata_url(r.provenance.sources)
-        if wd:
-            node["sameAs"] = wd
-        agency = r.data.get("agency_en") or r.data.get("agency_ko")
-        if agency:  # the verified artist -> 소속사 edge, citable by answer engines (the agency hub)
-            node["recordLabel"] = {"@type": "Organization", "name": agency}
-        if r.data.get("debut"):  # verified debut/formation -> citable "when did X debut?"
-            node["foundingDate"] = r.data["debut"]
-        members = r.data.get("members") or []
-        if members:  # verified members -> citable "who is in X?" (schema.org MusicGroup.member)
-            node["member"] = [{"@type": "Person", "name": m} for m in members]
-        groups.append(node)
+        groups.append(_musicgroup_node(r))
     doc = {
         "@context": "https://schema.org",
         "@graph": [
@@ -279,14 +295,7 @@ def _jsonld(records: list, generated_iso: str) -> str:
             *groups,
         ],
     }
-    # Escape <, >, & so a field value containing "</script>" (LLM/scraped prose) cannot break out
-    # of the inline <script type="application/ld+json"> block and inject HTML into the public page.
-    return (
-        json.dumps(doc, ensure_ascii=False, indent=2)
-        .replace("<", "\\u003c")
-        .replace(">", "\\u003e")
-        .replace("&", "\\u0026")
-    )
+    return _escape_jsonld(doc)
 
 
 async def report_html(db_path: str | None = None, out_path: str = "report.html") -> str:
@@ -307,9 +316,10 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
         agency_cell = html.escape(agency_en)
         if agency_ko and agency_ko != agency_en:
             agency_cell += f"<br><span class=ko>{html.escape(agency_ko)}</span>"
+        slug = _slug(e["entity_id"])
         rows.append(
             "<tr>"
-            f"<td><b>{html.escape(rec.name.en_official or '')}</b>"
+            f"<td><b><a href=\"artist/{slug}.html\">{html.escape(rec.name.en_official or rec.name.ko)}</a></b>"
             f"<br><span class=ko>{html.escape(rec.name.ko)}</span>"
             f"<br><span class=rom>{html.escape(rec.name.romanized or '')}</span></td>"
             f"<td>{html.escape(e['kind'])}</td>"
@@ -371,6 +381,173 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 </table>
 <footer>Generated {generated} &middot; KoreaAPI Phase 1 (cold-start) &middot; verifiable Korean-culture data for AI agents &middot; <a href="./latest.json">/latest.json (data)</a> &middot; <a href="./llms.txt">/llms.txt</a> &middot; <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
 </body></html>"""
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(doc)
+    return out_path
+
+
+_SITE_BASE = "https://kwangdol-star.github.io/koreaapi"
+
+_ENTITY_STYLE = """<style>
+ body{font-family:system-ui,-apple-system,sans-serif;background:#0A0E1A;color:#F5F7FA;margin:0;padding:24px;line-height:1.55;max-width:820px}
+ a{color:#7DA2FF;text-decoration:none} a:hover{text-decoration:underline}
+ h1{margin:0;font-size:26px} h2{margin:22px 0 8px;font-size:15px;color:#A0AEC0;border-bottom:1px solid #2A3349;padding-bottom:4px}
+ .ko{color:#A0AEC0;font-weight:400} .rom{color:#6B7585;font-size:12px}
+ .sub{color:#A0AEC0;margin:4px 0 8px;font-size:13px}
+ ul{padding-left:18px} li{margin:5px 0}
+ .qa{background:#131829;border:1px solid #2A3349;border-radius:8px;padding:10px 14px;margin:8px 0}
+ .qa .q{font-weight:700} .qa .a{color:#C9D2E3;margin-top:3px;font-size:14px}
+ .cite{background:#10231A;border:1px solid #1E5E43;border-radius:8px;padding:10px 14px;margin:18px 0;font-size:13px}
+ .back{font-size:13px;margin:0 0 10px} footer{color:#6B7585;margin-top:18px;font-size:12px}
+</style>"""
+
+
+def _slug(entity_id: str) -> str:
+    """`artist:bts` -> `bts` (stable, semantic per-entity URL slug)."""
+    raw = entity_id.split(":", 1)[-1].lower()
+    return "".join(c if (c.isalnum() or c in "-_") else "-" for c in raw).strip("-") or "entity"
+
+
+def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
+    """Answer-shaped (question, plain-text answer) pairs from verified data — the FAQ an agent asks.
+
+    Rendered visibly AND emitted as FAQPage JSON-LD so an answer engine can extract a cited answer.
+    """
+    qas: list[tuple[str, str]] = []
+    d = primary.data if primary else {}
+    asof = primary.snapshot_at.strftime("%Y-%m-%d") if primary else ""
+    src = "; ".join(primary.provenance.sources) if primary else ""
+    if d.get("debut"):
+        qas.append((f"When did {name} debut?",
+                    f"{name} debuted/formed on {d['debut']} (verified via {src}, as of {asof})."))
+    members = d.get("members") or []
+    if members:
+        qas.append((f"Who are the members of {name}?",
+                    f"{', '.join(members)} — {len(members)} members (verified via {src}, as of {asof})."))
+    agency = d.get("agency_en") or d.get("agency_ko")
+    if agency:
+        ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
+        qas.append((f"What agency (소속사) is {name} under?",
+                    f"{name} is under {ag} (verified via {src}, as of {asof})."))
+    for kind, rec in by_kind.items():  # fresh current-state Q — the answer an LLM's training set can't have
+        if kind == "facts":
+            continue
+        q = (f"What is {name}'s latest release / current status?" if kind == "release"
+             else f"What is {name}'s current {kind}?")
+        qas.append((q, f"{rec.summary_en} (as of {rec.snapshot_at.strftime('%Y-%m-%d')}, "
+                       f"via {'; '.join(rec.provenance.sources)})."))
+    return qas
+
+
+def _faqpage_node(qas: list[tuple[str, str]]) -> dict:
+    return {
+        "@type": "FAQPage",
+        "mainEntity": [
+            {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
+            for q, a in qas
+        ],
+    }
+
+
+def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict,
+                       qas: list[tuple[str, str]], jsonld: str) -> None:
+    asof = primary.snapshot_at.strftime("%Y-%m-%d")
+    ko_raw, en_raw = primary.name.ko or "", primary.name.en_official or ""
+    ko, en, rom = html.escape(ko_raw), html.escape(en_raw), html.escape(primary.name.romanized or "")
+    sc = primary.provenance.skill_score
+    src = html.escape("; ".join(primary.provenance.sources))
+    title = html.escape(f"{en_raw or ko_raw} ({ko_raw})")
+    desc = html.escape(f"{en_raw or ko_raw} ({ko_raw}) — verified bilingual Korean-culture profile "
+                       f"for AI agents & answer engines. As of {asof}.")
+    current = ""
+    for kind, rec in by_kind.items():  # lead with fresh, non-facts records (release/chart)
+        if kind == "facts":
+            continue
+        current += (f"<li><b>{html.escape(kind)}</b>: {html.escape(rec.summary_en)} "
+                    f"<span class=rom>— as of {rec.snapshot_at.strftime('%Y-%m-%d')}, "
+                    f"via {html.escape('; '.join(rec.provenance.sources))}</span></li>")
+    qa_html = "".join(
+        f"<div class=qa><div class=q>{html.escape(q)}</div><div class=a>{html.escape(a)}</div></div>"
+        for q, a in qas
+    )
+    cite = html.escape(f"{en_raw or ko_raw} — verified, as of {asof} · "
+                       f"{'; '.join(primary.provenance.sources)} · Skill {sc:.2f} · via KoreaAPI")
+    current_block = f"<h2>Current state (as of {asof})</h2><ul>{current}</ul>" if current else ""
+    qa_block = f"<h2>Q&amp;A — what agents ask</h2>{qa_html}" if qa_html else ""
+    doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>{title} — verified profile · KoreaAPI</title>
+<meta name="description" content="{desc}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="{url}">
+<script type="application/ld+json">
+{jsonld}
+</script>
+{_ENTITY_STYLE}
+</head><body>
+<p class=back><a href="../index.html">← KoreaAPI · verifiable K-culture data</a></p>
+<h1>{en} <span class=ko>{ko}</span></h1>
+<div class=rom>{rom}</div>
+<div class=sub>Verified Korean-culture entity · as of {asof} · cross-checked + Skill-scored · via KoreaAPI</div>
+{current_block}
+<h2>Verified facts</h2><p>{html.escape(primary.summary_en)}</p>
+{qa_block}
+<div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span></div>
+<footer>Provenance: {src} · Skill Score {sc:.2f} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
+</body></html>"""
+    with open(os.path.join(out_dir, "artist", f"{slug}.html"), "w", encoding="utf-8") as f:
+        f.write(doc)
+
+
+async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> list[dict]:
+    """One citable answer-page per entity — the AEO citation-surface multiplier.
+
+    Each page leads with fresh current-state ("as of" — what an LLM's training data can't have),
+    then verified facts, an answer-shaped Q&A block, a ready-to-cite line, and JSON-LD
+    (MusicGroup + FAQPage) so an answer engine can land on a specific entity and quote it.
+    """
+    ents = await store.entities(db_path=db_path)
+    by_entity: dict[str, dict] = {}
+    for e in ents:
+        rec = await store.latest(e["entity_id"], e["kind"], db_path=db_path)
+        if rec is not None:
+            by_entity.setdefault(e["entity_id"], {})[e["kind"]] = rec
+    os.makedirs(os.path.join(out_dir, "artist"), exist_ok=True)
+    written: list[dict] = []
+    for entity_id, by_kind in by_entity.items():
+        primary = by_kind.get("facts") or max(by_kind.values(), key=lambda r: r.provenance.skill_score)
+        slug = _slug(entity_id)
+        url = f"{_SITE_BASE}/artist/{slug}.html"
+        name = primary.name.en_official or primary.name.ko
+        qas = _entity_qa(name, primary, by_kind)
+        doc = {"@context": "https://schema.org",
+               "@graph": [_musicgroup_node(primary)] + ([_faqpage_node(qas)] if qas else [])}
+        _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc))
+        written.append({"slug": slug, "name": name, "url": url})
+    return written
+
+
+async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> str:
+    """Emit sitemap.xml covering the index, digest, open data, and every per-entity page.
+
+    lastmod = today, changefreq = daily: advertises the freshness that drives AI citations.
+    """
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    urls = [(f"{_SITE_BASE}/", "1.0"), (f"{_SITE_BASE}/korea-rising.md", "0.8"),
+            (f"{_SITE_BASE}/latest.json", "0.6")]
+    seen: set[str] = set()
+    for e in await store.entities(db_path=db_path):
+        s = _slug(e["entity_id"])
+        if s not in seen:
+            seen.add(s)
+            urls.append((f"{_SITE_BASE}/artist/{s}.html", "0.7"))
+    body = "".join(
+        f"  <url><loc>{u}</loc><lastmod>{today}</lastmod>"
+        f"<changefreq>daily</changefreq><priority>{p}</priority></url>\n"
+        for u, p in urls
+    )
+    doc = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+           f"{body}</urlset>\n")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(doc)
     return out_path
@@ -603,6 +780,13 @@ def _main(argv: list[str]) -> int:
             )
     elif cmd == "report":
         print("wrote", asyncio.run(report_html()))
+    elif cmd == "entitypages":
+        pages = asyncio.run(entity_pages())
+        print(f"entitypages: wrote {len(pages)} per-entity citable page(s) -> site/artist/")
+        for p in pages:
+            print(f"  {p['url']}")
+    elif cmd == "sitemap":
+        print("wrote", asyncio.run(sitemap()))
     elif cmd == "digest":
         print("wrote", asyncio.run(markdown_digest()))
     elif cmd == "monitor":

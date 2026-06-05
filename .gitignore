@@ -10,3 +10,6 @@ build/
 .ruff_cache/
 *.db
 report.html
+monitor.html
+sitemap.xml
+site/

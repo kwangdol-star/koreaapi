@@ -47,6 +47,7 @@ jobs:
           uv run python -m koreaapi.admin chart
           uv run python -m koreaapi.admin youtube
           uv run python -m koreaapi.admin report
+          uv run python -m koreaapi.admin entitypages
           uv run python -m koreaapi.admin digest
           uv run python -m koreaapi.admin monitor
           uv run python -m koreaapi.admin export
@@ -57,14 +58,9 @@ jobs:
           cp data/korea-rising.md _site/korea-rising.md   # shareable verified digest
           cp data/latest.json _site/latest.json   # open machine-readable verified data
           cp robots.txt _site/robots.txt   # explicitly welcome answer-engine crawlers (AEO)
-          DATE=$(date -u +%Y-%m-%d)        # daily sitemap → advertises freshness to crawlers
-          printf '%s\n' \
-            '<?xml version="1.0" encoding="UTF-8"?>' \
-            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' \
-            "  <url><loc>https://kwangdol-star.github.io/koreaapi/</loc><lastmod>${DATE}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>" \
-            "  <url><loc>https://kwangdol-star.github.io/koreaapi/korea-rising.md</loc><lastmod>${DATE}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>" \
-            "  <url><loc>https://kwangdol-star.github.io/koreaapi/latest.json</loc><lastmod>${DATE}</lastmod><changefreq>daily</changefreq><priority>0.6</priority></url>" \
-            '</urlset>' > _site/sitemap.xml
+          cp -r site/artist _site/artist   # per-entity citable answer pages (/artist/<slug>.html)
+          uv run python -m koreaapi.admin sitemap   # sitemap.xml incl. every entity page (daily lastmod)
+          cp sitemap.xml _site/sitemap.xml
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3 # publishes ./_site by default
