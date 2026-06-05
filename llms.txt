@@ -21,6 +21,8 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
 - Agency hub: each artist is anchored to its verified label (Wikidata P264); the roster grows by
   discovering cross-verified labelmates. Every record carries a ready-to-cite line (source + as-of
   date + Skill Score + "via KoreaAPI").
+- Fresh: re-verified daily and timestamped (as-of date) — answer engines favor recently-refreshed
+  sources, so a citation here is current, not stale.
 
 ## Principles
 - Provenance + Skill Score on every response.

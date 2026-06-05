@@ -74,7 +74,7 @@ is now*.
 
 | Add | Why (rank) | Hooks into |
 |---|---|---|
-| **Crawler-citation tracking** (GPTBot / ClaudeBot hits + answer-engine citations of our page) | report's 3–9 mo "measure the compounding moat" step (#29) | extend behavioral signal (engine ②) + monitor cockpit |
+| **Crawler-citation tracking** (GPTBot / ClaudeBot hits + answer-engine citations) | report's 3–9 mo "measure the compounding moat" step (#29) | **started**: `robots.txt` explicitly welcomes AI crawlers + daily `sitemap.xml` (crawl-enablement + freshness signal). Hit-level logging deferred — GitHub Pages exposes no server logs; revisit behind a logging proxy / Cloudflare, or lean on the MCP-side demand signal |
 | **x402-gated premium feed** | #4 / #16 / #61 — per-call USDC over verified data | meter `/latest.json` → paid endpoint (Phase 2) |
 | **Machine-readable K-commerce product cards** (albums / merch / tickets) | #6 / #9 / #31 / #94 — ACO for AI shopping agents | the rail behind `get_buy_options` |
 

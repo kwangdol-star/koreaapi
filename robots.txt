@@ -1,0 +1,10 @@
+# KoreaAPI — verifiable Korean-culture data for AI agents & answer engines.
+# This is an AEO/GEO authority hub: everything here is public and meant to be cited.
+# We explicitly WELCOME all answer-engine / AI crawlers — citation is the point. Nothing is blocked.
+#   (e.g. GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, anthropic-ai, Claude-Web, PerplexityBot,
+#    Perplexity-User, Google-Extended, Applebot-Extended, CCBot, meta-externalagent, Amazonbot, …)
+# Agent index: /llms.txt   ·   Machine-readable data: /latest.json
+User-agent: *
+Allow: /
+
+Sitemap: https://kwangdol-star.github.io/koreaapi/sitemap.xml

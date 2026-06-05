@@ -35,6 +35,14 @@ combination nobody else ships:
 
 The customer is the **AI agent** (consumer); humans / brands / enterprises pay.
 
+## Why now — the land-grab window
+The compounding assets accrue to **early, high-quality** entrants: only ~13% of public MCP
+servers are high-trust, and AI answer engines concentrate citations on content **refreshed in the
+last 1–3 years** (Seer Interactive). A verified hub that re-verifies **daily** compounds a citation
+lead latecomers can't backfill. We are **"picks-and-shovels"** — the data agents consume, not a
+chat wrapper (a category the same market analyses find largely fails to monetize). *(An independent 2026 AI-agent
+opportunity ranking places this exact model at its top — see [`ROADMAP.md`](./ROADMAP.md).)*
+
 ## Revenue flywheel (engines ① + ②)
 K-culture current-state is the magnet. ① commerce commission + ② trend-intelligence
 subscription reinforce each other: transactions generate the behavioral signal that
