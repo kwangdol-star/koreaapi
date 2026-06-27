@@ -1,0 +1,24 @@
+# Publish koreaapi to PyPI — no local tools needed.
+# Trigger: Actions -> "publish" -> Run workflow  (or publish a GitHub Release).
+# Requires a repo secret PYPI_API_TOKEN (pypi.org -> Account settings -> API tokens).
+name: publish
+
+on:
+  workflow_dispatch: {}
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+      - name: Build sdist + wheel
+        run: uv build
+      - name: Publish to PyPI
+        run: uv publish --token ${{ secrets.PYPI_API_TOKEN }}
