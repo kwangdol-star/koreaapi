@@ -65,5 +65,14 @@ DRAMAS = {
     "drama:reply1988": "Reply 1988",
 }
 
-# Every verified entity (artists + dramas): id -> canonical name (live-search + identity-guard term).
-NAMES = {**ARTISTS, **DRAMAS}
+# K-film vertical (more K-culture breadth, same engine). Distinctive titles only (low collision).
+FILMS = {
+    "film:traintobusan": "Train to Busan",
+    "film:thehandmaiden": "The Handmaiden",
+    "film:decisiontoleave": "Decision to Leave",
+    "film:memoriesofmurder": "Memories of Murder",
+    "film:thewailing": "The Wailing",
+}
+
+# Every verified entity (artists + dramas + films): id -> canonical name (search + identity term).
+NAMES = {**ARTISTS, **DRAMAS, **FILMS}

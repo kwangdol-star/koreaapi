@@ -43,6 +43,11 @@ _TITLES = {
     "drama:itaewonclass": "Itaewon Class",
     "drama:extraordinaryattorneywoo": "Extraordinary Attorney Woo",
     "drama:reply1988": "Reply 1988",
+    "film:traintobusan": "Train to Busan",
+    "film:thehandmaiden": "The Handmaiden",
+    "film:decisiontoleave": "Decision to Leave",
+    "film:memoriesofmurder": "Memories of Murder",
+    "film:thewailing": "The Wailing (film)",
 }
 
 

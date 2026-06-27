@@ -237,12 +237,13 @@ def _entity_node(r) -> dict:
     name = r.name.en_official or r.name.ko
     alt = [x for x in (r.name.ko, r.name.romanized) if x]
     wd = _wikidata_url(r.provenance.sources)
-    if r.entity_id.startswith("drama:"):
-        node = {"@type": "TVSeries", "name": name, "alternateName": alt,
+    if r.entity_id.startswith(("drama:", "film:")):
+        node = {"@type": "Movie" if r.entity_id.startswith("film:") else "TVSeries",
+                "name": name, "alternateName": alt,
                 "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
-        if r.data.get("debut"):  # first air date -> citable "when did X air?"
+        if r.data.get("debut"):  # air/release date -> citable "when did X come out?"
             node["datePublished"] = r.data["debut"]
         cast = r.data.get("members") or []
         if cast:  # verified cast -> citable "who's in X?" (schema.org TVSeries.actor)
@@ -459,7 +460,11 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
     asof = primary.snapshot_at.strftime("%Y-%m-%d") if primary else ""
     src = "; ".join(primary.provenance.sources) if primary else ""
     if d.get("debut"):
-        if primary and primary.entity_id.startswith("drama:"):
+        eid = primary.entity_id if primary else ""
+        if eid.startswith("film:"):
+            qas.append((f"When was {name} released?",
+                        f"{name} was released in {d['debut']} (verified via {src}, as of {asof})."))
+        elif eid.startswith("drama:"):
             qas.append((f"When did {name} first air?",
                         f"{name} first aired in {d['debut']} (verified via {src}, as of {asof})."))
         else:
@@ -467,7 +472,7 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
                         f"{name} debuted/formed on {d['debut']} (verified via {src}, as of {asof})."))
     members = d.get("members") or []
     if members:
-        if primary and primary.entity_id.startswith("drama:"):
+        if primary and primary.entity_id.startswith(("drama:", "film:")):
             qas.append((f"Who stars in {name}?",
                         f"Cast includes {', '.join(members)} (verified via {src}, as of {asof})."))
         else:
