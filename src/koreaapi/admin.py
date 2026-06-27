@@ -285,12 +285,13 @@ def _escape_jsonld(doc: dict) -> str:
     )
 
 
-def _jsonld(records: list, generated_iso: str) -> str:
-    """Schema.org JSON-LD for the verified entities (AEO/GEO: crawlable, citable structure).
+def _jsonld(records: list, generated_iso: str, person_nodes: list | None = None) -> str:
+    """Schema.org JSON-LD for the verified entities + people (AEO/GEO: crawlable, citable structure).
 
     Answer engines (Perplexity / ChatGPT / Google AI Overviews) parse JSON-LD; emitting each
-    artist as a MusicGroup with `sameAs` the Wikidata entity makes our verified, dated record
-    citable on the open web - the GEO substrate on top of the same append-only store.
+    artist as a MusicGroup with `sameAs` the Wikidata entity (and each person as a Person with
+    knownFor) makes our verified, dated records citable on the open web - the GEO substrate on top
+    of the same append-only store.
     """
     groups = []
     seen: set[str] = set()
@@ -313,54 +314,103 @@ def _jsonld(records: list, generated_iso: str) -> str:
                 "creator": {"@type": "Organization", "name": "KoreaAPI"},
             },
             *groups,
+            *(person_nodes or []),
         ],
     }
     return _escape_jsonld(doc)
 
 
+def _report_row(entity_id: str, rec) -> str:
+    """One verified entity as a homepage table row (links to its citable per-entity page)."""
+    sc = rec.provenance.skill_score
+    color = "#10B981" if sc >= 0.8 else ("#F59E0B" if sc >= 0.5 else "#EF4444")
+    is_fresh = _fresh(rec.snapshot_at.isoformat(), rec.kind)
+    agency_en = rec.data.get("agency_en") or rec.data.get("agency_ko") or ""
+    agency_ko = rec.data.get("agency_ko") or ""
+    cell = html.escape(agency_en)
+    if agency_ko and agency_ko != agency_en:
+        cell += f"<br><span class=ko>{html.escape(agency_ko)}</span>"
+    slug = _slug(entity_id)
+    return (
+        "<tr>"
+        f"<td><b><a href=\"artist/{slug}.html\">{html.escape(rec.name.en_official or rec.name.ko)}</a></b>"
+        f"<br><span class=ko>{html.escape(rec.name.ko)}</span>"
+        f"<br><span class=rom>{html.escape(rec.name.romanized or '')}</span></td>"
+        f"<td>{cell}</td>"
+        f"<td><span class=badge style=\"background:{color}\">{sc:.2f} {html.escape(rec.provenance.confidence)}</span></td>"
+        f"<td class={'fresh' if is_fresh else 'stale'}>{'fresh' if is_fresh else 'STALE'}</td>"
+        f"<td class=src>{html.escape('; '.join(rec.provenance.sources))}</td>"
+        f"<td>{html.escape(rec.summary_en)}</td>"
+        "</tr>"
+    )
+
+
+def _report_section(title: str, col2: str, items: list[tuple[str, object]]) -> str:
+    """A per-vertical table section (empty -> omitted, e.g. when a deploy's pull found none)."""
+    if not items:
+        return ""
+    rows = "".join(_report_row(eid, rec) for eid, rec in items)
+    return (f"<h2 class=sec>{title}</h2><div class=tablewrap><table>"
+            f"<tr><th>Name (EN / KO / rom)</th><th>{col2}</th><th>Skill Score</th>"
+            f"<th>Fresh</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>"
+            f"{rows}</table></div>")
+
+
 async def report_html(db_path: str | None = None, out_path: str = "report.html") -> str:
-    ents = await store.entities(db_path=db_path)
+    by_entity = await _load_by_entity(db_path=db_path)
     s = await stats(db_path=db_path)
-    rows = []
-    recs = []
-    for e in ents:
-        rec = await store.latest(e["entity_id"], e["kind"], db_path=db_path)
-        if rec is None:
-            continue
-        recs.append(rec)
-        sc = rec.provenance.skill_score
-        color = "#10B981" if sc >= 0.8 else ("#F59E0B" if sc >= 0.5 else "#EF4444")
-        is_fresh = _fresh(e["latest_at"], e["kind"])
-        agency_en = rec.data.get("agency_en") or rec.data.get("agency_ko") or ""
-        agency_ko = rec.data.get("agency_ko") or ""
-        agency_cell = html.escape(agency_en)
-        if agency_ko and agency_ko != agency_en:
-            agency_cell += f"<br><span class=ko>{html.escape(agency_ko)}</span>"
-        slug = _slug(e["entity_id"])
-        rows.append(
-            "<tr>"
-            f"<td><b><a href=\"artist/{slug}.html\">{html.escape(rec.name.en_official or rec.name.ko)}</a></b>"
-            f"<br><span class=ko>{html.escape(rec.name.ko)}</span>"
-            f"<br><span class=rom>{html.escape(rec.name.romanized or '')}</span></td>"
-            f"<td>{html.escape(e['kind'])}</td>"
-            f"<td>{agency_cell}</td>"
-            f"<td><span class=badge style=\"background:{color}\">"
-            f"{sc:.2f} {html.escape(rec.provenance.confidence)}</span></td>"
-            f"<td>{html.escape(rec.provenance.translation.source)}</td>"
-            f"<td class={'fresh' if is_fresh else 'stale'}>{'fresh' if is_fresh else 'STALE'}</td>"
-            f"<td>{e['snapshots']}</td>"
-            f"<td class=src>{html.escape('; '.join(rec.provenance.sources))}</td>"
-            f"<td>{html.escape(rec.summary_en)}</td>"
-            "</tr>"
-        )
+    # Group the verified entities by vertical (facts/primary record), so the homepage reads as a
+    # browsable catalogue (artists / dramas / films) instead of one undifferentiated table.
+    groups: dict[str, list[tuple[str, object]]] = {"artist": [], "drama": [], "film": []}
+    recs: list = []
+    for entity_id, by_kind in by_entity.items():
+        primary = by_kind.get("facts") or max(by_kind.values(), key=lambda r: r.provenance.skill_score)
+        ns = _entity_kind(entity_id)
+        if ns in groups:
+            groups[ns].append((entity_id, primary))
+            recs.append(primary)
+    for g in groups.values():
+        g.sort(key=lambda it: (it[1].name.en_official or it[1].name.ko).lower())
+
+    # The person graph (hubs) — chips + Person JSON-LD nodes.
+    people = _collect_credits(by_entity)
+    linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
+    ppl: list[tuple[str, str]] = []
+    done: set[str] = set()
+    for name, p in sorted(people.items(), key=lambda kv: -len(kv[1]["credits"])):
+        if p["slug"] in linked and p["slug"] not in done:
+            done.add(p["slug"])
+            ppl.append((name, p["slug"]))
+    person_nodes = [_person_node(name, people[name]["credits"]) for name, _s in ppl]
+    people_block = ""
+    if ppl:
+        chips = "".join(f'<a class="pchip" href="person/{s}.html">{html.escape(n)}</a>' for n, s in ppl)
+        people_block = f"<h2 class=sec>👤 Verified people ({len(ppl)})</h2><div class=pchips>{chips}</div>"
+
+    n_art, n_dr, n_fl = len(groups["artist"]), len(groups["drama"]), len(groups["film"])
+    sections = (
+        _report_section(f"🎤 K-pop artists ({n_art})", "Agency (소속사)", groups["artist"])
+        + _report_section(f"📺 K-dramas ({n_dr})", "Network / platform", groups["drama"])
+        + _report_section(f"🎬 K-films ({n_fl})", "Director / studio", groups["film"])
+        + people_block
+    )
     now = datetime.now(timezone.utc)
     generated = now.strftime("%Y-%m-%d %H:%M UTC")
-    jsonld = _jsonld(recs, now.isoformat())
+    jsonld = _jsonld(recs, now.isoformat(), person_nodes)
     doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>KoreaAPI — verifiable Korean-culture data for AI agents</title>
 <meta name="description" content="KoreaAPI - verifiable, bilingual Korean culture data for AI agents. Every record carries its source and a Skill Score.">
 <meta name="robots" content="index,follow">
+<link rel="canonical" href="{_SITE_BASE}/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="KoreaAPI">
+<meta property="og:title" content="KoreaAPI — verifiable Korean-culture data for AI agents">
+<meta property="og:description" content="Verifiable, bilingual Korean culture data (K-pop · K-drama · K-film) for AI agents &amp; answer engines. Every record carries its source + a Skill Score.">
+<meta property="og:url" content="{_SITE_BASE}/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="KoreaAPI — verifiable Korean-culture data for AI agents">
+<meta name="twitter:description" content="K-pop · K-drama · K-film, cross-verified with provenance + Skill Score. Citable by any answer engine.">
 <script type="application/ld+json">
 {jsonld}
 </script>
@@ -398,6 +448,10 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  .fresh{{color:var(--ok);font-weight:700}} .stale{{color:var(--bad);font-weight:800}}
  .src{{color:var(--mut);font-size:12px;max-width:230px}}
  a{{color:var(--accent);text-decoration:none}} a:hover{{text-decoration:underline}}
+ h2.sec{{font-size:18px;font-weight:800;letter-spacing:-.01em;margin:30px 0 12px}}
+ .pchips{{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}}
+ .pchip{{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:13px;font-weight:600;color:var(--ink)}}
+ .pchip:hover{{border-color:var(--accent);color:var(--accent);text-decoration:none}}
  footer{{color:var(--dim);margin-top:24px;font-size:12px;line-height:1.7}}
 </style></head><body><div class="wrap">
 <div class="brand"><span class="dot"></span><h1>KoreaAPI</h1></div>
@@ -416,16 +470,15 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 </div>
 <div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 5 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
 <div class="cards">
- <div class="card"><div class="v">{s.get('entities', 0)}</div><div class="k">entities</div></div>
- <div class="card"><div class="v">{s.get('snapshots', 0)}</div><div class="k">snapshots (append-only)</div></div>
+ <div class="card"><div class="v">{n_art + n_dr + n_fl}</div><div class="k">verified entities</div></div>
+ <div class="card"><div class="v">{n_art}</div><div class="k">K-pop artists</div></div>
+ <div class="card"><div class="v">{n_dr}</div><div class="k">K-dramas</div></div>
+ <div class="card"><div class="v">{n_fl}</div><div class="k">K-films</div></div>
+ <div class="card"><div class="v">{len(ppl)}</div><div class="k">verified people</div></div>
  <div class="card"><div class="v">{s.get('avg_skill_score', '-')}</div><div class="k">avg Skill Score</div></div>
  <div class="card"><div class="v">{s.get('fresh_entities', '-')}</div><div class="k">fresh</div></div>
- <div class="card"><div class="v">{s.get('low_confidence', 0)}</div><div class="k">low confidence</div></div>
 </div>
-<div class="tablewrap"><table>
-<tr><th>Name (EN / KO / rom)</th><th>Kind</th><th>Agency (소속사)</th><th>Skill Score</th><th>Translation</th><th>Freshness</th><th>Snap</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>
-{''.join(rows)}
-</table></div>
+{sections}
 <footer>Generated {generated} · KoreaAPI Phase 1 (cold-start) · verifiable Korean-culture data for AI agents · <a href="./latest.json">/latest.json</a> · <a href="./llms.txt">/llms.txt</a> · <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
 </div></body></html>"""
     with open(out_path, "w", encoding="utf-8") as f:
@@ -657,6 +710,32 @@ def _faqpage_node(qas: list[tuple[str, str]]) -> dict:
     }
 
 
+def _breadcrumb(name: str, url: str) -> dict:
+    """A 2-level BreadcrumbList (Home > current) — answer engines surface breadcrumbs in results."""
+    return {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "KoreaAPI", "item": f"{_SITE_BASE}/"},
+            {"@type": "ListItem", "position": 2, "name": name, "item": url},
+        ],
+    }
+
+
+def _social_meta(title: str, desc: str, url: str, og_type: str = "website") -> str:
+    """Open Graph + Twitter card tags (richer link previews when a page is shared / cited). `title`
+    and `desc` must already be HTML-attribute-escaped by the caller (html.escape, quote=True)."""
+    return (
+        f'<meta property="og:type" content="{og_type}">'
+        f'<meta property="og:site_name" content="KoreaAPI">'
+        f'<meta property="og:title" content="{title}">'
+        f'<meta property="og:description" content="{desc}">'
+        f'<meta property="og:url" content="{url}">'
+        f'<meta name="twitter:card" content="summary">'
+        f'<meta name="twitter:title" content="{title}">'
+        f'<meta name="twitter:description" content="{desc}">'
+    )
+
+
 def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict,
                        qas: list[tuple[str, str]], jsonld: str, *,
                        entity_slugs: set | None = None, linked: set | None = None,
@@ -711,6 +790,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 <meta name="description" content="{desc}">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="{url}">
+{_social_meta(title, desc, url, "profile")}
 <script type="application/ld+json">
 {jsonld}
 </script>
@@ -761,6 +841,7 @@ def _write_person_html(out_dir: str, name: str, credits: list[dict],
 <meta name="description" content="{desc}">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="{url}">
+{_social_meta(nm, desc, url, "profile")}
 <script type="application/ld+json">
 {jsonld}
 </script>
@@ -812,7 +893,8 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         name = primary.name.en_official or primary.name.ko
         qas = _entity_qa(name, primary, by_kind)
         doc = {"@context": "https://schema.org",
-               "@graph": [_entity_node(primary)] + ([_faqpage_node(qas)] if qas else [])}
+               "@graph": [_entity_node(primary)]
+               + ([_faqpage_node(qas)] if qas else []) + [_breadcrumb(name, url)]}
         related = _related(entity_id, primary, by_entity)
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
                            entity_slugs=entity_slugs, linked=linked, related=related)
@@ -829,7 +911,8 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         credits = p["credits"]
         qas = _person_qa(name, credits)
         doc = {"@context": "https://schema.org",
-               "@graph": [_person_node(name, credits)] + ([_faqpage_node(qas)] if qas else [])}
+               "@graph": [_person_node(name, credits)] + ([_faqpage_node(qas)] if qas else [])
+               + [_breadcrumb(name, f"{_SITE_BASE}/person/{slug}.html")]}
         _write_person_html(out_dir, name, credits, qas, _escape_jsonld(doc))
         people_written.append({"slug": slug, "name": name, "url": f"{_SITE_BASE}/person/{slug}.html"})
     return {"entities": written, "people": people_written}
