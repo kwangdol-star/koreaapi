@@ -59,6 +59,7 @@ jobs:
           cp data/korea-rising.md _site/korea-rising.md   # shareable verified digest
           cp data/latest.json _site/latest.json   # open machine-readable verified data
           cp robots.txt _site/robots.txt   # explicitly welcome answer-engine crawlers (AEO)
+          cp googleb476fa8c4c3cccf0.html _site/   # Google Search Console site verification (file method)
           cp -r site/artist _site/artist   # per-entity citable answer pages (/artist/<slug>.html)
           cp -r site/person _site/person   # per-person credit pages (/person/<slug>.html)
           cp -r site/label _site/label   # per-label/agency/network hub pages (/label/<slug>.html)

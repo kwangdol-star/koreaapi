@@ -421,6 +421,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 <title>KoreaAPI — verifiable Korean-culture data for AI agents</title>
 <meta name="description" content="KoreaAPI - verifiable, bilingual Korean culture data for AI agents. Every record carries its source and a Skill Score.">
 <meta name="robots" content="index,follow">
+<meta name="google-site-verification" content="rlCsGCeBa_AkOV4prHXu-OBEHu1HYcOwmJcpGPyWXFk">
 <link rel="canonical" href="{_SITE_BASE}/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="KoreaAPI">
