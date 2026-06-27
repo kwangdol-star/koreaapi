@@ -422,22 +422,22 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 {jsonld}
 </script>
 <style>
- :root{{--bg:#0A0E1A;--panel:#121829;--panel2:#171F33;--line:#262F47;--ink:#F2F5FA;--mut:#9AA7BD;--dim:#6B7790;--accent:#7DA2FF;--accent2:#A88BFF;--ok:#10B981;--bad:#EF4444;
+ :root{{--bg:#0D0B06;--panel:#17120A;--panel2:#1E1710;--line:#3A2F1A;--ink:#F7F2E8;--mut:#C2B7A3;--dim:#8C8068;--accent:#E9C46A;--accent2:#D9A441;--ok:#10B981;--bad:#EF4444;
   --glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);
   --blur:saturate(170%) blur(18px);
   --gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.28),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}}
  *{{box-sizing:border-box}}
  body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:var(--ink);margin:0;padding:34px 20px 52px;line-height:1.5;
   background:
-   radial-gradient(900px 520px at 10% -12%,rgba(125,162,255,.20),transparent 60%),
-   radial-gradient(840px 480px at 102% -2%,rgba(168,139,255,.18),transparent 55%),
-   radial-gradient(760px 620px at 50% 118%,rgba(125,162,255,.12),transparent 60%),
-   radial-gradient(1100px 520px at 50% -160px,#16223D 0%,var(--bg) 58%);
+   radial-gradient(900px 520px at 10% -12%,rgba(233,196,106,.20),transparent 60%),
+   radial-gradient(840px 480px at 102% -2%,rgba(217,164,65,.18),transparent 55%),
+   radial-gradient(760px 620px at 50% 118%,rgba(233,196,106,.12),transparent 60%),
+   radial-gradient(1100px 520px at 50% -160px,#241A06 0%,var(--bg) 58%);
   background-attachment:fixed}}
  .wrap{{max-width:1180px;margin:0 auto}}
  .brand{{display:flex;align-items:center;gap:11px}}
  .brand h1{{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}}
- .dot{{width:11px;height:11px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 14px rgba(125,162,255,.6)}}
+ .dot{{width:11px;height:11px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 14px rgba(233,196,106,.6)}}
  .tag{{color:var(--mut);margin:11px 0 18px;font-size:15px;max-width:780px}}
  .pills{{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}}
  .pill{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.28)}}
@@ -520,24 +520,24 @@ _FONT_STACK = "'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic'
 
 _ENTITY_STYLE = _FONT_LINKS + """<style>
  :root{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}
- body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F5F7FA;margin:0 auto;padding:34px 22px 48px;line-height:1.55;max-width:860px;
+ body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0 auto;padding:34px 22px 48px;line-height:1.55;max-width:860px;
   background:
-   radial-gradient(760px 440px at 0% -8%,rgba(125,162,255,.20),transparent 60%),
-   radial-gradient(720px 420px at 100% 0%,rgba(168,139,255,.18),transparent 55%),
-   radial-gradient(900px 520px at 50% 120%,rgba(125,162,255,.10),transparent 60%),
-   radial-gradient(1000px 480px at 50% -160px,#16223D 0%,#0A0E1A 60%);background-attachment:fixed}
- a{color:#7DA2FF;text-decoration:none} a:hover{text-decoration:underline}
- h1{margin:0;font-size:27px;font-weight:800;letter-spacing:-.02em} h2{margin:24px 0 9px;font-size:14px;color:#A0AEC0;text-transform:uppercase;letter-spacing:.04em}
- .ko{color:#A0AEC0;font-weight:400} .rom{color:#6B7585;font-size:12px}
- .sub{color:#A0AEC0;margin:6px 0 8px;font-size:13px}
+   radial-gradient(760px 440px at 0% -8%,rgba(233,196,106,.20),transparent 60%),
+   radial-gradient(720px 420px at 100% 0%,rgba(217,164,65,.18),transparent 55%),
+   radial-gradient(900px 520px at 50% 120%,rgba(233,196,106,.10),transparent 60%),
+   radial-gradient(1000px 480px at 50% -160px,#241A06 0%,#0D0B06 60%);background-attachment:fixed}
+ a{color:#E9C46A;text-decoration:none} a:hover{text-decoration:underline}
+ h1{margin:0;font-size:27px;font-weight:800;letter-spacing:-.02em} h2{margin:24px 0 9px;font-size:14px;color:#C2B7A3;text-transform:uppercase;letter-spacing:.04em}
+ .ko{color:#C2B7A3;font-weight:400} .rom{color:#8C8068;font-size:12px}
+ .sub{color:#C2B7A3;margin:6px 0 8px;font-size:13px}
  ul{padding-left:18px} li{margin:5px 0}
  .people{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:8px}
  .people li{margin:0;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:10px;padding:6px 11px;font-size:13px;box-shadow:0 6px 16px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.20)}
- .people li a{color:#7DA2FF}
+ .people li a{color:#E9C46A}
  .qa{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:14px;padding:12px 16px;margin:9px 0;box-shadow:var(--gshadow)}
- .qa .q{font-weight:700} .qa .a{color:#C9D2E3;margin-top:3px;font-size:14px}
- .cite{background:linear-gradient(135deg,rgba(16,185,129,.16),rgba(255,255,255,.02));backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid rgba(45,212,150,.35);border-radius:14px;padding:12px 16px;margin:18px 0;font-size:13px;box-shadow:var(--gshadow)}
- .back{font-size:13px;margin:0 0 12px} footer{color:#6B7585;margin-top:20px;font-size:12px}
+ .qa .q{font-weight:700} .qa .a{color:#E0D7C6;margin-top:3px;font-size:14px}
+ .cite{background:linear-gradient(135deg,rgba(233,196,106,.16),rgba(255,255,255,.02));backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid rgba(233,196,106,.35);border-radius:14px;padding:12px 16px;margin:18px 0;font-size:13px;box-shadow:var(--gshadow)}
+ .back{font-size:13px;margin:0 0 12px} footer{color:#8C8068;margin-top:20px;font-size:12px}
 </style>"""
 
 
@@ -905,27 +905,27 @@ _VERTICALS = {
 
 _HUB_STYLE = """<style>
  :root{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}
- body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F2F5FA;margin:0 auto;padding:34px 20px 52px;line-height:1.5;max-width:1180px;
+ body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0 auto;padding:34px 20px 52px;line-height:1.5;max-width:1180px;
   background:
-   radial-gradient(900px 500px at 8% -10%,rgba(125,162,255,.20),transparent 60%),
-   radial-gradient(820px 460px at 102% 0%,rgba(168,139,255,.18),transparent 55%),
-   radial-gradient(760px 600px at 50% 120%,rgba(125,162,255,.10),transparent 60%),
-   radial-gradient(1100px 520px at 50% -160px,#16223D 0%,#0A0E1A 58%);background-attachment:fixed}
- a{color:#7DA2FF;text-decoration:none} a:hover{text-decoration:underline}
- h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em} .sub{color:#9AA7BD;margin:8px 0 20px;font-size:14px}
+   radial-gradient(900px 500px at 8% -10%,rgba(233,196,106,.20),transparent 60%),
+   radial-gradient(820px 460px at 102% 0%,rgba(217,164,65,.18),transparent 55%),
+   radial-gradient(760px 600px at 50% 120%,rgba(233,196,106,.10),transparent 60%),
+   radial-gradient(1100px 520px at 50% -160px,#241A06 0%,#0D0B06 58%);background-attachment:fixed}
+ a{color:#E9C46A;text-decoration:none} a:hover{text-decoration:underline}
+ h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em} .sub{color:#C2B7A3;margin:8px 0 20px;font-size:14px}
  .back{font-size:13px;margin:0 0 12px}
  .tablewrap{overflow:hidden;overflow-x:auto;border:1px solid var(--gbord);border-radius:18px;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);box-shadow:var(--gshadow)}
  table{width:100%;border-collapse:collapse;min-width:820px;background:transparent}
  th,td{padding:12px 14px;text-align:left;font-size:13px;vertical-align:top;border-bottom:1px solid rgba(255,255,255,.08)}
- th{color:#9AA7BD;font-weight:600;background:rgba(255,255,255,.06);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+ th{color:#C2B7A3;font-weight:600;background:rgba(255,255,255,.06);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
  tbody tr:last-child td{border-bottom:none} tbody tr:hover{background:rgba(255,255,255,.06)}
- td b a{color:#F2F5FA;font-weight:700} td b a:hover{color:#7DA2FF}
- .ko{color:#9AA7BD} .rom{color:#6B7790;font-size:11px}
+ td b a{color:#F7F2E8;font-weight:700} td b a:hover{color:#E9C46A}
+ .ko{color:#C2B7A3} .rom{color:#8C8068;font-size:11px}
  .badge{color:#06140E;font-weight:800;padding:3px 9px;border-radius:6px;font-size:12px;white-space:nowrap}
- .fresh{color:#10B981;font-weight:700} .stale{color:#EF4444;font-weight:800} .src{color:#9AA7BD;font-size:12px;max-width:230px}
- .pchips{display:flex;flex-wrap:wrap;gap:8px} .pchip{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:10px;padding:7px 12px;font-size:13px;font-weight:600;color:#F2F5FA;box-shadow:0 6px 16px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.20)}
- .pchip:hover{border-color:#7DA2FF;color:#7DA2FF;text-decoration:none;transform:translateY(-1px)}
- footer{color:#6B7790;margin-top:22px;font-size:12px}
+ .fresh{color:#10B981;font-weight:700} .stale{color:#EF4444;font-weight:800} .src{color:#C2B7A3;font-size:12px;max-width:230px}
+ .pchips{display:flex;flex-wrap:wrap;gap:8px} .pchip{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:10px;padding:7px 12px;font-size:13px;font-weight:600;color:#F7F2E8;box-shadow:0 6px 16px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.20)}
+ .pchip:hover{border-color:#E9C46A;color:#E9C46A;text-decoration:none;transform:translateY(-1px)}
+ footer{color:#8C8068;margin-top:22px;font-size:12px}
 </style>"""
 
 
@@ -1318,7 +1318,7 @@ async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html
         f"<tr><td>high (≥0.8)</td><td>{hi}</td><td>{bar(hi, total, '#10B981')}</td></tr>"
         f"<tr><td>medium (0.5–0.8)</td><td>{md}</td><td>{bar(md, total, '#F59E0B')}</td></tr>"
         f"<tr><td>low (&lt;0.5)</td><td>{lo}</td><td>{bar(lo, total, '#EF4444')}</td></tr>"
-        f"<tr><td>cross-verified (≥2 sources)</td><td>{xver}</td><td>{bar(xver, total, '#7DA2FF')}</td></tr>"
+        f"<tr><td>cross-verified (≥2 sources)</td><td>{xver}</td><td>{bar(xver, total, '#E9C46A')}</td></tr>"
     )
     srcs = "".join(
         f"<tr><td>{html.escape(k)}</td><td>{v}</td></tr>"
@@ -1330,7 +1330,7 @@ async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html
     )
     dmax = max(by_day.values()) if by_day else 1
     days = "".join(
-        f"<tr><td>{d}</td><td>{c}</td><td>{bar(c, dmax, '#7DA2FF')}</td></tr>"
+        f"<tr><td>{d}</td><td>{c}</td><td>{bar(c, dmax, '#E9C46A')}</td></tr>"
         for d, c in sorted(by_day.items(), reverse=True)[:14]
     )
     recent = ""
@@ -1363,7 +1363,7 @@ async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html
     # Append-only, generated by usage - the proprietary demand signal a latecomer can't reconstruct.
     sig_q = await store.top_signals(12, kind="query", db_path=db_path)
     sig_b = await store.top_signals(8, kind="buy_intent", db_path=db_path)
-    empty = '<td colspan=2 style="color:#6B7585">none yet — fills once the MCP server is live + agents call it</td>'
+    empty = '<td colspan=2 style="color:#8C8068">none yet — fills once the MCP server is live + agents call it</td>'
     usage = "".join(f"<tr><td>{html.escape(s['key'])}</td><td>{s['count']}</td></tr>" for s in sig_q) or f"<tr>{empty}</tr>"
     buys = "".join(f"<tr><td>{html.escape(s['key'])}</td><td>{s['count']}</td></tr>" for s in sig_b) or f"<tr>{empty}</tr>"
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -1372,20 +1372,20 @@ async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html
 {_FONT_LINKS}
 <style>
  :root{{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 40px rgba(0,0,0,.5),inset 0 1.5px 0 rgba(255,255,255,.24),inset 0 -14px 28px rgba(6,10,22,.55)}}
- body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F5F7FA;margin:0;padding:28px 24px;
-  background:radial-gradient(900px 480px at 10% -10%,rgba(125,162,255,.16),transparent 60%),radial-gradient(820px 460px at 100% 0%,rgba(168,139,255,.14),transparent 55%),#0A0E1A;background-attachment:fixed}}
- h1{{margin:0 0 2px}} h2{{font-size:14px;color:#A0AEC0;margin:22px 0 8px}} .sub{{color:#A0AEC0;margin-bottom:18px;font-size:13px}}
+ body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0;padding:28px 24px;
+  background:radial-gradient(900px 480px at 10% -10%,rgba(233,196,106,.16),transparent 60%),radial-gradient(820px 460px at 100% 0%,rgba(217,164,65,.14),transparent 55%),#0D0B06;background-attachment:fixed}}
+ h1{{margin:0 0 2px}} h2{{font-size:14px;color:#C2B7A3;margin:22px 0 8px}} .sub{{color:#C2B7A3;margin-bottom:18px;font-size:13px}}
  .cards{{display:flex;gap:12px;flex-wrap:wrap}} .card{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:14px;padding:13px 17px;min-width:120px;box-shadow:var(--gshadow)}}
- .card .v{{font-size:24px;font-weight:700}} .card .k{{color:#A0AEC0;font-size:12px}}
+ .card .v{{font-size:24px;font-weight:700}} .card .k{{color:#C2B7A3;font-size:12px}}
  .grid{{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}} .panel{{flex:1;min-width:300px}}
  table{{width:100%;border-collapse:collapse;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:14px;overflow:hidden;box-shadow:var(--gshadow)}}
- th,td{{padding:7px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}} th{{color:#A0AEC0;background:rgba(255,255,255,.06)}}
- .bw{{background:#1F2638;border-radius:4px;height:10px;width:120px;overflow:hidden}} .b{{height:10px}}
- .pill{{color:#0A0E1A;font-weight:700;padding:1px 7px;border-radius:5px;font-size:12px}}
- .warn{{color:#F59E0B;font-weight:600}} .ok{{color:#10B981}} footer{{color:#6B7585;margin-top:18px;font-size:12px}}
+ th,td{{padding:7px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}} th{{color:#C2B7A3;background:rgba(255,255,255,.06)}}
+ .bw{{background:#2A2316;border-radius:4px;height:10px;width:120px;overflow:hidden}} .b{{height:10px}}
+ .pill{{color:#0D0B06;font-weight:700;padding:1px 7px;border-radius:5px;font-size:12px}}
+ .warn{{color:#F59E0B;font-weight:600}} .ok{{color:#10B981}} footer{{color:#8C8068;margin-top:18px;font-size:12px}}
 </style></head><body>
 <h1>KoreaAPI &middot; Monitor</h1>
-<div class="sub">Data-quality cockpit over the append-only verified store. (Public view: <a href="./index.html" style="color:#7DA2FF">index.html</a>.)</div>
+<div class="sub">Data-quality cockpit over the append-only verified store. (Public view: <a href="./index.html" style="color:#E9C46A">index.html</a>.)</div>
 <div class="cards">
  <div class="card"><div class="v">{len(ents)}</div><div class="k">entity+kind rows</div></div>
  <div class="card"><div class="v">{n_snapshots}</div><div class="k">snapshots (accumulated)</div></div>
