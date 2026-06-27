@@ -101,12 +101,12 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         "name_romanized": None,  # Wikidata rarely carries clean romanization; filled elsewhere
         "name_en_source": "official" if en else "llm",
         "name_en_confidence": "high" if en else "low",
-        # Music: 소속사 (P264 record label), members (P527), debut (P571 inception) — the verified
-        # artist->agency HUB. Drama: skip those (no agency/members) and use the air date (P577).
+        # Music: 소속사 (P264), members (P527), debut (P571). Drama: skip 소속사, use the air date
+        # (P577) and CAST (P161 — resolved by the SAME member machinery) for "who's in it".
         "agency_qids": [] if is_drama else _claim_qids(item, "P264"),
         "debut": _claim_time(item, "P577" if is_drama else "P571"),
         "active": "active" if is_drama else ("disbanded" if _claim_time(item, "P576") else "active"),
-        "member_qids": [] if is_drama else _claim_qids(item, "P527"),
+        "member_qids": _claim_qids(item, "P161") if is_drama else _claim_qids(item, "P527"),
         "summary_en": f"{en or ko} - {kind} (Wikidata labels).",
         "summary_ko": f"{ko or en} - {kind} (위키데이터 라벨).",
     }

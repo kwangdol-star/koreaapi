@@ -244,6 +244,9 @@ def _entity_node(r) -> dict:
             node["sameAs"] = wd
         if r.data.get("debut"):  # first air date -> citable "when did X air?"
             node["datePublished"] = r.data["debut"]
+        cast = r.data.get("members") or []
+        if cast:  # verified cast -> citable "who's in X?" (schema.org TVSeries.actor)
+            node["actor"] = [{"@type": "Person", "name": m} for m in cast]
         return node
     node = {
         "@type": "MusicGroup",
@@ -464,8 +467,12 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
                         f"{name} debuted/formed on {d['debut']} (verified via {src}, as of {asof})."))
     members = d.get("members") or []
     if members:
-        qas.append((f"Who are the members of {name}?",
-                    f"{', '.join(members)} — {len(members)} members (verified via {src}, as of {asof})."))
+        if primary and primary.entity_id.startswith("drama:"):
+            qas.append((f"Who stars in {name}?",
+                        f"Cast includes {', '.join(members)} (verified via {src}, as of {asof})."))
+        else:
+            qas.append((f"Who are the members of {name}?",
+                        f"{', '.join(members)} — {len(members)} members (verified via {src}, as of {asof})."))
     agency = d.get("agency_en") or d.get("agency_ko")
     if agency:
         ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")

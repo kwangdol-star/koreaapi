@@ -103,8 +103,13 @@ async def ingest_one(
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
         year = chosen.get("debut")
-        summary_en = f"{disp}{ko_part} — verified Korean drama (TV series)." + (f" Aired {year}." if year else "")
-        summary_ko = f"{name.ko} — 검증된 K-드라마." + (f" 방영 {year}." if year else "")
+        cast = chosen.get("members") or []
+        summary_en = (f"{disp}{ko_part} — verified Korean drama (TV series)."
+                      + (f" Aired {year}." if year else "")
+                      + (f" {len(cast)} verified cast." if cast else ""))
+        summary_ko = (f"{name.ko} — 검증된 K-드라마."
+                      + (f" 방영 {year}." if year else "")
+                      + (f" 출연 {len(cast)}명 검증." if cast else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
