@@ -5,7 +5,9 @@ This is a differentiator - keep it transparent and documented (SCOPE.md S1).
 Heuristic (Phase 1), starting from 1.0:
   - freshness penalty: data older than its tier TTL loses up to 0.4
   - agreement penalty: when >=2 sources are available, disagreement subtracts up to 0.3
-  - single-source cap: one un-cross-verified source caps the score at 0.7
+  - uncorroborated cap: fewer than 2 sources in AGREEMENT (a single source, OR multiple
+    sources that disagree) caps the score at 0.7 — "cross-verified" means >=2 sources
+    actually agree, so two contradicting sources can never outrank one honest source.
   - fallback penalty: relying only on fallback sources caps the score at ~0.6
   - translation penalty: a non-official English translation subtracts 0.1
 Clamp to [0, 1].
@@ -35,12 +37,15 @@ def compute_skill_score(
         over = min((age_seconds - ttl_seconds) / max(ttl_seconds, 1), 1.0)
         score -= 0.4 * over
 
-    # source agreement / verification
+    # source agreement / cross-verification
     if n_sources_total >= 2:
         agree_ratio = n_sources_agree / n_sources_total
         score -= 0.3 * (1.0 - agree_ratio)
-    else:
-        # a single source cannot be cross-verified -> cannot be high confidence
+    # "Cross-verified" requires >=2 sources to AGREE. Fewer than that — a single source, OR
+    # multiple sources that contradict each other — is un-cross-verified and capped at 0.7. This
+    # is the fail-safe: two disagreeing sources (the strongest signal one is wrong) can never read
+    # higher than one clean source, and disagreement never reaches "high" confidence.
+    if n_sources_agree < 2:
         score = min(score, 0.7)
 
     # fallback only

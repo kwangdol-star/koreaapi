@@ -38,6 +38,13 @@ _UA = {
     "User-Agent": "KoreaAPI/0.1 (https://github.com/kwangdol-star/koreaapi) python-urllib"
 }
 
+
+def _scrub_key(msg: str) -> str:
+    """Redact the API key from any diagnostic string (the key rides in the request URL, so a
+    URL-bearing exception could otherwise leak it). Never print/log a message that isn't scrubbed."""
+    key = os.environ.get("YOUTUBE_API_KEY") or ""
+    return msg.replace(key, "<key>") if key else msg
+
 # entity_id -> LIVE-VERIFIED official channel id (high-precision fast path). Empty by default:
 # promote an id here only after a verified run confirms it (never hardcode blind — Arborka).
 _CHANNELS: dict[str, str] = {}
@@ -214,10 +221,7 @@ class YouTubeSource:
         try:
             return await asyncio.to_thread(self._fetch_sync, entity_id)
         except Exception as e:
-            key = os.environ.get("YOUTUBE_API_KEY") or ""
-            msg = f"{type(e).__name__}: {e}"
-            if key:
-                msg = msg.replace(key, "<key>")  # never leak the key (it can appear in a URL)
+            msg = _scrub_key(f"{type(e).__name__}: {e}")  # never leak the key (it can appear in a URL)
             print(f"  youtube fetch failed for {entity_id}: {msg}", file=sys.stderr)
             return None
 
@@ -260,7 +264,7 @@ class YouTubeSource:
                 body = e.read().decode("utf-8", "replace")[:300]
             except Exception:
                 pass
-            info["error"] = f"HTTP {e.code} at {info['step']}: {body or e.reason}"  # 'API not enabled' etc.
+            info["error"] = _scrub_key(f"HTTP {e.code} at {info['step']}: {body or e.reason}")
         except Exception as e:
-            info["error"] = f"{type(e).__name__} at {info['step']}: {e}"
+            info["error"] = _scrub_key(f"{type(e).__name__} at {info['step']}: {e}")
         return info

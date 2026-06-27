@@ -181,10 +181,13 @@ def _verify_identity(payload: dict, expected: dict) -> None:
        all we can assert for distinctive names (expected = {en} only).
 
     2. STRICT KO — when we KNOW the Korean name (collision-prone anchors carry both ko+en) and the
-       fetched record has a real Hangul label that is neither the expected ko NOR the expected en,
+       fetched record carries a Korean label that is neither the expected ko NOR the expected en,
        the search drifted to a SAME-EN-LABEL impostor (TREASURE the group -> 보물 the concept;
        Parasite the film -> 기생충 the organism). Reject by the Korean name. (A romanized/latin ko
        label that equals the English name is allowed — some acts label ko in latin, e.g. "NCT".)
+       NB: this catches an impostor that carries its OWN contradicting ko label; an impostor with
+       NO ko label (ko folds to en) can still pass here — its backstop is cross-verification +
+       the uncorroborated Skill-Score cap, which keep such a record honest (never high-confidence).
 
     Either failure raises so the pipeline drops it (graceful degradation) instead of poisoning the
     append-only store. Both fail SAFE: the outcome is a miss, never a wrong record.

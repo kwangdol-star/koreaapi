@@ -57,10 +57,11 @@ async def ingest_one(
     for src in sources:
         try:
             res = await src.fetch(entity_id, kind)
-        except Exception:
-            continue  # graceful degradation: drop the failed source, keep going
-        payloads.append(res["payload"])
-        citations.append(res["citation"])
+            payload, citation = res["payload"], res["citation"]  # inside try: a malformed source
+        except Exception:                                        # dict (missing keys) is a failed
+            continue  # graceful degradation: drop a failed/malformed source, never break the loop
+        payloads.append(payload)
+        citations.append(citation)
         used_fallback.append(bool(getattr(src, "is_fallback", False)))
 
     if not payloads:

@@ -61,7 +61,10 @@ def test_two_sources_disagreeing_on_name_do_not_fully_verify():
                    [MockSource("A", a), MockSource("B", b)], db_path=_tmp_db())
     )
     assert rec is not None
-    assert rec.provenance.skill_score < 0.9  # naming different entities != a clean cross-verify
+    # naming different entities is NOT a cross-verify: must be capped at the single-source level and
+    # never read "high" (regression guard — this used to score 0.85/high, beating a clean source).
+    assert rec.provenance.skill_score <= 0.7
+    assert rec.provenance.confidence != "high"
 
 
 if __name__ == "__main__":

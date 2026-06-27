@@ -19,6 +19,7 @@ CLI:
   python -m koreaapi.admin digest   # write data/korea-rising.md (shareable verified digest)
   python -m koreaapi.admin llms     # regenerate llms.txt (agent index) from the live store
   python -m koreaapi.admin entitypages  # write per-entity + per-person citable pages (site/)
+  python -m koreaapi.admin sitemap  # write sitemap.xml (every entity + person page)
   python -m koreaapi.admin monitor  # write monitor.html (human data-quality cockpit)
 
 For zero-code interactive browse / query / JSON API:  datasette koreaapi.db
@@ -200,8 +201,10 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
 def _fresh(latest_at: str, kind: str) -> bool:
     try:
         dt = datetime.fromisoformat(latest_at)
-    except ValueError:
+    except (ValueError, TypeError):
         return False
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)  # tolerate a naive stored timestamp (assume UTC) - never crash stats
     age = (datetime.now(timezone.utc) - dt).total_seconds()
     return age <= CADENCE.get(kind, 86400)
 
@@ -594,10 +597,10 @@ def _linked_person_slugs(people: dict, entity_slugs: set) -> set:
     }
 
 
-def _credit_link(name: str, entity_slugs: set, linked: set, *, from_dir: str = "artist") -> str:
+def _credit_link(name: str, entity_slugs: set, linked: set) -> str:
     """Render a person's name as a link to their entity page (if they're tracked), else their person
-    page (if it exists), else plain escaped text. `from_dir` is the dir the link is emitted from
-    (pages live under site/<from_dir>/), so the relative path hops up one level."""
+    page (if it exists), else plain escaped text. Emitted only from pages one level under site/
+    (site/artist/, site/person/), so the `../artist/` and `../person/` relative paths resolve."""
     s = _person_slug(name)
     label = html.escape(name)
     if s in entity_slugs:
@@ -897,9 +900,13 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     os.makedirs(os.path.join(out_dir, "artist"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "person"), exist_ok=True)  # always exists -> `cp` never fails
     written: list[dict] = []
+    written_slugs: set[str] = set()
     for entity_id, by_kind in by_entity.items():
         primary = by_kind.get("facts") or max(by_kind.values(), key=lambda r: r.provenance.skill_score)
         slug = _slug(entity_id)
+        if slug in written_slugs:
+            continue  # two entity_ids that normalize to one slug would overwrite the same file;
+        written_slugs.add(slug)  # write one, so `written` + the sitemap never claim a phantom page
         url = f"{_SITE_BASE}/artist/{slug}.html"
         name = primary.name.en_official or primary.name.ko
         qas = _entity_qa(name, primary, by_kind)
