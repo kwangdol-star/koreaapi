@@ -320,5 +320,22 @@ COMPANIES = {
     "company:cj": "CJ Group",
 }
 
+# Brand vertical: Korean consumer brands, K-beauty-led (Wikidata-verifiable). `brand:` maps to
+# owned-by (P127, the parent group) + inception (P571). Collision-prone names bilingually pinned.
+BRANDS = {
+    "brand:laneige": "Laneige",
+    "brand:sulwhasoo": "Sulwhasoo",
+    "brand:cosrx": "COSRX",
+    "brand:drjart": "Dr.Jart+",
+    "brand:missha": "Missha",
+    "brand:etudehouse": "Etude House",
+    "brand:mamonde": "Mamonde",
+    "brand:tonymoly": "Tony Moly",
+    "brand:banilaco": "Banila Co",
+    "brand:innisfree": "Innisfree",        # bilingual in _CURATED (vs the Yeats poem / place)
+    "brand:naturerepublic": "Nature Republic",  # bilingual in _CURATED (generic phrase)
+    "brand:thefaceshop": "The Face Shop",  # bilingual in _CURATED (generic phrase)
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
-NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES}
+NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS}

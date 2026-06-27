@@ -201,6 +201,18 @@ _TITLES = {
     "company:celltrion": "Celltrion",
     "company:posco": "POSCO",
     "company:cj": "CJ Group",
+    "brand:laneige": "Laneige",
+    "brand:sulwhasoo": "Sulwhasoo",
+    "brand:cosrx": "COSRX",
+    "brand:drjart": "Dr.Jart+",
+    "brand:missha": "Missha",
+    "brand:etudehouse": "Etude House",
+    "brand:mamonde": "Mamonde",
+    "brand:tonymoly": "Tony Moly",
+    "brand:banilaco": "Banila Co",
+    "brand:innisfree": "Innisfree",
+    "brand:naturerepublic": "Nature Republic",
+    "brand:thefaceshop": "The Face Shop",
 }
 
 

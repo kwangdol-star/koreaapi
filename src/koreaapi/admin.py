@@ -350,6 +350,15 @@ def _entity_node(r) -> dict:
         if r.data.get("debut"):  # founded -> citable "when was X founded?"
             node["foundingDate"] = r.data["debut"]
         return node
+    if r.entity_id.startswith("brand:"):
+        node = {"@type": "Brand", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        owner = r.data.get("agency_en") or r.data.get("agency_ko")  # owned-by P127 (parent group)
+        if owner:
+            node["manufacturer"] = {"@type": "Organization", "name": owner}
+        return node
     if r.entity_id.startswith(("drama:", "film:")):
         node = {"@type": "Movie" if r.entity_id.startswith("film:") else "TVSeries",
                 "name": name, "alternateName": alt,
@@ -473,7 +482,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     # Group the verified entities by vertical (facts/primary record), so the homepage reads as a
     # browsable catalogue (artists / dramas / films) instead of one undifferentiated table.
     groups: dict[str, list[tuple[str, object]]] = {
-        "artist": [], "drama": [], "film": [], "webtoon": [], "place": [], "food": [], "company": []}
+        "artist": [], "drama": [], "film": [], "webtoon": [], "place": [], "food": [],
+        "company": [], "brand": []}
     recs: list = []
     for entity_id, by_kind in by_entity.items():
         primary = by_kind.get("facts") or max(by_kind.values(), key=lambda r: r.provenance.skill_score)
@@ -511,9 +521,9 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
         labels_block = (f"<h2 class=sec>{_ICON['label']} Labels &amp; networks ({len(label_items)})</h2>"
                         f"<div class=pchips>{lchips}</div>")
 
-    n_art, n_dr, n_fl, n_wt, n_pl, n_fd, n_co = (
+    n_art, n_dr, n_fl, n_wt, n_pl, n_fd, n_co, n_br = (
         len(groups["artist"]), len(groups["drama"]), len(groups["film"]), len(groups["webtoon"]),
-        len(groups["place"]), len(groups["food"]), len(groups["company"]))
+        len(groups["place"]), len(groups["food"]), len(groups["company"]), len(groups["brand"]))
     sections = (
         _report_section(f"{_ICON['artist']} K-pop artists ({n_art})", "Agency (소속사)", groups["artist"])
         + _report_section(f"{_ICON['drama']} K-dramas ({n_dr})", "Network / platform", groups["drama"])
@@ -522,6 +532,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
         + _report_section(f"{_ICON['place']} Places to visit ({n_pl})", "Region / location", groups["place"])
         + _report_section(f"{_ICON['food']} Korean food ({n_fd})", "Type", groups["food"])
         + _report_section(f"{_ICON['company']} Korean companies ({n_co})", "Industry", groups["company"])
+        + _report_section(f"{_ICON['brand']} Korean brands ({n_br})", "Owner / parent", groups["brand"])
         + people_block + labels_block
     )
     now = datetime.now(timezone.utc)
@@ -605,6 +616,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./places.html">{_ICON['place']} Places</a>
  <a class="pill" href="./food.html">{_ICON['food']} Food</a>
  <a class="pill" href="./companies.html">{_ICON['company']} Companies</a>
+ <a class="pill" href="./brands.html">{_ICON['brand']} Brands</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -619,7 +631,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 </div>
 <div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 7 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
 <div class="cards">
- <div class="card"><div class="v">{n_art + n_dr + n_fl + n_wt + n_pl + n_fd + n_co}</div><div class="k">verified entities</div></div>
+ <div class="card"><div class="v">{n_art + n_dr + n_fl + n_wt + n_pl + n_fd + n_co + n_br}</div><div class="k">verified entities</div></div>
  <div class="card"><div class="v">{n_art}</div><div class="k">K-pop artists</div></div>
  <div class="card"><div class="v">{n_dr}</div><div class="k">K-dramas</div></div>
  <div class="card"><div class="v">{n_fl}</div><div class="k">K-films</div></div>
@@ -627,6 +639,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <div class="card"><div class="v">{n_pl}</div><div class="k">places</div></div>
  <div class="card"><div class="v">{n_fd}</div><div class="k">foods</div></div>
  <div class="card"><div class="v">{n_co}</div><div class="k">companies</div></div>
+ <div class="card"><div class="v">{n_br}</div><div class="k">brands</div></div>
  <div class="card"><div class="v">{len(ppl)}</div><div class="k">verified people</div></div>
  <div class="card"><div class="v">{s.get('avg_skill_score', '-')}</div><div class="k">avg Skill Score</div></div>
  <div class="card"><div class="v">{s.get('fresh_entities', '-')}</div><div class="k">fresh</div></div>
@@ -694,6 +707,9 @@ _ICON = {
     "company": _icon('<rect x="3" y="3" width="12" height="18" rx="1"/>'
                      '<path d="M15 9h5a1 1 0 0 1 1 1v11h-6"/><line x1="7" y1="7" x2="11" y2="7"/>'
                      '<line x1="7" y1="11" x2="11" y2="11"/><line x1="7" y1="15" x2="11" y2="15"/>'),
+    # sparkle (brands / K-beauty)
+    "brand": _icon('<path d="M12 3l1.9 4.8L18.7 9.7l-4.8 1.9L12 16.4l-1.9-4.8L5.3 9.7l4.8-1.9z"/>'
+                   '<path d="M19 14l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -894,6 +910,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("company:"):
             qas.append((f"When was {name} founded?",
                         f"{name} was founded in {d['debut']} (verified via {src}, as of {asof})."))
+        elif eid.startswith("brand:"):
+            qas.append((f"When was {name} established?",
+                        f"{name} was established in {d['debut']} (verified via {src}, as of {asof})."))
         elif eid.startswith("drama:"):
             qas.append((f"When did {name} first air?",
                         f"{name} first aired in {d['debut']} (verified via {src}, as of {asof})."))
@@ -934,6 +953,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("company:"):
             qas.append((f"What industry is {name} in?",
                         f"{name} operates in {agency} (verified via {src}, as of {asof})."))
+        elif eid.startswith("brand:"):
+            qas.append((f"Who owns {name}?",
+                        f"{name} is owned by {agency} (verified via {src}, as of {asof})."))
         else:
             ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
             qas.append((f"What agency (소속사) is {name} under?",
@@ -1124,6 +1146,7 @@ _VERTICALS = {
     "place": ("Places to visit", "places.html", _ICON["place"], "Region / location"),
     "food": ("Korean food", "food.html", _ICON["food"], "Type"),
     "company": ("Korean companies", "companies.html", _ICON["company"], "Industry"),
+    "brand": ("Korean brands", "brands.html", _ICON["brand"], "Owner / parent"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -1328,7 +1351,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     # Vertical hub pages + a people hub (hub-and-spoke): each lists its vertical and carries an
     # ItemList + BreadcrumbList so an answer engine can lift "the list of K-dramas" wholesale.
     groups: dict[str, list] = {"artist": [], "drama": [], "film": [], "webtoon": [],
-                               "place": [], "food": [], "company": []}
+                               "place": [], "food": [], "company": [], "brand": []}
     hub_seen: set[str] = set()
     for entity_id, by_kind in by_entity.items():
         ns = _entity_kind(entity_id)
@@ -1485,9 +1508,9 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     def names(prefix: str) -> list[str]:
         return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
 
-    arts, dramas, films, webtoons, places, foods, companies = (
+    arts, dramas, films, webtoons, places, foods, companies, brands = (
         names("artist:"), names("drama:"), names("film:"), names("webtoon:"),
-        names("place:"), names("food:"), names("company:"))
+        names("place:"), names("food:"), names("company:"), names("brand:"))
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
 
@@ -1497,7 +1520,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coverage = f"""
 ## Coverage (live, as of {today})
-- {len(facts)} verified entities across 7 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies.
+- {len(facts)} verified entities across 8 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands.
 - {len(linked)} verified people (directors + cross-work cast/creators), each a citable hub page linking their works.
 - K-pop artists: {sample(arts)}
 - K-dramas: {sample(dramas)}
@@ -1506,6 +1529,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Places to visit: {sample(places)}
 - Korean food: {sample(foods)}
 - Korean companies: {sample(companies)}
+- Korean brands (K-beauty …): {sample(brands)}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml

@@ -161,6 +161,17 @@ async def ingest_one(
         summary_ko = (f"{name.ko} — 검증된 한국 기업."
                       + (f" 설립 {year}." if year else "")
                       + (f" 산업: {industry}." if industry else ""))
+    elif kind == "facts" and entity_id.startswith("brand:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        owner = chosen.get("agency_en") or chosen.get("agency_ko")  # owned-by (P127)
+        year = chosen.get("debut")
+        summary_en = (f"{disp}{ko_part} — verified Korean brand."
+                      + (f" Est. {year}." if year else "")
+                      + (f" Owned by {owner}." if owner else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 브랜드."
+                      + (f" 설립 {year}." if year else "")
+                      + (f" 소유: {owner}." if owner else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

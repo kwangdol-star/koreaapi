@@ -107,6 +107,10 @@ _CURATED = {
     "webtoon:lookism": {"ko": "외모지상주의", "en": "Lookism", "agency": "Naver"},
     # Korean blood sausage "sundae" collides with the English "sundae" (ice cream) — pin bilingually.
     "food:sundae": {"ko": "순대", "en": "Sundae"},
+    # K-beauty brands whose English name is a common word/phrase — pin bilingually.
+    "brand:innisfree": {"ko": "이니스프리", "en": "Innisfree"},
+    "brand:naturerepublic": {"ko": "네이처리퍼블릭", "en": "Nature Republic"},
+    "brand:thefaceshop": {"ko": "더페이스샵", "en": "The Face Shop"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.
@@ -163,6 +167,8 @@ _NS_PROPS = {
     "food": {"agency": None, "date": None, "members": None, "directors": None},
     # company: industry (P452) as the category edge, inception/founded (P571), no people edge.
     "company": {"agency": "P452", "date": "P571", "members": None, "directors": None},
+    # brand (K-beauty / consumer): owned-by P127 (the parent) as the org edge, inception P571.
+    "brand": {"agency": "P127", "date": "P571", "members": None, "directors": None},
 }
 
 
@@ -473,6 +479,7 @@ _DISCOVER = {
     "place":   (["Q570116"], "P17", "Q884"),                            # tourist attraction, country SK
     "food":    (["Q746549"], "P2012", "Q234138"),                       # dish, cuisine = Korean cuisine
     "company": (["Q4830453", "Q891723"], "P17", "Q884"),               # business/public company, country SK
+    "brand":   (["Q431289"], "P17", "Q884"),                            # brand, country SK
 }
 
 
