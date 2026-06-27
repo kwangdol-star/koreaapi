@@ -461,6 +461,10 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 <div class="brand"><span class="dot"></span><h1>KoreaAPI</h1></div>
 <div class="tag">The verifiable data layer for Korean culture — callable by any AI agent (MCP), citable by any answer engine.</div>
 <div class="pills">
+ <a class="pill" href="./artists.html">🎤 Artists</a>
+ <a class="pill" href="./dramas.html">📺 K-dramas</a>
+ <a class="pill" href="./films.html">🎬 K-films</a>
+ <a class="pill" href="./people.html">👤 People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
  <a class="pill" href="./korea-rising.md">/korea-rising.md · digest</a>
@@ -724,15 +728,13 @@ def _faqpage_node(qas: list[tuple[str, str]]) -> dict:
     }
 
 
-def _breadcrumb(name: str, url: str) -> dict:
-    """A 2-level BreadcrumbList (Home > current) — answer engines surface breadcrumbs in results."""
-    return {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "KoreaAPI", "item": f"{_SITE_BASE}/"},
-            {"@type": "ListItem", "position": 2, "name": name, "item": url},
-        ],
-    }
+def _breadcrumb(name: str, url: str, *, middle: tuple[str, str] | None = None) -> dict:
+    """BreadcrumbList (Home [> vertical] > current) — answer engines surface breadcrumbs in results."""
+    items = [{"@type": "ListItem", "position": 1, "name": "KoreaAPI", "item": f"{_SITE_BASE}/"}]
+    if middle:
+        items.append({"@type": "ListItem", "position": 2, "name": middle[0], "item": middle[1]})
+    items.append({"@type": "ListItem", "position": len(items) + 1, "name": name, "item": url})
+    return {"@type": "BreadcrumbList", "itemListElement": items}
 
 
 def _social_meta(title: str, desc: str, url: str, og_type: str = "website") -> str:
@@ -874,6 +876,77 @@ def _write_person_html(out_dir: str, name: str, credits: list[dict],
         f.write(doc)
 
 
+# Vertical hubs (hub-and-spoke): a page per vertice listing all its verified entities — crawl depth
+# + an ItemList answer engines read as "the list of K-pop artists / K-dramas / K-films".
+# entity_id-namespace -> (label, filename, emoji, second-column header).
+_VERTICALS = {
+    "artist": ("K-pop artists", "artists.html", "🎤", "Agency (소속사)"),
+    "drama": ("K-dramas", "dramas.html", "📺", "Network / platform"),
+    "film": ("K-films", "films.html", "🎬", "Director / studio"),
+}
+
+_HUB_STYLE = """<style>
+ body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;background:radial-gradient(1100px 520px at 50% -160px,#16223D 0%,#0A0E1A 58%);color:#F2F5FA;margin:0;padding:30px 20px 52px;line-height:1.5;max-width:1180px;margin:0 auto}
+ a{color:#7DA2FF;text-decoration:none} a:hover{text-decoration:underline}
+ h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em} .sub{color:#9AA7BD;margin:8px 0 20px;font-size:14px}
+ .back{font-size:13px;margin:0 0 12px}
+ .tablewrap{overflow-x:auto;border:1px solid #262F47;border-radius:12px}
+ table{width:100%;border-collapse:collapse;min-width:820px;background:#121829}
+ th,td{padding:12px 14px;text-align:left;font-size:13px;vertical-align:top;border-bottom:1px solid #262F47}
+ th{color:#9AA7BD;font-weight:600;background:#171F33;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+ tbody tr:last-child td{border-bottom:none} tbody tr:hover{background:#171F33}
+ td b a{color:#F2F5FA;font-weight:700} td b a:hover{color:#7DA2FF}
+ .ko{color:#9AA7BD} .rom{color:#6B7790;font-size:11px}
+ .badge{color:#06140E;font-weight:800;padding:3px 9px;border-radius:6px;font-size:12px;white-space:nowrap}
+ .fresh{color:#10B981;font-weight:700} .stale{color:#EF4444;font-weight:800} .src{color:#9AA7BD;font-size:12px;max-width:230px}
+ .pchips{display:flex;flex-wrap:wrap;gap:8px} .pchip{background:#121829;border:1px solid #262F47;border-radius:8px;padding:6px 11px;font-size:13px;font-weight:600;color:#F2F5FA}
+ .pchip:hover{border-color:#7DA2FF;color:#7DA2FF;text-decoration:none}
+ footer{color:#6B7790;margin-top:22px;font-size:12px}
+</style>"""
+
+
+def _itemlist_node(name: str, items: list[tuple[str, str]]) -> dict:
+    """Schema.org ItemList — the crawlable 'list of X' an answer engine can lift wholesale."""
+    return {
+        "@type": "ItemList",
+        "name": name,
+        "numberOfItems": len(items),
+        "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "name": n, "url": u}
+            for i, (n, u) in enumerate(items)
+        ],
+    }
+
+
+def _write_hub_html(out_dir: str, filename: str, h1: str, sub: str, body: str, jsonld: str) -> None:
+    """A vertical hub page at the site ROOT (links use no `../` — entity/person pages are one level
+    down). Self-contained dark style; ItemList + BreadcrumbList JSON-LD for AEO."""
+    url = f"{_SITE_BASE}/{filename}"
+    title = html.escape(f"{h1} — verified · KoreaAPI")
+    desc = html.escape(f"{sub}")
+    doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title}</title>
+<meta name="description" content="{desc}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="{url}">
+{_social_meta(html.escape(h1), desc, url)}
+{_FONT_LINKS}
+<script type="application/ld+json">
+{jsonld}
+</script>
+{_HUB_STYLE}
+</head><body>
+<p class=back><a href="index.html">← KoreaAPI · verifiable K-culture data</a></p>
+<h1>{html.escape(h1)}</h1>
+<div class=sub>{html.escape(sub)}</div>
+{body}
+<footer>via KoreaAPI · <a href="index.html">home</a> · <a href="llms.txt">/llms.txt</a> · <a href="sitemap.xml">/sitemap.xml</a></footer>
+</body></html>"""
+    with open(os.path.join(out_dir, filename), "w", encoding="utf-8") as f:
+        f.write(doc)
+
+
 async def _load_by_entity(db_path: str | None = None) -> dict:
     """entity_id -> {kind: latest Record} over the whole store (shared by pages + sitemap)."""
     by_entity: dict[str, dict] = {}
@@ -910,9 +983,11 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         url = f"{_SITE_BASE}/artist/{slug}.html"
         name = primary.name.en_official or primary.name.ko
         qas = _entity_qa(name, primary, by_kind)
+        v = _VERTICALS.get(_entity_kind(entity_id))
+        mid = (v[0], f"{_SITE_BASE}/{v[1]}") if v else None  # breadcrumb Home > vertical > entity
         doc = {"@context": "https://schema.org",
                "@graph": [_entity_node(primary)]
-               + ([_faqpage_node(qas)] if qas else []) + [_breadcrumb(name, url)]}
+               + ([_faqpage_node(qas)] if qas else []) + [_breadcrumb(name, url, middle=mid)]}
         related = _related(entity_id, primary, by_entity)
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
                            entity_slugs=entity_slugs, linked=linked, related=related)
@@ -930,10 +1005,51 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         qas = _person_qa(name, credits)
         doc = {"@context": "https://schema.org",
                "@graph": [_person_node(name, credits)] + ([_faqpage_node(qas)] if qas else [])
-               + [_breadcrumb(name, f"{_SITE_BASE}/person/{slug}.html")]}
+               + [_breadcrumb(name, f"{_SITE_BASE}/person/{slug}.html",
+                              middle=("People", f"{_SITE_BASE}/people.html"))]}
         _write_person_html(out_dir, name, credits, qas, _escape_jsonld(doc))
         people_written.append({"slug": slug, "name": name, "url": f"{_SITE_BASE}/person/{slug}.html"})
-    return {"entities": written, "people": people_written}
+
+    # Vertical hub pages + a people hub (hub-and-spoke): each lists its vertical and carries an
+    # ItemList + BreadcrumbList so an answer engine can lift "the list of K-dramas" wholesale.
+    groups: dict[str, list] = {"artist": [], "drama": [], "film": []}
+    hub_seen: set[str] = set()
+    for entity_id, by_kind in by_entity.items():
+        ns = _entity_kind(entity_id)
+        s = _slug(entity_id)
+        if ns not in groups or s in hub_seen:
+            continue
+        hub_seen.add(s)
+        primary = by_kind.get("facts") or max(by_kind.values(), key=lambda r: r.provenance.skill_score)
+        groups[ns].append((entity_id, primary))
+    for g in groups.values():
+        g.sort(key=lambda it: (it[1].name.en_official or it[1].name.ko).lower())
+    hubs_written: list[dict] = []
+    for ns, (label, fname, emoji, col2) in _VERTICALS.items():
+        items = groups[ns]
+        rows = "".join(_report_row(eid, rec) for eid, rec in items)
+        body = (f"<div class=tablewrap><table><tr><th>Name (EN / KO / rom)</th><th>{col2}</th>"
+                f"<th>Skill Score</th><th>Fresh</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>"
+                f"{rows}</table></div>") if rows else "<p>None yet — the daily collector fills this.</p>"
+        graph = [_itemlist_node(label, [(rec.name.en_official or rec.name.ko,
+                 f"{_SITE_BASE}/artist/{_slug(eid)}.html") for eid, rec in items]),
+                 _breadcrumb(label, f"{_SITE_BASE}/{fname}")]
+        _write_hub_html(out_dir, fname, f"{emoji} {label} ({len(items)})",
+                        f"{len(items)} verified, cross-checked entities · via KoreaAPI", body,
+                        _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
+        hubs_written.append({"vertical": ns, "url": f"{_SITE_BASE}/{fname}", "count": len(items)})
+    chips = "".join(f'<a class="pchip" href="person/{pw["slug"]}.html">{html.escape(pw["name"])}</a>'
+                    for pw in people_written)
+    pbody = f"<div class=pchips>{chips}</div>" if chips else "<p>None yet.</p>"
+    pgraph = [_itemlist_node("Verified Korean-culture people",
+              [(pw["name"], pw["url"]) for pw in people_written]),
+              _breadcrumb("People", f"{_SITE_BASE}/people.html")]
+    _write_hub_html(out_dir, "people.html", f"👤 Verified people ({len(people_written)})",
+                    f"{len(people_written)} directors & cross-work cast — each a verified credit hub · via KoreaAPI",
+                    pbody, _escape_jsonld({"@context": "https://schema.org", "@graph": pgraph}))
+    hubs_written.append({"vertical": "people", "url": f"{_SITE_BASE}/people.html", "count": len(people_written)})
+
+    return {"entities": written, "people": people_written, "hubs": hubs_written}
 
 
 async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> str:
@@ -942,8 +1058,10 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
     lastmod = today, changefreq = daily: advertises the freshness that drives AI citations.
     """
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    urls = [(f"{_SITE_BASE}/", "1.0"), (f"{_SITE_BASE}/korea-rising.md", "0.8"),
-            (f"{_SITE_BASE}/latest.json", "0.6")]
+    urls = [(f"{_SITE_BASE}/", "1.0")]
+    urls += [(f"{_SITE_BASE}/{fname}", "0.8") for _label, fname, _e, _c in _VERTICALS.values()]
+    urls += [(f"{_SITE_BASE}/people.html", "0.8"),
+             (f"{_SITE_BASE}/korea-rising.md", "0.8"), (f"{_SITE_BASE}/latest.json", "0.6")]
     by_entity = await _load_by_entity(db_path=db_path)
     seen: set[str] = set()
     for entity_id in by_entity:
@@ -1284,11 +1402,11 @@ def _main(argv: list[str]) -> int:
         print("wrote", asyncio.run(report_html()))
     elif cmd == "entitypages":
         out = asyncio.run(entity_pages())
-        ents, ppl = out["entities"], out["people"]
-        print(f"entitypages: wrote {len(ents)} entity page(s) -> site/artist/ + "
-              f"{len(ppl)} person page(s) -> site/person/")
-        for p in ppl:
-            print(f"  person: {p['name']} -> {p['url']}")
+        ents, ppl, hubs = out["entities"], out["people"], out["hubs"]
+        print(f"entitypages: wrote {len(ents)} entity + {len(ppl)} person + {len(hubs)} hub page(s) "
+              f"-> site/ (artist/, person/, *.html)")
+        for h in hubs:
+            print(f"  hub: {h['vertical']} ({h['count']}) -> {h['url']}")
     elif cmd == "sitemap":
         print("wrote", asyncio.run(sitemap()))
     elif cmd == "digest":

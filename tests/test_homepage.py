@@ -49,7 +49,25 @@ def test_entity_and_person_pages_have_social_meta_and_breadcrumb(tmp_path):
     bong = (tmp_path / "site" / "person" / "bong-joon-ho.html").read_text(encoding="utf-8")
     for page in (par, bong):
         assert 'property="og:title"' in page and 'name="twitter:card"' in page
-        assert '"@type": "BreadcrumbList"' in page  # Home > current
+        assert '"@type": "BreadcrumbList"' in page  # Home > vertical > current
+    assert "/films.html" in par   # entity breadcrumb middle points at the vertical hub (3-level)
+
+
+def test_vertical_hub_pages_with_itemlist(tmp_path):
+    db = tempfile.mktemp(suffix=".db")
+    _seed(db)
+    out_dir = str(tmp_path / "site")
+    res = asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
+    assert {h["vertical"] for h in res["hubs"]} == {"artist", "drama", "film", "people"}
+    films = (tmp_path / "site" / "films.html").read_text(encoding="utf-8")
+    assert '"@type": "ItemList"' in films and '"@type": "BreadcrumbList"' in films
+    assert "artist/parasite.html" in films          # hub links into the per-entity pages
+    people = (tmp_path / "site" / "people.html").read_text(encoding="utf-8")
+    assert "person/bong-joon-ho.html" in people and '"@type": "ItemList"' in people
+    sm = tempfile.mktemp(suffix=".xml")
+    asyncio.run(admin.sitemap(db_path=db, out_path=sm))
+    smt = open(sm, encoding="utf-8").read()
+    assert all(f"/{f}" in smt for f in ("artists.html", "dramas.html", "films.html", "people.html"))
 
 
 if __name__ == "__main__":
