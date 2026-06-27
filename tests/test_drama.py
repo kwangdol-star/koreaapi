@@ -110,6 +110,45 @@ def test_webtoon_jsonld_node_is_comicseries_with_author_and_publisher():
     assert "actor" not in node and "recordLabel" not in node  # not a video / not a group
 
 
+def test_place_parses_location_and_inception_and_node_is_touristattraction():
+    raw = {"entities": {"Q1": {"labels": {"ko": {"value": "경복궁"}, "en": {"value": "Gyeongbokgung"}},
+           "claims": {
+               "P131": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QSEOUL"}}}}],
+               "P571": [{"mainsnak": {"snaktype": "value",
+                   "datavalue": {"value": {"time": "+1395-00-00T00:00:00Z"}}}}],
+           }}}}
+    p = parse_entity(raw, "place:gyeongbokgung", "facts")
+    assert p["agency_qids"] == ["QSEOUL"] and p["debut"] == "1395"
+    assert p["member_qids"] == [] and p["director_qids"] == []
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="place:gyeongbokgung", kind="facts",
+                 name=Name(ko="경복궁", en_official="Gyeongbokgung"), snapshot_at=now,
+                 summary_en="Gyeongbokgung — verified Korean place / attraction. In Seoul.",
+                 data={"agency_en": "Seoul", "debut": "1395"},
+                 provenance=Provenance(sources=["Wikidata Q1", "Wikipedia Gyeongbokgung"],
+                                       fetched_at=now, skill_score=1.0, confidence="high"))
+    node = admin._entity_node(rec)
+    assert node["@type"] == "TouristAttraction"
+    assert node.get("containedInPlace", {}).get("name") == "Seoul"
+
+
+def test_food_is_name_only_and_node_is_thing():
+    raw = {"entities": {"Q1": {"labels": {"ko": {"value": "비빔밥"}, "en": {"value": "Bibimbap"}},
+           "claims": {  # even if music/video props existed they'd be ignored for food
+               "P264": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QX"}}}}]}}}}
+    p = parse_entity(raw, "food:bibimbap", "facts")
+    assert p["agency_qids"] == [] and p["member_qids"] == [] and p["debut"] is None
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="food:bibimbap", kind="facts",
+                 name=Name(ko="비빔밥", en_official="Bibimbap"), snapshot_at=now,
+                 summary_en="Bibimbap — verified Korean dish / food.", data={},
+                 provenance=Provenance(sources=["Wikidata Q1", "Wikipedia Bibimbap"],
+                                       fetched_at=now, skill_score=1.0, confidence="high"))
+    node = admin._entity_node(rec)
+    assert node["@type"] == "Thing"
+    assert "recordLabel" not in node and "actor" not in node
+
+
 if __name__ == "__main__":
     import pytest
 

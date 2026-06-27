@@ -143,6 +143,22 @@ AGENCY_HINTS = {
     "webtoon:omniscientreader": "Naver",
     "webtoon:yumiscells": "Naver",
     "webtoon:cheeseinthetrap": "Naver",
+    # place region hints (P131 located-in disambiguation; falls back to the first value)
+    "place:gyeongbokgung": "Seoul",
+    "place:nseoultower": "Seoul",
+    "place:bukchonhanok": "Seoul",
+    "place:changdeokgung": "Seoul",
+    "place:lotteworldtower": "Seoul",
+    "place:myeongdong": "Seoul",
+    "place:gwangjangmarket": "Seoul",
+    "place:cheonggyecheon": "Seoul",
+    "place:bulguksa": "Gyeongju",
+    "place:seongsanilchulbong": "Jeju",
+    "place:hallasan": "Jeju",
+    "place:haeundae": "Busan",
+    "place:gamcheon": "Busan",
+    "place:jeonjuhanok": "Jeonju",
+    "place:everland": "Yongin",
 }
 
 # K-drama vertical (Phase A breadth). Distinctive titles = low search-collision. Verified by the
@@ -236,5 +252,50 @@ WEBTOONS = {
     "webtoon:lookism": "Lookism",  # bilingual identity in wikidata._CURATED (vs the concept "lookism")
 }
 
-# Every verified entity (artists + dramas + films + webtoons): id -> canonical name (search + identity).
-NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS}
+# Travel vertical: Korean destinations / attractions (Wikidata-verifiable). `place:` namespace maps
+# to located-in (P131) as the region edge + inception (P571). Distinctive names (low collision).
+PLACES = {
+    "place:gyeongbokgung": "Gyeongbokgung",
+    "place:nseoultower": "N Seoul Tower",
+    "place:bukchonhanok": "Bukchon Hanok Village",
+    "place:changdeokgung": "Changdeokgung",
+    "place:lotteworldtower": "Lotte World Tower",
+    "place:myeongdong": "Myeongdong",
+    "place:gwangjangmarket": "Gwangjang Market",
+    "place:cheonggyecheon": "Cheonggyecheon",
+    "place:bulguksa": "Bulguksa",
+    "place:seongsanilchulbong": "Seongsan Ilchulbong",
+    "place:hallasan": "Hallasan",
+    "place:haeundae": "Haeundae Beach",
+    "place:gamcheon": "Gamcheon Culture Village",
+    "place:jeonjuhanok": "Jeonju Hanok Village",
+    "place:everland": "Everland",
+}
+
+# Food vertical: Korean dishes/cuisine (Wikidata-verifiable). `food:` is cross-verified by NAME only
+# (a dish has no stable agency/date/people edge). Distinctive romanized names; the lone real-word
+# collision (Sundae) is bilingually pinned in wikidata._CURATED.
+FOODS = {
+    "food:bibimbap": "Bibimbap",
+    "food:kimchi": "Kimchi",
+    "food:tteokbokki": "Tteokbokki",
+    "food:bulgogi": "Bulgogi",
+    "food:samgyeopsal": "Samgyeopsal",
+    "food:japchae": "Japchae",
+    "food:naengmyeon": "Naengmyeon",
+    "food:kimbap": "Gimbap",
+    "food:sundubujjigae": "Sundubu-jjigae",
+    "food:galbi": "Galbi",
+    "food:jjajangmyeon": "Jajangmyeon",
+    "food:dakgalbi": "Dak-galbi",
+    "food:hotteok": "Hotteok",
+    "food:bingsu": "Patbingsu",
+    "food:gochujang": "Gochujang",
+    "food:kimchijjigae": "Kimchi-jjigae",
+    "food:makgeolli": "Makgeolli",
+    "food:soju": "Soju",
+    "food:sundae": "Sundae",  # bilingual identity in wikidata._CURATED (vs the ice-cream "sundae")
+}
+
+# Every verified entity across all verticals: id -> canonical name (search + identity term).
+NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS}

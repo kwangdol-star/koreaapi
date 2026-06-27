@@ -259,6 +259,22 @@ def _entity_node(r) -> dict:
         if pub:  # publisher / platform P123 (Naver·Kakao)
             node["publisher"] = {"@type": "Organization", "name": pub}
         return node
+    if r.entity_id.startswith("place:"):
+        node = {"@type": "TouristAttraction", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
+        if region:  # citable "where is X?"
+            node["containedInPlace"] = {"@type": "Place", "name": region}
+        return node
+    if r.entity_id.startswith("food:"):
+        # a Korean dish: verified bilingual name + Wikidata sameAs is the asset (no agency/people edge)
+        node = {"@type": "Thing", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        return node
     if r.entity_id.startswith(("drama:", "film:")):
         node = {"@type": "Movie" if r.entity_id.startswith("film:") else "TVSeries",
                 "name": name, "alternateName": alt,
@@ -381,7 +397,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     s = await stats(db_path=db_path)
     # Group the verified entities by vertical (facts/primary record), so the homepage reads as a
     # browsable catalogue (artists / dramas / films) instead of one undifferentiated table.
-    groups: dict[str, list[tuple[str, object]]] = {"artist": [], "drama": [], "film": [], "webtoon": []}
+    groups: dict[str, list[tuple[str, object]]] = {
+        "artist": [], "drama": [], "film": [], "webtoon": [], "place": [], "food": []}
     recs: list = []
     for entity_id, by_kind in by_entity.items():
         primary = by_kind.get("facts") or max(by_kind.values(), key=lambda r: r.provenance.skill_score)
@@ -419,13 +436,16 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
         labels_block = (f"<h2 class=sec>{_ICON['label']} Labels &amp; networks ({len(label_items)})</h2>"
                         f"<div class=pchips>{lchips}</div>")
 
-    n_art, n_dr, n_fl, n_wt = (len(groups["artist"]), len(groups["drama"]),
-                               len(groups["film"]), len(groups["webtoon"]))
+    n_art, n_dr, n_fl, n_wt, n_pl, n_fd = (len(groups["artist"]), len(groups["drama"]),
+                                           len(groups["film"]), len(groups["webtoon"]),
+                                           len(groups["place"]), len(groups["food"]))
     sections = (
         _report_section(f"{_ICON['artist']} K-pop artists ({n_art})", "Agency (소속사)", groups["artist"])
         + _report_section(f"{_ICON['drama']} K-dramas ({n_dr})", "Network / platform", groups["drama"])
         + _report_section(f"{_ICON['film']} K-films ({n_fl})", "Director / studio", groups["film"])
         + _report_section(f"{_ICON['webtoon']} Webtoons ({n_wt})", "Author / publisher", groups["webtoon"])
+        + _report_section(f"{_ICON['place']} Places to visit ({n_pl})", "Region / location", groups["place"])
+        + _report_section(f"{_ICON['food']} Korean food ({n_fd})", "Type", groups["food"])
         + people_block + labels_block
     )
     now = datetime.now(timezone.utc)
@@ -506,6 +526,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./dramas.html">{_ICON['drama']} K-dramas</a>
  <a class="pill" href="./films.html">{_ICON['film']} K-films</a>
  <a class="pill" href="./webtoons.html">{_ICON['webtoon']} Webtoons</a>
+ <a class="pill" href="./places.html">{_ICON['place']} Places</a>
+ <a class="pill" href="./food.html">{_ICON['food']} Food</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -520,11 +542,13 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 </div>
 <div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 7 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
 <div class="cards">
- <div class="card"><div class="v">{n_art + n_dr + n_fl + n_wt}</div><div class="k">verified entities</div></div>
+ <div class="card"><div class="v">{n_art + n_dr + n_fl + n_wt + n_pl + n_fd}</div><div class="k">verified entities</div></div>
  <div class="card"><div class="v">{n_art}</div><div class="k">K-pop artists</div></div>
  <div class="card"><div class="v">{n_dr}</div><div class="k">K-dramas</div></div>
  <div class="card"><div class="v">{n_fl}</div><div class="k">K-films</div></div>
  <div class="card"><div class="v">{n_wt}</div><div class="k">webtoons</div></div>
+ <div class="card"><div class="v">{n_pl}</div><div class="k">places</div></div>
+ <div class="card"><div class="v">{n_fd}</div><div class="k">foods</div></div>
  <div class="card"><div class="v">{len(ppl)}</div><div class="k">verified people</div></div>
  <div class="card"><div class="v">{s.get('avg_skill_score', '-')}</div><div class="k">avg Skill Score</div></div>
  <div class="card"><div class="v">{s.get('fresh_entities', '-')}</div><div class="k">fresh</div></div>
@@ -582,6 +606,12 @@ _ICON = {
     # open book (webtoons)
     "webtoon": _icon('<path d="M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2z"/>'
                      '<path d="M21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/>'),
+    # map pin (places / travel)
+    "place": _icon('<path d="M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11z"/>'
+                   '<circle cx="12" cy="10" r="2.5"/>'),
+    # steaming bowl (Korean food)
+    "food": _icon('<path d="M3 11h18a9 9 0 0 1-9 9 9 9 0 0 1-9-9z"/>'
+                  '<path d="M8 4c0 1-1 1-1 2s1 1 1 2M12 3c0 1-1 1-1 2s1 1 1 2M16 4c0 1-1 1-1 2s1 1 1 2"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -765,11 +795,20 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
     d = primary.data if primary else {}
     asof = primary.snapshot_at.strftime("%Y-%m-%d") if primary else ""
     src = "; ".join(primary.provenance.sources) if primary else ""
+    eid0 = primary.entity_id if primary else ""
+    if eid0.startswith("food:"):  # a dish has no date/agency/people edge — lead with "what is it"
+        ko = (primary.name.ko if primary else "") or ""
+        ko_part = f" ({ko})" if ko and ko != name else ""
+        qas.append((f"What is {name}?",
+                    f"{name}{ko_part} is a verified Korean dish/food (cross-checked via {src}, as of {asof})."))
     if d.get("debut"):
         eid = primary.entity_id if primary else ""
         if eid.startswith("film:"):
             qas.append((f"When was {name} released?",
                         f"{name} was released in {d['debut']} (verified via {src}, as of {asof})."))
+        elif eid.startswith("place:"):
+            qas.append((f"When was {name} built or established?",
+                        f"{name} dates to {d['debut']} (verified via {src}, as of {asof})."))
         elif eid.startswith("drama:"):
             qas.append((f"When did {name} first air?",
                         f"{name} first aired in {d['debut']} (verified via {src}, as of {asof})."))
@@ -804,6 +843,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("webtoon:"):
             qas.append((f"What platform is {name} on?",
                         f"{name} — publisher/platform: {agency} (verified via {src}, as of {asof})."))
+        elif eid.startswith("place:"):
+            qas.append((f"Where is {name}?",
+                        f"{name} is located in {agency} (verified via {src}, as of {asof})."))
         else:
             ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
             qas.append((f"What agency (소속사) is {name} under?",
@@ -991,6 +1033,8 @@ _VERTICALS = {
     "drama": ("K-dramas", "dramas.html", _ICON["drama"], "Network / platform"),
     "film": ("K-films", "films.html", _ICON["film"], "Director / studio"),
     "webtoon": ("Webtoons", "webtoons.html", _ICON["webtoon"], "Author / publisher"),
+    "place": ("Places to visit", "places.html", _ICON["place"], "Region / location"),
+    "food": ("Korean food", "food.html", _ICON["food"], "Type"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -1194,7 +1238,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
 
     # Vertical hub pages + a people hub (hub-and-spoke): each lists its vertical and carries an
     # ItemList + BreadcrumbList so an answer engine can lift "the list of K-dramas" wholesale.
-    groups: dict[str, list] = {"artist": [], "drama": [], "film": [], "webtoon": []}
+    groups: dict[str, list] = {"artist": [], "drama": [], "film": [], "webtoon": [], "place": [], "food": []}
     hub_seen: set[str] = set()
     for entity_id, by_kind in by_entity.items():
         ns = _entity_kind(entity_id)
@@ -1351,8 +1395,9 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     def names(prefix: str) -> list[str]:
         return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
 
-    arts, dramas, films, webtoons = (names("artist:"), names("drama:"), names("film:"),
-                                     names("webtoon:"))
+    arts, dramas, films, webtoons, places, foods = (
+        names("artist:"), names("drama:"), names("film:"), names("webtoon:"),
+        names("place:"), names("food:"))
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
 
@@ -1362,12 +1407,14 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coverage = f"""
 ## Coverage (live, as of {today})
-- {len(facts)} verified entities across 4 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons.
+- {len(facts)} verified entities across 6 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods.
 - {len(linked)} verified people (directors + cross-work cast/creators), each a citable hub page linking their works.
 - K-pop artists: {sample(arts)}
 - K-dramas: {sample(dramas)}
 - K-films: {sample(films)}
 - Webtoons: {sample(webtoons)}
+- Places to visit: {sample(places)}
+- Korean food: {sample(foods)}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml

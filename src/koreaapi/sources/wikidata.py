@@ -105,6 +105,8 @@ _CURATED = {
     "film:smugglers": {"ko": "밀수", "en": "Smugglers"},
     # webtoon whose English title is the common word "lookism" (the concept) — pin bilingually.
     "webtoon:lookism": {"ko": "외모지상주의", "en": "Lookism", "agency": "Naver"},
+    # Korean blood sausage "sundae" collides with the English "sundae" (ice cream) — pin bilingually.
+    "food:sundae": {"ko": "순대", "en": "Sundae"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.
@@ -153,6 +155,12 @@ _NS_PROPS = {
     # webtoon/manhwa: publisher/platform P123 (Naver·Kakao), publication date P577 (else inception
     # P571), author(s) P50 as the people edge (the "creator"), no director.
     "webtoon": {"agency": "P123", "date": "P577", "date2": "P571", "members": "P50", "directors": None},
+    # place/attraction: located-in P131 (the region) as the org edge, inception/opening P571 (else
+    # P729 service-entry handled as date2), no people edge.
+    "place": {"agency": "P131", "date": "P571", "date2": "P729", "members": None, "directors": None},
+    # food/dish: cross-verified by NAME only (a dish has no stable agency/date/people edge) — the
+    # verified bilingual name + Wikidata sameAs IS the citable asset.
+    "food": {"agency": None, "date": None, "members": None, "directors": None},
 }
 
 

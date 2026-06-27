@@ -134,6 +134,22 @@ async def ingest_one(
                       + (f" 연재 시작 {year}." if year else "")
                       + (f" 플랫폼: {platform}." if platform else "")
                       + (f" 작가: {', '.join(creators)}." if creators else ""))
+    elif kind == "facts" and entity_id.startswith("place:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        region = chosen.get("agency_en") or chosen.get("agency_ko")  # located-in (P131)
+        year = chosen.get("debut")
+        summary_en = (f"{disp}{ko_part} — verified Korean place / attraction."
+                      + (f" In {region}." if region else "")
+                      + (f" Est. {year}." if year else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 명소."
+                      + (f" 위치: {region}." if region else "")
+                      + (f" 조성 {year}." if year else ""))
+    elif kind == "facts" and entity_id.startswith("food:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        summary_en = f"{disp}{ko_part} — verified Korean dish / food."
+        summary_ko = f"{name.ko} — 검증된 한국 음식."
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
