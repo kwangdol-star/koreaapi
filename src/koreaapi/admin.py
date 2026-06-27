@@ -86,11 +86,14 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
     the sandbox allowlist) failed sources are dropped by graceful degradation - a snapshot is
     still appended if at least one source succeeds, and nothing if none do (never poison).
     """
-    ids = entity_ids or list(NAMES)  # artists + dramas
+    ids = entity_ids or list(NAMES)  # artists + dramas + films
     sources = [WikidataSource(), WikipediaSource()]  # two independent sources -> cross-verify
     ingested: list[str] = []
     failed: list[str] = []
-    for entity_id in ids:
+    for i, entity_id in enumerate(ids):
+        if i:
+            await asyncio.sleep(0.2)  # pace the ~100-entity batch so Wikimedia doesn't throttle the
+            #                           tail (dramas/films sort last); _http_get also retries on 429
         rec = await ingest_one("facts", entity_id, sources, db_path=db_path)
         (ingested if rec is not None else failed).append(entity_id)
     return {"requested": ids, "ingested": ingested, "failed": failed}

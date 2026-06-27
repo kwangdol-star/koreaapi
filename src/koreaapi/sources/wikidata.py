@@ -19,11 +19,41 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
 from ..roster import AGENCY_HINTS, NAMES
+
+
+def _http_get_json(url: str, headers: dict, *, attempts: int = 4, timeout: int = 20,
+                   net_attempts: int = 2) -> dict:
+    """GET JSON, retrying on Wikimedia THROTTLING so a big batch never loses its tail.
+
+    At ~100 entities the live pull fires hundreds of Wikidata calls; without this, throttling
+    (HTTP 429/503) silently drops the entities that sort last (dramas/films) — so a throttle must
+    back off (honoring Retry-After) and retry, up to `attempts`. A hard network error (URLError /
+    timeout: DNS, connection-refused, a blocked-egress sandbox) is unlikely to clear, so it retries
+    only `net_attempts` times quickly — keeping offline runs fast. Sync (run in a thread); the final
+    failure still raises so the caller degrades gracefully for that one entity (never the batch)."""
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:  # subclass of URLError -> catch first
+            if e.code in (429, 503) and i < attempts - 1:  # explicit "retry later"
+                ra = e.headers.get("Retry-After") if e.headers else None
+                time.sleep(min(float(ra) if (ra and ra.isdigit()) else 2 ** i, 10))
+                continue
+            raise  # 403/404/UA-block etc. won't clear on retry
+        except (urllib.error.URLError, TimeoutError):  # hard network error: retry briefly, then give up
+            if i < net_attempts - 1:
+                time.sleep(1)
+                continue
+            raise
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"  # agency-hub roster discovery (sweep)
@@ -261,9 +291,7 @@ class WikidataSource:
         return f"{WIKIDATA_API}?{query}"
 
     def _http_get(self, url: str) -> dict:
-        req = urllib.request.Request(url, headers=_UA)
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return json.load(r)
+        return _http_get_json(url, _UA)
 
     async def resolve_qid(self, entity_id: str) -> str:
         """entity_id -> Q-id. Curated map first (precision), then memoized live search."""

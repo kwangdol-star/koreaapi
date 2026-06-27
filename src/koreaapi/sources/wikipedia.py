@@ -10,10 +10,11 @@ independent sources — when they agree the Skill Score clears the single-source
 from __future__ import annotations
 
 import asyncio
-import json
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+
+from .wikidata import _http_get_json  # shared retry+backoff GET (rate-limit resilient)
 
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 _UA = {
@@ -178,9 +179,7 @@ class WikipediaSource:
         return f"{WIKIPEDIA_API}?{query}"
 
     def _http_get(self, url: str) -> dict:
-        req = urllib.request.Request(url, headers=_UA)
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return json.load(r)
+        return _http_get_json(url, _UA)
 
     async def fetch(self, entity_id: str, kind: str) -> dict:
         title = self._title(entity_id)
