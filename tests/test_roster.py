@@ -145,11 +145,11 @@ def test_curated_anchors_are_bilingual():
 
 def test_roster_breadth():
     # Guard the asset's breadth (6 verticals, ~160+ entities) so a bad edit that drops rows is caught.
-    from koreaapi.roster import ARTISTS, DRAMAS, FILMS, FOODS, NAMES, PLACES, WEBTOONS
+    from koreaapi.roster import ARTISTS, COMPANIES, DRAMAS, FILMS, FOODS, NAMES, PLACES, WEBTOONS
     assert len(ARTISTS) >= 50 and len(DRAMAS) >= 18 and len(FILMS) >= 15
-    assert len(WEBTOONS) >= 5 and len(PLACES) >= 10 and len(FOODS) >= 12
-    assert len(NAMES) >= 150
-    assert len(NAMES) == sum(map(len, (ARTISTS, DRAMAS, FILMS, WEBTOONS, PLACES, FOODS)))  # disjoint
+    assert len(WEBTOONS) >= 5 and len(PLACES) >= 10 and len(FOODS) >= 12 and len(COMPANIES) >= 8
+    assert len(NAMES) >= 170
+    assert len(NAMES) == sum(map(len, (ARTISTS, DRAMAS, FILMS, WEBTOONS, PLACES, FOODS, COMPANIES)))
 
 
 if __name__ == "__main__":

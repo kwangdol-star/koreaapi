@@ -295,7 +295,30 @@ FOODS = {
     "food:makgeolli": "Makgeolli",
     "food:soju": "Soju",
     "food:sundae": "Sundae",  # bilingual identity in wikidata._CURATED (vs the ice-cream "sundae")
+    # fusion / modern Korean food trends (documented on Wikipedia → verifiable)
+    "food:koreancorndog": "Korean corn dog",
+    "food:budaejjigae": "Budae-jjigae",
+    "food:koreanfriedchicken": "Korean fried chicken",
+    "food:dalgona": "Dalgona",
+    "food:dalgonacoffee": "Dalgona coffee",
+}
+
+# Company vertical: major Korean companies/brands (Wikidata-verifiable). `company:` maps to industry
+# (P452) + founded (P571). Distinctive brand names (low collision); these connect to label hubs.
+COMPANIES = {
+    "company:samsung": "Samsung Electronics",
+    "company:hyundai": "Hyundai Motor Company",
+    "company:lg": "LG Electronics",
+    "company:skhynix": "SK Hynix",
+    "company:naver": "Naver",
+    "company:kakao": "Kakao",
+    "company:coupang": "Coupang",
+    "company:krafton": "Krafton",
+    "company:nexon": "Nexon",
+    "company:celltrion": "Celltrion",
+    "company:posco": "POSCO",
+    "company:cj": "CJ Group",
 }
 
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
-NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS}
+NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES}

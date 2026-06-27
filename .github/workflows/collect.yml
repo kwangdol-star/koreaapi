@@ -36,8 +36,10 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }} # romanization + Circle Chart extract (best-effort; skipped if unset)
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }} # official-channel release snapshots (best-effort; skipped if unset)
         run: |
+          uv run python -m koreaapi.admin load     # re-seed from committed data/ so discovery ACCUMULATES
           uv run python -m koreaapi.admin pull
           uv run python -m koreaapi.admin sweep
+          uv run python -m koreaapi.admin discover  # bulk-discover each vertical's Korean entities (10x)
           uv run python -m koreaapi.admin chart
           uv run python -m koreaapi.admin youtube
           uv run python -m koreaapi.admin export

@@ -42,6 +42,7 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }} # official-channel release snapshots (best-effort; skipped if unset)
         run: |
           uv sync
+          uv run python -m koreaapi.admin load   # re-seed from committed data/ so the site shows the accumulated roster
           uv run python -m koreaapi.admin pull
           uv run python -m koreaapi.admin sweep
           uv run python -m koreaapi.admin chart
@@ -63,7 +64,7 @@ jobs:
           cp -r site/artist _site/artist   # per-entity citable answer pages (/artist/<slug>.html)
           cp -r site/person _site/person   # per-person credit pages (/person/<slug>.html)
           cp -r site/label _site/label   # per-label/agency/network hub pages (/label/<slug>.html)
-          cp site/artists.html site/dramas.html site/films.html site/webtoons.html site/places.html site/food.html site/people.html _site/   # vertical hub pages (ItemList)
+          cp site/artists.html site/dramas.html site/films.html site/webtoons.html site/places.html site/food.html site/companies.html site/people.html _site/   # vertical hub pages (ItemList)
           uv run python -m koreaapi.admin sitemap   # sitemap.xml incl. every entity + person page (daily lastmod)
           cp sitemap.xml _site/sitemap.xml
 

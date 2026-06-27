@@ -150,6 +150,17 @@ async def ingest_one(
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
         summary_en = f"{disp}{ko_part} — verified Korean dish / food."
         summary_ko = f"{name.ko} — 검증된 한국 음식."
+    elif kind == "facts" and entity_id.startswith("company:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        industry = chosen.get("agency_en") or chosen.get("agency_ko")  # industry (P452)
+        year = chosen.get("debut")
+        summary_en = (f"{disp}{ko_part} — verified Korean company."
+                      + (f" Founded {year}." if year else "")
+                      + (f" Industry: {industry}." if industry else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 기업."
+                      + (f" 설립 {year}." if year else "")
+                      + (f" 산업: {industry}." if industry else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

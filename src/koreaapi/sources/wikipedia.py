@@ -184,6 +184,23 @@ _TITLES = {
     "food:makgeolli": "Makgeolli",
     "food:soju": "Soju",
     "food:sundae": "Sundae (sausage)",
+    "food:koreancorndog": "Korean corn dog",
+    "food:budaejjigae": "Budae-jjigae",
+    "food:koreanfriedchicken": "Korean fried chicken",
+    "food:dalgona": "Dalgona",
+    "food:dalgonacoffee": "Dalgona coffee",
+    "company:samsung": "Samsung Electronics",
+    "company:hyundai": "Hyundai Motor Company",
+    "company:lg": "LG Electronics",
+    "company:skhynix": "SK Hynix",
+    "company:naver": "Naver",
+    "company:kakao": "Kakao",
+    "company:coupang": "Coupang",
+    "company:krafton": "Krafton",
+    "company:nexon": "Nexon",
+    "company:celltrion": "Celltrion",
+    "company:posco": "POSCO",
+    "company:cj": "CJ Group",
 }
 
 

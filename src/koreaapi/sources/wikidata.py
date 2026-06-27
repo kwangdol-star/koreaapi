@@ -161,6 +161,8 @@ _NS_PROPS = {
     # food/dish: cross-verified by NAME only (a dish has no stable agency/date/people edge) — the
     # verified bilingual name + Wikidata sameAs IS the citable asset.
     "food": {"agency": None, "date": None, "members": None, "directors": None},
+    # company: industry (P452) as the category edge, inception/founded (P571), no people edge.
+    "company": {"agency": "P452", "date": "P571", "members": None, "directors": None},
 }
 
 
@@ -269,12 +271,17 @@ class WikidataSource:
     name = "Wikidata"
     is_fallback = False
 
-    def __init__(self, aliases: dict[str, str] | None = None) -> None:
+    def __init__(self, aliases: dict[str, str] | None = None,
+                 qids: dict[str, str] | None = None) -> None:
         # entity_id -> Q-id discovered via live search (memoized to spare the API).
         self._discovered: dict[str, str] = {}
         # entity_id -> search name for ids outside the curated roster (e.g. swept labelmates),
         # so discovered artists resolve + identity-guard against their known name too.
         self._aliases: dict[str, str] = aliases or {}
+        # entity_id -> Q-id known up front (e.g. SPARQL-discovered): fetch that exact item, skipping
+        # the search step entirely — avoids same-name search drift and saves a call. Identity is still
+        # guarded against the alias name, so a wrong qid would be caught and dropped.
+        self._qids: dict[str, str] = qids or {}
 
     def _entity_url(self, qid: str) -> str:
         return (
@@ -320,9 +327,12 @@ class WikidataSource:
         return _http_get_json(url, _UA)
 
     async def resolve_qid(self, entity_id: str) -> str:
-        """entity_id -> Q-id. Curated map first (precision), then memoized live search."""
+        """entity_id -> Q-id. Curated pin, then a caller-supplied (SPARQL-discovered) qid, then
+        memoized live search."""
         if entity_id in _QID:
             return _QID[entity_id]
+        if entity_id in self._qids:  # discovered up front -> fetch that exact item (no search)
+            return self._qids[entity_id]
         if entity_id in self._discovered:
             return self._discovered[entity_id]
         term = NAMES.get(entity_id) or self._aliases.get(entity_id) or entity_id.split(":", 1)[-1].strip()
@@ -448,4 +458,44 @@ def fetch_labelmates(label_qid: str, *, limit: int = 12) -> list[dict]:
     )
     req = urllib.request.Request(url, headers={**_UA, "Accept": "application/sparql-results+json"})
     with urllib.request.urlopen(req, timeout=20) as r:
+        return parse_labelmates(json.load(r))
+
+
+# --- Universe discovery: bulk-find a vertical's Korean entities from Wikidata (the path to 10x) ----
+# Per vertical: the instance-of class(es) + a country/cuisine filter. Discovered candidates are run
+# through the SAME cross-verification pipeline (only verified ones are kept), so breadth grows without
+# lowering the bar — and the discovered Q-id is fetched directly (no same-name search drift).
+_DISCOVER = {
+    "artist":  (["Q215380", "Q864897", "Q4439542"], "P495", "Q884"),   # group/boy band/girl group, origin SK
+    "drama":   (["Q5398426"], "P495", "Q884"),                          # television series, origin SK
+    "film":    (["Q11424"], "P495", "Q884"),                            # film, origin SK
+    "webtoon": (["Q1062335"], "P495", "Q884"),                          # webtoon, origin SK
+    "place":   (["Q570116"], "P17", "Q884"),                            # tourist attraction, country SK
+    "food":    (["Q746549"], "P2012", "Q234138"),                       # dish, cuisine = Korean cuisine
+    "company": (["Q4830453", "Q891723"], "P17", "Q884"),               # business/public company, country SK
+}
+
+
+def build_discover_query(vertical: str, *, limit: int = 400, offset: int = 0) -> str:
+    """Pure: SPARQL listing a vertical's Korean entities (instance-of class(es) + country/cuisine
+    filter), with ko/en labels. ORDER BY ?item for stable pagination; the caller dedups vs the store."""
+    classes, prop, val = _DISCOVER[vertical]
+    union = " UNION ".join(f"{{ ?item wdt:P31 wd:{c} }}" for c in classes)
+    return (
+        "SELECT ?item ?en ?ko WHERE { "
+        f"{union} . ?item wdt:{prop} wd:{val} . "
+        '?item rdfs:label ?en . FILTER(LANG(?en) = "en") '
+        'OPTIONAL { ?item rdfs:label ?ko . FILTER(LANG(?ko) = "ko") } '
+        f"}} ORDER BY ?item LIMIT {limit} OFFSET {offset}"
+    )
+
+
+def fetch_discover(vertical: str, *, limit: int = 400, offset: int = 0) -> list[dict]:
+    """Live: SPARQL -> [{qid, en, ko, slug}] for a vertical's Korean entities. Sync (asyncio.to_thread);
+    needs open network. Raises on transport error (caller degrades gracefully)."""
+    url = f"{WIKIDATA_SPARQL}?" + urllib.parse.urlencode(
+        {"query": build_discover_query(vertical, limit=limit, offset=offset), "format": "json"}
+    )
+    req = urllib.request.Request(url, headers={**_UA, "Accept": "application/sparql-results+json"})
+    with urllib.request.urlopen(req, timeout=45) as r:
         return parse_labelmates(json.load(r))

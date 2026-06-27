@@ -11,6 +11,8 @@ CLI:
   python -m koreaapi.admin chart    # LIVE: Circle Chart weekly + LLM-extract (needs egress + key)
   python -m koreaapi.admin youtube  # LIVE: official-channel release snapshots (needs YOUTUBE_API_KEY)
   python -m koreaapi.admin sweep    # LIVE: discover labelmates from each anchored agency (SPARQL)
+  python -m koreaapi.admin discover # LIVE: bulk-discover each vertical's Korean entities (SPARQL) -> 10x
+  python -m koreaapi.admin load     # re-seed the DB from data/latest.json (so discovery accumulates)
   python -m koreaapi.admin export   # write data/ asset (snapshots.jsonl history + latest.json)
   python -m koreaapi.admin signals  # top behavioral signals (engine 2: what agents query)
   python -m koreaapi.admin stats    # print a data-quality summary
@@ -35,13 +37,14 @@ import re
 import sys
 from datetime import datetime, timezone
 
+from .models import Record
 from .pipeline import store
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS, NAMES
 from .sources.circlechart import CircleChartSource
 from .sources.mock import MockSource
-from .sources.wikidata import WikidataSource, fetch_labelmates
+from .sources.wikidata import _DISCOVER, WikidataSource, fetch_discover, fetch_labelmates
 from .sources.wikipedia import WikipediaSource
 from .sources.youtube import YouTubeSource
 
@@ -175,6 +178,70 @@ async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
     return {"agencies": list(agencies.values()), "candidates": n_candidates, "ingested": ingested}
 
 
+async def discover(verticals: list[str] | None = None, *, db_path: str | None = None,
+                   max_new: int = 25, limit: int = 400) -> dict:
+    """Universe discovery (the path to 10x): SPARQL-list each vertical's Korean entities and ingest
+    the NEW ones through the SAME Wikidata+Wikipedia cross-verification — only verified ones are kept,
+    so breadth grows without lowering the bar. The discovered Q-id is fetched DIRECTLY (no same-name
+    search drift). Bounded per run + per vertical (rate-limit/runtime safe) so the daily collector
+    accrues steadily; dedups against the store by entity_id AND Q-id. Needs open network (SPARQL)."""
+    verticals = verticals or list(_DISCOVER)
+    recs = await store.recent(20000, db_path=db_path)
+    have = {r.entity_id for r in recs}
+    have_qids = {
+        m.group(0) for r in recs for s in r.provenance.sources if (m := re.search(r"\bQ\d+\b", s))
+    }
+    out: dict[str, dict] = {}
+    for v in verticals:
+        try:
+            cands = await asyncio.to_thread(fetch_discover, v, limit=limit)
+        except Exception:
+            out[v] = {"candidates": 0, "ingested": []}  # graceful: skip a vertical whose SPARQL failed
+            continue
+        todo: list[tuple[str, str, str]] = []
+        seen: set[str] = set()
+        for c in cands:
+            eid = f"{v}:{c['slug']}"
+            if eid in have or c["qid"] in have_qids or c["slug"] in seen or c["qid"] in seen:
+                continue
+            seen.add(c["slug"])
+            seen.add(c["qid"])
+            todo.append((eid, c["en"], c["qid"]))
+        todo = todo[:max_new]
+        aliases = {eid: en for eid, en, _q in todo}
+        qids = {eid: q for eid, _en, q in todo}
+        sources = [WikidataSource(aliases=aliases, qids=qids), WikipediaSource(aliases=aliases)]
+        ingested: list[str] = []
+        for eid, _en, _q in todo:
+            rec = await ingest_one("facts", eid, sources, db_path=db_path)
+            if rec is not None:
+                ingested.append(eid)
+            have.add(eid)
+        out[v] = {"candidates": len(cands), "ingested": ingested}
+    return out
+
+
+async def load_latest(in_path: str = "data/latest.json", *, db_path: str | None = None) -> int:
+    """Re-seed the DB from the committed data asset (data/latest.json) so a fresh-per-run collector
+    ACCUMULATES: discover()/sweep() dedup against everything found in prior runs, instead of
+    rediscovering the same head every day. Best-effort — a missing or garbled file just returns 0."""
+    if not os.path.exists(in_path):
+        return 0
+    try:
+        with open(in_path, encoding="utf-8") as f:
+            rows = json.load(f)
+    except Exception:
+        return 0
+    n = 0
+    for d in rows:
+        try:
+            await store.append_record(Record.model_validate(d), db_path=db_path)
+            n += 1
+        except Exception:
+            continue
+    return n
+
+
 async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
     """Write the data asset as committable text - the cold-start 'database' before Postgres.
 
@@ -274,6 +341,14 @@ def _entity_node(r) -> dict:
                 "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
+        return node
+    if r.entity_id.startswith("company:"):
+        node = {"@type": "Organization", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        if r.data.get("debut"):  # founded -> citable "when was X founded?"
+            node["foundingDate"] = r.data["debut"]
         return node
     if r.entity_id.startswith(("drama:", "film:")):
         node = {"@type": "Movie" if r.entity_id.startswith("film:") else "TVSeries",
@@ -398,7 +473,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     # Group the verified entities by vertical (facts/primary record), so the homepage reads as a
     # browsable catalogue (artists / dramas / films) instead of one undifferentiated table.
     groups: dict[str, list[tuple[str, object]]] = {
-        "artist": [], "drama": [], "film": [], "webtoon": [], "place": [], "food": []}
+        "artist": [], "drama": [], "film": [], "webtoon": [], "place": [], "food": [], "company": []}
     recs: list = []
     for entity_id, by_kind in by_entity.items():
         primary = by_kind.get("facts") or max(by_kind.values(), key=lambda r: r.provenance.skill_score)
@@ -436,9 +511,9 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
         labels_block = (f"<h2 class=sec>{_ICON['label']} Labels &amp; networks ({len(label_items)})</h2>"
                         f"<div class=pchips>{lchips}</div>")
 
-    n_art, n_dr, n_fl, n_wt, n_pl, n_fd = (len(groups["artist"]), len(groups["drama"]),
-                                           len(groups["film"]), len(groups["webtoon"]),
-                                           len(groups["place"]), len(groups["food"]))
+    n_art, n_dr, n_fl, n_wt, n_pl, n_fd, n_co = (
+        len(groups["artist"]), len(groups["drama"]), len(groups["film"]), len(groups["webtoon"]),
+        len(groups["place"]), len(groups["food"]), len(groups["company"]))
     sections = (
         _report_section(f"{_ICON['artist']} K-pop artists ({n_art})", "Agency (소속사)", groups["artist"])
         + _report_section(f"{_ICON['drama']} K-dramas ({n_dr})", "Network / platform", groups["drama"])
@@ -446,6 +521,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
         + _report_section(f"{_ICON['webtoon']} Webtoons ({n_wt})", "Author / publisher", groups["webtoon"])
         + _report_section(f"{_ICON['place']} Places to visit ({n_pl})", "Region / location", groups["place"])
         + _report_section(f"{_ICON['food']} Korean food ({n_fd})", "Type", groups["food"])
+        + _report_section(f"{_ICON['company']} Korean companies ({n_co})", "Industry", groups["company"])
         + people_block + labels_block
     )
     now = datetime.now(timezone.utc)
@@ -528,6 +604,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./webtoons.html">{_ICON['webtoon']} Webtoons</a>
  <a class="pill" href="./places.html">{_ICON['place']} Places</a>
  <a class="pill" href="./food.html">{_ICON['food']} Food</a>
+ <a class="pill" href="./companies.html">{_ICON['company']} Companies</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -542,13 +619,14 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 </div>
 <div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 7 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
 <div class="cards">
- <div class="card"><div class="v">{n_art + n_dr + n_fl + n_wt + n_pl + n_fd}</div><div class="k">verified entities</div></div>
+ <div class="card"><div class="v">{n_art + n_dr + n_fl + n_wt + n_pl + n_fd + n_co}</div><div class="k">verified entities</div></div>
  <div class="card"><div class="v">{n_art}</div><div class="k">K-pop artists</div></div>
  <div class="card"><div class="v">{n_dr}</div><div class="k">K-dramas</div></div>
  <div class="card"><div class="v">{n_fl}</div><div class="k">K-films</div></div>
  <div class="card"><div class="v">{n_wt}</div><div class="k">webtoons</div></div>
  <div class="card"><div class="v">{n_pl}</div><div class="k">places</div></div>
  <div class="card"><div class="v">{n_fd}</div><div class="k">foods</div></div>
+ <div class="card"><div class="v">{n_co}</div><div class="k">companies</div></div>
  <div class="card"><div class="v">{len(ppl)}</div><div class="k">verified people</div></div>
  <div class="card"><div class="v">{s.get('avg_skill_score', '-')}</div><div class="k">avg Skill Score</div></div>
  <div class="card"><div class="v">{s.get('fresh_entities', '-')}</div><div class="k">fresh</div></div>
@@ -612,6 +690,10 @@ _ICON = {
     # steaming bowl (Korean food)
     "food": _icon('<path d="M3 11h18a9 9 0 0 1-9 9 9 9 0 0 1-9-9z"/>'
                   '<path d="M8 4c0 1-1 1-1 2s1 1 1 2M12 3c0 1-1 1-1 2s1 1 1 2M16 4c0 1-1 1-1 2s1 1 1 2"/>'),
+    # building (companies)
+    "company": _icon('<rect x="3" y="3" width="12" height="18" rx="1"/>'
+                     '<path d="M15 9h5a1 1 0 0 1 1 1v11h-6"/><line x1="7" y1="7" x2="11" y2="7"/>'
+                     '<line x1="7" y1="11" x2="11" y2="11"/><line x1="7" y1="15" x2="11" y2="15"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -809,6 +891,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("place:"):
             qas.append((f"When was {name} built or established?",
                         f"{name} dates to {d['debut']} (verified via {src}, as of {asof})."))
+        elif eid.startswith("company:"):
+            qas.append((f"When was {name} founded?",
+                        f"{name} was founded in {d['debut']} (verified via {src}, as of {asof})."))
         elif eid.startswith("drama:"):
             qas.append((f"When did {name} first air?",
                         f"{name} first aired in {d['debut']} (verified via {src}, as of {asof})."))
@@ -846,6 +931,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("place:"):
             qas.append((f"Where is {name}?",
                         f"{name} is located in {agency} (verified via {src}, as of {asof})."))
+        elif eid.startswith("company:"):
+            qas.append((f"What industry is {name} in?",
+                        f"{name} operates in {agency} (verified via {src}, as of {asof})."))
         else:
             ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
             qas.append((f"What agency (소속사) is {name} under?",
@@ -1035,6 +1123,7 @@ _VERTICALS = {
     "webtoon": ("Webtoons", "webtoons.html", _ICON["webtoon"], "Author / publisher"),
     "place": ("Places to visit", "places.html", _ICON["place"], "Region / location"),
     "food": ("Korean food", "food.html", _ICON["food"], "Type"),
+    "company": ("Korean companies", "companies.html", _ICON["company"], "Industry"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -1238,7 +1327,8 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
 
     # Vertical hub pages + a people hub (hub-and-spoke): each lists its vertical and carries an
     # ItemList + BreadcrumbList so an answer engine can lift "the list of K-dramas" wholesale.
-    groups: dict[str, list] = {"artist": [], "drama": [], "film": [], "webtoon": [], "place": [], "food": []}
+    groups: dict[str, list] = {"artist": [], "drama": [], "film": [], "webtoon": [],
+                               "place": [], "food": [], "company": []}
     hub_seen: set[str] = set()
     for entity_id, by_kind in by_entity.items():
         ns = _entity_kind(entity_id)
@@ -1395,9 +1485,9 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     def names(prefix: str) -> list[str]:
         return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
 
-    arts, dramas, films, webtoons, places, foods = (
+    arts, dramas, films, webtoons, places, foods, companies = (
         names("artist:"), names("drama:"), names("film:"), names("webtoon:"),
-        names("place:"), names("food:"))
+        names("place:"), names("food:"), names("company:"))
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
 
@@ -1407,7 +1497,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coverage = f"""
 ## Coverage (live, as of {today})
-- {len(facts)} verified entities across 6 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods.
+- {len(facts)} verified entities across 7 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies.
 - {len(linked)} verified people (directors + cross-work cast/creators), each a citable hub page linking their works.
 - K-pop artists: {sample(arts)}
 - K-dramas: {sample(dramas)}
@@ -1415,6 +1505,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Webtoons: {sample(webtoons)}
 - Places to visit: {sample(places)}
 - Korean food: {sample(foods)}
+- Korean companies: {sample(companies)}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml
@@ -1688,6 +1779,9 @@ def _main(argv: list[str]) -> int:
             print("  failed (no snapshot):", ", ".join(out["failed"]))
             print("  → if ALL failed, egress to www.wikidata.org is likely blocked (sandbox allowlist).")
             print("    Run where the network is open: a deploy, or a Full-network session.")
+    elif cmd == "load":
+        n = asyncio.run(load_latest())
+        print(f"load: re-seeded {n} record(s) from data/latest.json -> {store._db_path(None)}")
     elif cmd == "export":
         out = asyncio.run(export())
         print(
@@ -1727,6 +1821,18 @@ def _main(argv: list[str]) -> int:
             print("  +", ", ".join(out["ingested"]))
         if not out["agencies"]:
             print("  (no agency anchors in the store yet - run `pull` first)")
+    elif cmd == "discover":
+        out = asyncio.run(discover())
+        tot = sum(len(r["ingested"]) for r in out.values())
+        print(f"discover: {tot} new verified entit(ies) across {len(out)} verticals -> {store._db_path(None)}")
+        for v, r in out.items():
+            if r["ingested"]:
+                tail = " …" if len(r["ingested"]) > 8 else ""
+                print(f"  {v}: +{len(r['ingested'])} ({r['candidates']} candidates) -> "
+                      f"{', '.join(s.split(':', 1)[-1] for s in r['ingested'][:8])}{tail}")
+        if not tot:
+            print("  → 0 new: either all candidates already ingested, or SPARQL egress is blocked "
+                  "(runs on GitHub's open-network runners).")
     elif cmd == "youtube":
         out = asyncio.run(youtube())
         total = len(out["ingested"]) + len(out["skipped"])
