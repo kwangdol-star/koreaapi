@@ -18,4 +18,38 @@ ARTISTS = {
     "artist:blackpink": "BLACKPINK",
     "artist:lesserafim": "LE SSERAFIM",
     "artist:straykids": "Stray Kids",
+    # Coverage expansion — distinctive (coined) names only, to keep search-collision low (per note).
+    "artist:itzy": "ITZY",
+    "artist:gidle": "(G)I-DLE",
+    "artist:enhypen": "ENHYPEN",
+    "artist:nmixx": "NMIXX",
+    "artist:riize": "RIIZE",
+    "artist:zerobaseone": "ZEROBASEONE",
+    "artist:txt": "Tomorrow X Together",
+    "artist:ateez": "ATEEZ",
+    "artist:babymonster": "BABYMONSTER",
+    "artist:illit": "ILLIT",
+}
+
+# 소속사 disambiguation hint: entity_id -> agency CORE name. Wikidata's P264 can list several labels
+# (e.g. a foreign distribution label first — the BTS/Avex bug); the hint picks the RIGHT one among the
+# LIVE values. It never fabricates — the value still comes from Wikidata, and fetch() falls back to
+# the first label if nothing matches. (The 3 curated acts also carry this in wikidata `_CURATED`.)
+AGENCY_HINTS = {
+    "artist:bts": "Big Hit",
+    "artist:newjeans": "ADOR",
+    "artist:aespa": "SM Entertainment",
+    "artist:blackpink": "YG",
+    "artist:lesserafim": "Source",
+    "artist:straykids": "JYP",
+    "artist:itzy": "JYP",
+    "artist:gidle": "Cube",
+    "artist:enhypen": "Belift",
+    "artist:nmixx": "JYP",
+    "artist:riize": "SM Entertainment",
+    "artist:zerobaseone": "WakeOne",
+    "artist:txt": "Big Hit",
+    "artist:ateez": "KQ",
+    "artist:babymonster": "YG",
+    "artist:illit": "Belift",
 }

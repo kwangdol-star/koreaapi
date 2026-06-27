@@ -73,5 +73,29 @@ def test_curated_agency_hint_picks_the_real_label(monkeypatch):
     assert res["payload"]["agency_source"] == "Wikidata QBIGHIT"
 
 
+def test_every_roster_artist_has_an_agency_hint():
+    from koreaapi.roster import AGENCY_HINTS
+    assert set(ARTISTS) <= set(AGENCY_HINTS)  # don't add an artist without its 소속사 hint
+
+
+def test_roster_agency_hint_applies_to_noncurated(monkeypatch):
+    # A roster (non-curated) artist also gets the agency hint: pick JYP, not the foreign label first.
+    def http_get(self, url: str) -> dict:
+        if "wbsearchentities" in url:
+            return {"search": [{"id": "QITZY"}]}
+        if "QFOREIGN" in url:
+            return {"entities": {"QFOREIGN": {"labels": {"en": {"value": "Republic Records"}}}}}
+        if "QJYP" in url:
+            return {"entities": {"QJYP": {"labels": {"en": {"value": "JYP Entertainment"}, "ko": {"value": "JYP엔터테인먼트"}}}}}
+        return {"entities": {"QITZY": {"id": "QITZY", "labels": {"en": {"value": "ITZY"}},
+                "claims": {"P264": [
+                    {"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QFOREIGN"}}}},
+                    {"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QJYP"}}}},
+                ]}}}}
+    monkeypatch.setattr(WikidataSource, "_http_get", http_get)
+    res = asyncio.run(WikidataSource().fetch("artist:itzy", "facts"))
+    assert res["payload"]["agency_en"] == "JYP Entertainment"  # roster hint disambiguated
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

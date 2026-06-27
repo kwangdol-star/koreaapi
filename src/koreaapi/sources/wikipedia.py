@@ -28,6 +28,16 @@ _TITLES = {
     "artist:blackpink": "Blackpink",
     "artist:lesserafim": "Le Sserafim",
     "artist:straykids": "Stray Kids",
+    "artist:itzy": "Itzy",
+    "artist:gidle": "(G)I-dle",
+    "artist:enhypen": "Enhypen",
+    "artist:nmixx": "NMIXX",
+    "artist:riize": "Riize",
+    "artist:zerobaseone": "Zerobaseone",
+    "artist:txt": "Tomorrow X Together",
+    "artist:ateez": "Ateez",
+    "artist:babymonster": "BabyMonster",
+    "artist:illit": "Illit (group)",
 }
 
 

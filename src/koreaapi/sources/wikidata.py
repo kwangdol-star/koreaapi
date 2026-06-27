@@ -23,7 +23,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
-from ..roster import ARTISTS
+from ..roster import AGENCY_HINTS, ARTISTS
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"  # agency-hub roster discovery (sweep)
@@ -252,7 +252,7 @@ class WikidataSource:
         # label alongside the primary 소속사); for a curated artist a hint picks the RIGHT one among
         # the live values (the value still comes from Wikidata - the hint only disambiguates).
         agency_qids = payload.pop("agency_qids", [])
-        hint = ((_CURATED.get(entity_id) or {}).get("agency") or "").lower()
+        hint = ((_CURATED.get(entity_id) or {}).get("agency") or AGENCY_HINTS.get(entity_id) or "").lower()
         for q in agency_qids:
             try:
                 label = parse_label(await asyncio.to_thread(self._http_get, self._label_url(q)))
