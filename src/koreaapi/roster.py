@@ -54,6 +54,23 @@ ARTISTS = {
     "artist:nct": "NCT",
     "artist:exo": "EXO",
     "artist:iu": "IU",
+    # Batch 2 — distinctive (coined) names.
+    "artist:oneus": "ONEUS",
+    "artist:sf9": "SF9",
+    "artist:cravity": "CRAVITY",
+    "artist:p1harmony": "P1Harmony",
+    "artist:stayc": "STAYC",
+    "artist:apink": "Apink",
+    "artist:taemin": "TAEMIN",
+    "artist:sunmi": "SUNMI",
+    "artist:chungha": "Chung Ha",
+    "artist:viviz": "VIVIZ",
+    # Batch 2 — collision-prone (real-word / real-name overlap): bilingual identity in wikidata._CURATED.
+    "artist:kissoflife": "Kiss of Life",
+    "artist:ohmygirl": "Oh My Girl",
+    "artist:everglow": "EVERGLOW",
+    "artist:zico": "ZICO",
+    "artist:boynextdoor": "BOYNEXTDOOR",
 }
 
 # 소속사 disambiguation hint: entity_id -> agency CORE name. Wikidata's P264 can list several labels
@@ -91,6 +108,16 @@ AGENCY_HINTS = {
     "artist:girlsgeneration": "SM Entertainment",
     "artist:superjunior": "Label SJ",
     "artist:theboyz": "IST",
+    "artist:oneus": "RBW",
+    "artist:sf9": "FNC",
+    "artist:cravity": "Starship",
+    "artist:p1harmony": "FNC",
+    "artist:stayc": "High Up",
+    "artist:apink": "IST",
+    "artist:taemin": "SM Entertainment",
+    "artist:sunmi": "ABYSS",
+    "artist:chungha": "MNH",
+    "artist:viviz": "Big Planet",
 }
 
 # K-drama vertical (Phase A breadth). Distinctive titles = low search-collision. Verified by the
@@ -116,6 +143,15 @@ DRAMAS = {
     "drama:goblin": "Guardian: The Lonely and Great God",
     "drama:mylovefromthestar": "My Love from the Star",
     "drama:mrsunshine": "Mr. Sunshine",
+    # Batch 2 — distinctive titles.
+    "drama:mymister": "My Mister",
+    "drama:movetoheaven": "Move to Heaven",
+    "drama:mrqueen": "Mr. Queen",
+    "drama:theuncannycounter": "The Uncanny Counter",
+    "drama:alchemyofsouls": "Alchemy of Souls",
+    "drama:queenoftears": "Queen of Tears",
+    "drama:reply1997": "Reply 1997",
+    "drama:misaeng": "Misaeng",
 }
 
 # K-film vertical (more K-culture breadth, same engine). Distinctive titles; the lone generic-but-
@@ -137,6 +173,13 @@ FILMS = {
     "film:springsummerfall": "Spring, Summer, Fall, Winter... and Spring",
     "film:abittersweetlife": "A Bittersweet Life",
     "film:thegoodthebadtheweird": "The Good, the Bad, the Weird",
+    # Batch 2 — distinctive titles.
+    "film:thegangsterthecopthedevil": "The Gangster, the Cop, the Devil",
+    "film:exhuma": "Exhuma",
+    "film:alongwiththegods": "Along with the Gods",
+    # Batch 2 — collision-prone (real-word overlap): bilingual identity in wikidata._CURATED.
+    "film:ahardday": "A Hard Day",
+    "film:svaha": "Svaha",
 }
 
 # Every verified entity (artists + dramas + films): id -> canonical name (search + identity term).

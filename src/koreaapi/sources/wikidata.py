@@ -61,6 +61,15 @@ _CURATED = {
     # to 기생충 the organism (which shares both names). A wrong qid would be caught by the guard -> miss.
     "film:parasite": {"qid": "Q61448040", "ko": "기생충", "en": "Parasite"},
     "film:oldboy": {"ko": "올드보이", "en": "Oldboy"},
+    # Batch 2 — collision-prone names (a real word / real person shares the English): bilingual pin so
+    # the strict KO guard rejects the impostor. No qid -> resolved live by search, then guarded.
+    "artist:kissoflife": {"ko": "키스오브라이프", "en": "Kiss of Life", "agency": "S2"},
+    "artist:ohmygirl": {"ko": "오마이걸", "en": "Oh My Girl", "agency": "WM"},
+    "artist:everglow": {"ko": "에버글로우", "en": "EVERGLOW", "agency": "Yuehua"},
+    "artist:zico": {"ko": "지코", "en": "Zico", "agency": "KOZ"},
+    "artist:boynextdoor": {"ko": "보이넥스트도어", "en": "BOYNEXTDOOR", "agency": "KOZ"},
+    "film:ahardday": {"ko": "끝까지 간다", "en": "A Hard Day"},
+    "film:svaha": {"ko": "사바하", "en": "Svaha"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.

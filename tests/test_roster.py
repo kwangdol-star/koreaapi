@@ -128,5 +128,28 @@ def test_roster_agency_hint_applies_to_noncurated(monkeypatch):
     assert res["payload"]["agency_en"] == "JYP Entertainment"  # roster hint disambiguated
 
 
+def test_every_name_has_a_wikipedia_title():
+    # The Wikipedia title is what makes cross-verification reliable (the second independent source).
+    # An entity in NAMES without a _TITLES entry would silently degrade to single-source — block that.
+    from koreaapi.roster import NAMES
+    from koreaapi.sources.wikipedia import _TITLES
+    assert set(NAMES) <= set(_TITLES)
+
+
+def test_curated_anchors_are_bilingual():
+    # Every curated anchor must carry both ko + en so the strict identity guard can run (a qid-less
+    # anchor relies entirely on the bilingual guard; a wrong one then fails SAFE to a miss).
+    from koreaapi.sources.wikidata import _CURATED
+    assert all(m.get("ko") and m.get("en") for m in _CURATED.values())
+
+
+def test_roster_breadth():
+    # Guard the asset's breadth (3 verticals, ~100 entities) so a bad edit that drops rows is caught.
+    from koreaapi.roster import ARTISTS, DRAMAS, FILMS, NAMES
+    assert len(ARTISTS) >= 50 and len(DRAMAS) >= 18 and len(FILMS) >= 15
+    assert len(NAMES) >= 99
+    assert len(NAMES) == len(ARTISTS) + len(DRAMAS) + len(FILMS)  # namespaces are disjoint
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
