@@ -246,8 +246,11 @@ def _entity_node(r) -> dict:
         if r.data.get("debut"):  # air/release date -> citable "when did X come out?"
             node["datePublished"] = r.data["debut"]
         cast = r.data.get("members") or []
-        if cast:  # verified cast -> citable "who's in X?" (schema.org TVSeries.actor)
+        if cast:  # verified cast -> citable "who's in X?" (schema.org TVSeries/Movie.actor)
             node["actor"] = [{"@type": "Person", "name": m} for m in cast]
+        directors = r.data.get("directors") or []
+        if directors:  # verified director(s) -> citable "who directed X?"
+            node["director"] = [{"@type": "Person", "name": m} for m in directors]
         return node
     node = {
         "@type": "MusicGroup",
@@ -478,6 +481,10 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         else:
             qas.append((f"Who are the members of {name}?",
                         f"{', '.join(members)} — {len(members)} members (verified via {src}, as of {asof})."))
+    directors = d.get("directors") or []
+    if directors:  # drama/film only (artists carry none)
+        qas.append((f"Who directed {name}?",
+                    f"{name} was directed by {', '.join(directors)} (verified via {src}, as of {asof})."))
     agency = d.get("agency_en") or d.get("agency_ko")
     if agency:
         if primary and primary.entity_id.startswith(("drama:", "film:")):

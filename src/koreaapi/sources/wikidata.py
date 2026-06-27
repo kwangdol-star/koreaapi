@@ -107,6 +107,7 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         "debut": _claim_time(item, "P577" if is_video else "P571"),
         "active": "active" if is_video else ("disbanded" if _claim_time(item, "P576") else "active"),
         "member_qids": _claim_qids(item, "P161") if is_video else _claim_qids(item, "P527"),
+        "director_qids": _claim_qids(item, "P57") if is_video else [],  # drama/film director(s)
         "summary_en": f"{en or ko} - {kind} (Wikidata labels).",
         "summary_ko": f"{ko or en} - {kind} (위키데이터 라벨).",
     }
@@ -275,6 +276,17 @@ class WikidataSource:
                 members = parse_member_names(raw_m, member_qids[:25])
                 if members:
                     payload["members"] = members
+            except Exception:
+                pass
+
+        # Resolve drama/film director(s) (P57) -> names (best-effort; reuses the member machinery).
+        director_qids = payload.pop("director_qids", [])
+        if director_qids:
+            try:
+                raw_dir = await asyncio.to_thread(self._http_get, self._labels_url(director_qids[:5]))
+                directors = parse_member_names(raw_dir, director_qids[:5])
+                if directors:
+                    payload["directors"] = directors
             except Exception:
                 pass
 

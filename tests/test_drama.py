@@ -21,6 +21,7 @@ def _video_raw(ko: str, en: str):
                     "datavalue": {"value": {"time": "+2021-09-17T00:00:00Z"}}}}],
                 "P161": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QACTOR"}}}}],  # cast
                 "P449": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QNET"}}}}],   # network
+                "P57": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QDIR"}}}}],    # director
                 # music props must be IGNORED for drama/film:
                 "P264": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QLABEL"}}}}],
                 "P527": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QMEMBER"}}}}],
@@ -33,6 +34,7 @@ def test_video_parse_uses_air_release_date_and_cast_not_music_props():
         assert p["debut"] == "2021-09-17"        # P577 air/release date
         assert p["agency_qids"] == ["QNET"]       # original network from P449 (music P264 ignored)
         assert p["member_qids"] == ["QACTOR"]     # CAST from P161, NOT P527 members
+        assert p["director_qids"] == ["QDIR"]     # director from P57
 
 
 def test_drama_jsonld_node_is_tvseries_with_cast():
