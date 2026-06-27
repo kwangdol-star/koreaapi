@@ -24,6 +24,8 @@ EXPECTED_TOOLS = {
     "get_kculture_calendar",
     "get_agency",
     "get_korea_rising",
+    "get_person",
+    "get_related",
     "get_buy_options",
 }
 
@@ -51,6 +53,15 @@ def test_bound_tool_returns_verified_data(monkeypatch, tmp_path):
     item = out["status"][0]
     assert item["provenance"]["skill_score"] >= 0.8 and item["provenance"]["sources"]
     assert "citation" in item  # AEO/GEO citation travels through the MCP tool surface
+
+
+def test_graph_tools_are_bound_and_callable(monkeypatch, tmp_path):
+    # The new graph tools register and return a well-formed dict end to end (empty store -> not
+    # found, but no crash). Behavior is covered in depth by test_service.py.
+    monkeypatch.setenv("KOREAAPI_DB", str(tmp_path / "empty.db"))
+    out_p = asyncio.run(server.get_person("Bong Joon-ho"))
+    out_r = asyncio.run(server.get_related("artist:bts"))
+    assert out_p["found"] is False and out_r["found"] is False
 
 
 if __name__ == "__main__":

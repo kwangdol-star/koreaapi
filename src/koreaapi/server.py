@@ -44,6 +44,22 @@ async def get_korea_rising(category: str = "all", limit: int = 10) -> dict:
 
 
 @mcp.tool
+async def get_person(name: str) -> dict:
+    """Verified credits for a Korean-culture person (director / actor / idol member), aggregated
+    across every work that credits them, each with provenance + Skill Score. Answers 'what did
+    X direct / act in?'. `name` e.g. 'Bong Joon-ho' (display name or slug)."""
+    return await service.person(name)
+
+
+@mcp.tool
+async def get_related(entity_id: str) -> dict:
+    """Entities related via the same hub edge — artists sharing a 소속사, or dramas/films sharing an
+    original network/platform — with provenance. Answers 'what else is on Netflix / under HYBE?'.
+    entity_id e.g. 'artist:bts' or 'drama:squidgame'."""
+    return await service.related(entity_id)
+
+
+@mcp.tool
 async def get_buy_options(item: str) -> dict:
     """Where to buy a release/ticket/goods (Phase 1: commerce rail pending; logs buy-intent)."""
     return await service.buy_options(item)

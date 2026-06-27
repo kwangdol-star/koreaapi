@@ -476,7 +476,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <span class="chip"><b>Hallucination-guarded</b></span>
  <span class="chip"><b>Bilingual</b> · KO / EN / romanized</span>
 </div>
-<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 5 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
+<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 7 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
 <div class="cards">
  <div class="card"><div class="v">{n_art + n_dr + n_fl}</div><div class="k">verified entities</div></div>
  <div class="card"><div class="v">{n_art}</div><div class="k">K-pop artists</div></div>
@@ -1104,6 +1104,8 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
 - get_kculture_calendar(window_days): upcoming comebacks, releases, concerts.
 - get_agency(name): artists verified under a Korean agency/label (소속사), e.g. 'JYP Entertainment'.
 - get_korea_rising(category): what is rising in Korea now (ranked by observed demand + Skill Score).
+- get_person(name): verified credits for a director/actor/idol member across works, with provenance.
+- get_related(entity_id): entities sharing a 소속사 (artists) or network/platform (drama·film).
 - get_buy_options(item): where to buy + availability + affiliate link (Phase 1: rail pending).
 
 ## Verification (why cite us)
@@ -1223,7 +1225,8 @@ async def markdown_digest(db_path: str | None = None, out_path: str = "data/kore
     out += [
         "---",
         "Cite as: `Name — kind, as of <date> · source · Skill Score · via KoreaAPI`. "
-        "MCP tools: get_artist_status, get_agency, get_kculture_calendar, get_korea_rising, get_buy_options.",
+        "MCP tools: get_artist_status, get_agency, get_kculture_calendar, get_korea_rising, "
+        "get_person, get_related, get_buy_options.",
     ]
     doc = "\n".join(out)
     parent = os.path.dirname(out_path)

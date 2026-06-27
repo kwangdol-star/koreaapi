@@ -160,6 +160,92 @@ async def korea_rising(category: str = "all", limit: int = 10, *, db_path: str |
     }
 
 
+def _person_key(s: str | None) -> str:
+    """Match key for a person across name/slug forms: 'Bong Joon-ho' == 'bong-joon-ho' == 'BONGJOONHO'."""
+    return "".join(c for c in (s or "").lower() if c.isalnum())
+
+
+async def person(name: str, *, db_path: str | None = None) -> dict:
+    """Verified credits for ONE Korean-culture person (director / actor / idol member), aggregated
+    across every work that credits them — the person face of the knowledge graph. `name` may be the
+    display name or a slug ('Bong Joon-ho' / 'bong-joon-ho'). Each credit carries the work's
+    provenance + Skill Score; the person edge is asserted by those works' own verified records."""
+    await _log("query", f"person:{name}", db_path)  # behavioral signal (a miss is still demand)
+    key = _person_key(name)
+    if not key:
+        return {"query": name, "found": False, "note": "empty query"}
+    credits: list[dict] = []
+    sources: set[str] = set()
+    display: str | None = None
+    for e in await store.entities(db_path=db_path):
+        if e["kind"] != "facts":
+            continue
+        rec = await store.latest(e["entity_id"], "facts", db_path=db_path)
+        if rec is None:
+            continue
+        is_video = rec.entity_id.startswith(("drama:", "film:"))
+        roles = [("cast" if is_video else "member", n) for n in (rec.data.get("members") or [])]
+        roles += [("director", n) for n in (rec.data.get("directors") or [])]
+        for role, nm in roles:
+            if _person_key(nm) != key:
+                continue
+            display = display or nm
+            sources.update(rec.provenance.sources)
+            credits.append({
+                "role": role,
+                "work": {
+                    "entity_id": rec.entity_id,
+                    "name": {"ko": rec.name.ko, "en_official": rec.name.en_official},
+                },
+                "skill_score": rec.provenance.skill_score,
+                "sources": rec.provenance.sources,
+                "as_of": rec.snapshot_at.date().isoformat(),
+            })
+    if not credits:
+        return {"query": name, "found": False, "note": "no verified credit for this person yet"}
+    cite = (f"{display} — {len(credits)} verified credit(s). "
+            f"Source: {'; '.join(sorted(sources)) or 'unsourced'}. via KoreaAPI.")
+    return {
+        "query": name, "found": True, "name": display, "count": len(credits),
+        "credits": credits, "provenance": {"sources": sorted(sources)}, "citation": cite,
+    }
+
+
+async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None) -> dict:
+    """Entities related to a verified entity via the same HUB edge — artists sharing a 소속사, or
+    dramas/films sharing an original network/platform (the same Wikidata P264/P449 value). The
+    graph edge made queryable ('what else is on Netflix / under HYBE?'); each carries provenance."""
+    await _log("query", f"related:{entity_id}", db_path)
+    rec = await store.latest(entity_id, "facts", db_path=db_path)
+    if rec is None:
+        return {"entity_id": entity_id, "found": False, "note": "no verified facts for this entity"}
+    label = rec.data.get("agency_en") or rec.data.get("agency_ko")
+    key = _norm_name(label)
+    is_artist = entity_id.startswith("artist:")
+    if not key:
+        return {"entity_id": entity_id, "found": True, "related_by": None, "key": None,
+                "count": 0, "related": [], "note": "no agency/network edge on this entity"}
+    out: list[dict] = []
+    seen: set[str] = set()
+    for e in await store.entities(db_path=db_path):
+        oid = e["entity_id"]
+        # keep related within the same family (artist↔artist, video↔video); dedupe by entity_id
+        if oid == entity_id or oid in seen or oid.startswith("artist:") != is_artist:
+            continue
+        r = await store.latest(oid, "facts", db_path=db_path)
+        if r is None:
+            continue
+        if _norm_name(r.data.get("agency_en") or r.data.get("agency_ko")) == key:
+            seen.add(oid)
+            out.append(_item(r))
+    out.sort(key=lambda it: (it["name"]["en_official"] or it["name"]["ko"] or "").lower())
+    return {
+        "entity_id": entity_id, "found": True,
+        "related_by": "agency" if is_artist else "network",
+        "key": label, "count": len(out), "related": out[:limit],
+    }
+
+
 async def buy_options(item: str, *, db_path: str | None = None) -> dict:
     """Where to buy a release/ticket/goods. Phase 1: commerce rail pending; logs buy-intent."""
     await _log("buy_intent", item, db_path)  # the buy-intent signal accrues even at $0 commission

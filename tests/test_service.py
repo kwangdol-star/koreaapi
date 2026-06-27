@@ -111,6 +111,67 @@ def test_artist_status_name_comes_from_best_verified_record():
     assert out["name"] == {"ko": "방탄소년단", "en_official": "BTS", "romanized": "Bangtan Sonyeondan"}
 
 
+def _graph_db() -> str:
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.unlink(path)
+    now = datetime.now(timezone.utc)
+    rows = [
+        ("film:parasite", "기생충", "Parasite", {"directors": ["Bong Joon-ho"], "members": ["Song Kang-ho"]}),
+        ("film:memoriesofmurder", "살인의 추억", "Memories of Murder",
+         {"directors": ["Bong Joon-ho"], "members": ["Song Kang-ho"]}),
+        ("drama:squidgame", "오징어 게임", "Squid Game", {"agency_en": "Netflix"}),
+        ("drama:allofusaredead", "지금 우리 학교는", "All of Us Are Dead", {"agency_en": "Netflix"}),
+        ("artist:straykids", "스트레이키즈", "Stray Kids", {"agency_en": "JYP Entertainment"}),
+        ("artist:itzy", "있지", "ITZY", {"agency_en": "JYP Entertainment"}),
+        ("artist:aespa", "에스파", "aespa", {"agency_en": "SM Entertainment"}),
+    ]
+    for eid, ko, en, data in rows:
+        asyncio.run(store.append_record(Record(
+            entity_id=eid, kind="facts", name=Name(ko=ko, en_official=en), snapshot_at=now,
+            summary_en=f"{en} - facts.", data=data,
+            provenance=Provenance(sources=["Wikidata Q1", "Wikipedia"], fetched_at=now,
+                                  skill_score=1.0, confidence="high"),
+        ), db_path=path))
+    return path
+
+
+def test_person_aggregates_credits_across_works():
+    db = _graph_db()
+    out = asyncio.run(service.person("Bong Joon-ho", db_path=db))
+    assert out["found"] is True and out["count"] == 2          # a cross-work director hub
+    assert {c["work"]["entity_id"] for c in out["credits"]} == {"film:parasite", "film:memoriesofmurder"}
+    assert all(c["role"] == "director" for c in out["credits"])
+    assert out["provenance"]["sources"] and "via KoreaAPI" in out["citation"]
+    # a slug-form query resolves to the same person (name == slug); cast role aggregates too
+    slug_form = asyncio.run(service.person("bong-joon-ho", db_path=db))
+    assert slug_form["found"] is True and slug_form["name"] == "Bong Joon-ho" and slug_form["count"] == 2
+    assert asyncio.run(service.person("song-kang-ho", db_path=db))["count"] == 2  # cast credits
+
+
+def test_person_unknown_is_honest_miss():
+    db = _graph_db()
+    out = asyncio.run(service.person("Nobody At All", db_path=db))
+    assert out["found"] is False
+
+
+def test_related_by_agency_and_network_within_family():
+    db = _graph_db()
+    sk = asyncio.run(service.related("artist:straykids", db_path=db))
+    assert sk["related_by"] == "agency" and sk["key"] == "JYP Entertainment"
+    names = {m["name"]["en_official"] for m in sk["related"]}
+    assert names == {"ITZY"}                                   # same 소속사; aespa (SM) + dramas excluded
+    sg = asyncio.run(service.related("drama:squidgame", db_path=db))
+    assert sg["related_by"] == "network" and sg["key"] == "Netflix"
+    assert {m["name"]["en_official"] for m in sg["related"]} == {"All of Us Are Dead"}
+
+
+def test_related_without_edge_is_empty_not_error():
+    db = _graph_db()
+    out = asyncio.run(service.related("film:parasite", db_path=db))  # theatrical film, no network edge
+    assert out["found"] is True and out["count"] == 0
+
+
 def test_buy_options_phase1_stub_is_honest():
     db = _seeded_db()
     out = asyncio.run(service.buy_options("BTS album", db_path=db))
