@@ -135,6 +135,14 @@ AGENCY_HINTS = {
     "artist:qwer": "3Y",
     "artist:plave": "VLAST",
     "artist:younha": "C9",
+    # webtoon publisher/platform hints (P123 disambiguation; falls back to the first label)
+    "webtoon:sololeveling": "Kakao",
+    "webtoon:towerofgod": "Naver",
+    "webtoon:thegodofhighschool": "Naver",
+    "webtoon:noblesse": "Naver",
+    "webtoon:omniscientreader": "Naver",
+    "webtoon:yumiscells": "Naver",
+    "webtoon:cheeseinthetrap": "Naver",
 }
 
 # K-drama vertical (Phase A breadth). Distinctive titles = low search-collision. Verified by the
@@ -214,5 +222,19 @@ FILMS = {
     "film:smugglers": "Smugglers",
 }
 
-# Every verified entity (artists + dramas + films): id -> canonical name (search + identity term).
-NAMES = {**ARTISTS, **DRAMAS, **FILMS}
+# K-webtoon vertical (4th vertice, same engine, namespace-switched): the `webtoon:` namespace maps to
+# publisher/platform (P123), publication date (P577/P571), author(s) (P50). Distinctive titles; the
+# generic-word one (Lookism) is bilingually pinned in wikidata._CURATED.
+WEBTOONS = {
+    "webtoon:sololeveling": "Solo Leveling",
+    "webtoon:towerofgod": "Tower of God",
+    "webtoon:thegodofhighschool": "The God of High School",
+    "webtoon:noblesse": "Noblesse",
+    "webtoon:omniscientreader": "Omniscient Reader",
+    "webtoon:yumiscells": "Yumi's Cells",
+    "webtoon:cheeseinthetrap": "Cheese in the Trap",
+    "webtoon:lookism": "Lookism",  # bilingual identity in wikidata._CURATED (vs the concept "lookism")
+}
+
+# Every verified entity (artists + dramas + films + webtoons): id -> canonical name (search + identity).
+NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS}

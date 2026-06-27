@@ -142,6 +142,14 @@ _TITLES = {
     "film:killboksoon": "Kill Boksoon",
     "film:1212theday": "12.12: The Day",
     "film:smugglers": "Smugglers (film)",
+    "webtoon:sololeveling": "Solo Leveling",
+    "webtoon:towerofgod": "Tower of God",
+    "webtoon:thegodofhighschool": "The God of High School",
+    "webtoon:noblesse": "Noblesse (webtoon)",
+    "webtoon:omniscientreader": "Omniscient Reader's Viewpoint",
+    "webtoon:yumiscells": "Yumi's Cells",
+    "webtoon:cheeseinthetrap": "Cheese in the Trap",
+    "webtoon:lookism": "Lookism (webtoon)",
 }
 
 

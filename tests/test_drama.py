@@ -70,6 +70,46 @@ def test_film_jsonld_node_is_movie_with_cast():
     assert [a["name"] for a in node.get("actor", [])] == ["Gong Yoo", "Ma Dong-seok"]
 
 
+def _webtoon_raw(ko: str, en: str):
+    return {"entities": {"Q1": {"labels": {"ko": {"value": ko}, "en": {"value": en}},
+            "claims": {
+                "P577": [{"mainsnak": {"snaktype": "value",
+                    "datavalue": {"value": {"time": "+2018-03-04T00:00:00Z"}}}}],
+                "P50": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QAUTH"}}}}],   # author
+                "P123": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QPUB"}}}}],   # publisher
+                # music/video props must be IGNORED for a webtoon:
+                "P264": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QLABEL"}}}}],
+                "P161": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QCAST"}}}}],
+                "P57": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QDIR"}}}}],
+            }}}}
+
+
+def test_webtoon_parse_uses_author_publisher_publication_date():
+    p = parse_entity(_webtoon_raw("나 혼자만 레벨업", "Solo Leveling"), "webtoon:sololeveling", "facts")
+    assert p["debut"] == "2018-03-04"      # P577 publication date
+    assert p["agency_qids"] == ["QPUB"]     # publisher P123 (not music P264)
+    assert p["member_qids"] == ["QAUTH"]    # author P50 (not cast P161 / members P527)
+    assert p["director_qids"] == []         # webtoons carry no director
+
+
+def test_webtoon_jsonld_node_is_comicseries_with_author_and_publisher():
+    now = datetime.now(timezone.utc)
+    rec = Record(
+        entity_id="webtoon:sololeveling", kind="facts",
+        name=Name(ko="나 혼자만 레벨업", en_official="Solo Leveling"), snapshot_at=now,
+        summary_en="Solo Leveling — verified Korean webtoon. Published 2018. By Chugong.",
+        data={"debut": "2018", "members": ["Chugong"], "agency_en": "Kakao"},
+        provenance=Provenance(sources=["Wikidata Q1", "Wikipedia Solo Leveling"], fetched_at=now,
+                              skill_score=1.0, confidence="high"),
+    )
+    node = admin._entity_node(rec)
+    assert node["@type"] == "ComicSeries"
+    assert node.get("datePublished") == "2018"
+    assert [a["name"] for a in node.get("author", [])] == ["Chugong"]
+    assert node.get("publisher", {}).get("name") == "Kakao"
+    assert "actor" not in node and "recordLabel" not in node  # not a video / not a group
+
+
 if __name__ == "__main__":
     import pytest
 

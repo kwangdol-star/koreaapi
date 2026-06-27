@@ -103,6 +103,8 @@ _CURATED = {
     # Batch 3 collision-prone (real word / real name shares the English):
     "artist:boa": {"ko": "보아", "en": "BoA", "agency": "SM Entertainment"},
     "film:smugglers": {"ko": "밀수", "en": "Smugglers"},
+    # webtoon whose English title is the common word "lookism" (the concept) — pin bilingually.
+    "webtoon:lookism": {"ko": "외모지상주의", "en": "Lookism", "agency": "Naver"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.
@@ -140,9 +142,23 @@ def _claim_time(item: dict, prop: str) -> str | None:
     return None
 
 
+# Per-namespace Wikidata property map — the SAME engine, switched by entity namespace. `agency` is
+# the org edge (소속사 / network / publisher), `date` the debut/air/publication date (`date2` a
+# fallback), `members` the people edge (group members / cast / authors), `directors` drama·film only,
+# `disband` the end date (artists only). Adding a vertical = one row here + a roster/_TITLES entry.
+_NS_PROPS = {
+    "artist":  {"agency": "P264", "date": "P571", "members": "P527", "directors": None, "disband": "P576"},
+    "drama":   {"agency": "P449", "date": "P577", "members": "P161", "directors": "P57"},
+    "film":    {"agency": "P449", "date": "P577", "members": "P161", "directors": "P57"},
+    # webtoon/manhwa: publisher/platform P123 (Naver·Kakao), publication date P577 (else inception
+    # P571), author(s) P50 as the people edge (the "creator"), no director.
+    "webtoon": {"agency": "P123", "date": "P577", "date2": "P571", "members": "P50", "directors": None},
+}
+
+
 def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
-    """Pure: turn a Wikidata `wbgetentities` response into our payload shape (incl. verified K-pop
-    facts an agent/fan asks for: agency, debut, active status, member Q-ids)."""
+    """Pure: turn a Wikidata `wbgetentities` response into our payload shape (agency/publisher,
+    debut/air/publication date, active status, people Q-ids), namespace-switched via _NS_PROPS."""
     ents = raw.get("entities", {})
     if not ents:
         raise ValueError("no entity in Wikidata response")
@@ -152,20 +168,19 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
     en = labels.get("en", {}).get("value")
     if not ko and not en:
         raise ValueError("no ko/en label in Wikidata response")
-    is_video = entity_id.startswith(("drama:", "film:"))  # drama/film: air-or-release date + cast
+    p = _NS_PROPS.get(entity_id.split(":", 1)[0], _NS_PROPS["artist"])
+    debut = _claim_time(item, p["date"]) or (_claim_time(item, p["date2"]) if p.get("date2") else None)
     return {
         "name_ko": ko or en,
         "name_en_official": en,
         "name_romanized": None,  # Wikidata rarely carries clean romanization; filled elsewhere
         "name_en_source": "official" if en else "llm",
         "name_en_confidence": "high" if en else "low",
-        # Music: 소속사 (P264), members (P527), debut (P571). Drama/film: original network/platform
-        # (P449, e.g. Netflix/tvN — reusing the agency machinery), air/release date (P577), cast (P161).
-        "agency_qids": _claim_qids(item, "P449") if is_video else _claim_qids(item, "P264"),
-        "debut": _claim_time(item, "P577" if is_video else "P571"),
-        "active": "active" if is_video else ("disbanded" if _claim_time(item, "P576") else "active"),
-        "member_qids": _claim_qids(item, "P161") if is_video else _claim_qids(item, "P527"),
-        "director_qids": _claim_qids(item, "P57") if is_video else [],  # drama/film director(s)
+        "agency_qids": _claim_qids(item, p["agency"]) if p["agency"] else [],
+        "debut": debut,
+        "active": "disbanded" if (p.get("disband") and _claim_time(item, p["disband"])) else "active",
+        "member_qids": _claim_qids(item, p["members"]) if p["members"] else [],
+        "director_qids": _claim_qids(item, p["directors"]) if p["directors"] else [],
         "summary_en": f"{en or ko} - {kind} (Wikidata labels).",
         "summary_ko": f"{ko or en} - {kind} (위키데이터 라벨).",
     }

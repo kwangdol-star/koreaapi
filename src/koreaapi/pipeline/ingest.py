@@ -120,6 +120,20 @@ async def ingest_one(
                       + (f" 채널/플랫폼: {net}." if net else "")
                       + (f" 감독: {', '.join(directors)}." if directors else "")
                       + (f" 출연 {len(cast)}명 검증." if cast else ""))
+    elif kind == "facts" and entity_id.startswith("webtoon:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        year = chosen.get("debut")
+        platform = chosen.get("agency_en") or chosen.get("agency_ko")  # publisher/platform (P123)
+        creators = chosen.get("members") or []  # author(s) (P50)
+        summary_en = (f"{disp}{ko_part} — verified Korean webtoon."
+                      + (f" Published {year}." if year else "")
+                      + (f" On {platform}." if platform else "")
+                      + (f" By {', '.join(creators)}." if creators else ""))
+        summary_ko = (f"{name.ko} — 검증된 웹툰."
+                      + (f" 연재 시작 {year}." if year else "")
+                      + (f" 플랫폼: {platform}." if platform else "")
+                      + (f" 작가: {', '.join(creators)}." if creators else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
