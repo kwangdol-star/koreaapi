@@ -46,9 +46,25 @@ _CURATED = {
     "artist:bts": {"qid": "Q13580495", "ko": "방탄소년단", "en": "BTS", "agency": "Big Hit"},
     "artist:newjeans": {"qid": "Q113189277", "ko": "뉴진스", "en": "NewJeans", "agency": "ADOR"},
     "artist:aespa": {"qid": "Q100877982", "ko": "에스파", "en": "aespa", "agency": "SM Entertainment"},
+    # Collision-prone but important — NO qid (resolved live by search), but the bilingual identity is
+    # pinned so the strict guard rejects a same-EN-label impostor by its Korean name (TREASURE -> 보물,
+    # the concept; Parasite the film vs 기생충 the organism). Worst case a miss, never a wrong record.
+    "artist:twice": {"ko": "트와이스", "en": "TWICE", "agency": "JYP"},
+    "artist:seventeen": {"ko": "세븐틴", "en": "Seventeen", "agency": "Pledis"},
+    "artist:redvelvet": {"ko": "레드벨벳", "en": "Red Velvet", "agency": "SM Entertainment"},
+    "artist:treasure": {"ko": "트레저", "en": "Treasure", "agency": "YG"},
+    "artist:ive": {"ko": "아이브", "en": "IVE", "agency": "Starship"},
+    "artist:nct": {"ko": "엔시티", "en": "NCT", "agency": "SM Entertainment"},
+    "artist:exo": {"ko": "엑소", "en": "EXO", "agency": "SM Entertainment"},
+    "artist:iu": {"ko": "아이유", "en": "IU", "agency": "EDAM"},
+    # Generic-but-essential film title: pinned by VERIFIED Q-id (Parasite, 2019) so search can't drift
+    # to 기생충 the organism (which shares both names). A wrong qid would be caught by the guard -> miss.
+    "film:parasite": {"qid": "Q61448040", "ko": "기생충", "en": "Parasite"},
+    "film:oldboy": {"ko": "올드보이", "en": "Oldboy"},
 }
-# Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path).
-_QID = {eid: meta["qid"] for eid, meta in _CURATED.items()}
+# Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
+# actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.
+_QID = {eid: meta["qid"] for eid, meta in _CURATED.items() if meta.get("qid")}
 
 
 def _claim_qids(item: dict, prop: str) -> list[str]:
@@ -147,20 +163,37 @@ def _norm(s: str | None) -> str:
 
 
 def _verify_identity(payload: dict, expected: dict) -> None:
-    """Reject a curated anchor whose fetched label contradicts its known identity.
+    """Reject a fetched record whose label contradicts the entity's known identity.
 
-    Invariant 2 (PRINCIPLES.md): no unverifiable data ships. For entities we pinned by
-    Q-id we KNOW who they are, so a label matching neither the expected Korean nor English
-    name (e.g. BTS coming back as something else) signals a wrong/stale Q-id or a corrupted
-    response - raise so the pipeline drops it instead of poisoning the append-only store.
+    Invariant 2 (PRINCIPLES.md): no unverifiable data ships. Two checks:
+
+    1. OVERLAP — the fetched ko/en must match at least one expected name (else the search/Q-id
+       resolved to a different entity entirely; e.g. BTS coming back as something else). This is
+       all we can assert for distinctive names (expected = {en} only).
+
+    2. STRICT KO — when we KNOW the Korean name (collision-prone anchors carry both ko+en) and the
+       fetched record has a real Hangul label that is neither the expected ko NOR the expected en,
+       the search drifted to a SAME-EN-LABEL impostor (TREASURE the group -> 보물 the concept;
+       Parasite the film -> 기생충 the organism). Reject by the Korean name. (A romanized/latin ko
+       label that equals the English name is allowed — some acts label ko in latin, e.g. "NCT".)
+
+    Either failure raises so the pipeline drops it (graceful degradation) instead of poisoning the
+    append-only store. Both fail SAFE: the outcome is a miss, never a wrong record.
     """
-    got = {_norm(payload.get("name_ko")), _norm(payload.get("name_en_official"))}
-    got.discard("")
-    want = {_norm(expected.get("ko")), _norm(expected.get("en"))}
+    got_ko, got_en = _norm(payload.get("name_ko")), _norm(payload.get("name_en_official"))
+    want_ko, want_en = _norm(expected.get("ko")), _norm(expected.get("en"))
+    want = {want_ko, want_en}
     want.discard("")
+    got = {got_ko, got_en}
+    got.discard("")
     if want and got.isdisjoint(want):
         raise ValueError(
             f"identity mismatch: fetched {sorted(got)} matches none of expected {sorted(want)}"
+        )
+    if want_ko and got_ko and got_ko != want_ko and got_ko != want_en:
+        raise ValueError(
+            f"ko identity mismatch: fetched ko {payload.get('name_ko')!r} "
+            f"contradicts expected {expected.get('ko')!r} (same-EN-label impostor)"
         )
 
 

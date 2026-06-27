@@ -74,8 +74,39 @@ def test_curated_agency_hint_picks_the_real_label(monkeypatch):
 
 
 def test_every_roster_artist_has_an_agency_hint():
+    # Don't add an artist without its 소속사 hint. The hint lives in AGENCY_HINTS (distinctive acts)
+    # OR in wikidata._CURATED's `agency` field (collision-prone acts pinned bilingually) — fetch()
+    # reads `_CURATED.agency or AGENCY_HINTS`, so an artist is covered if it's in either.
     from koreaapi.roster import AGENCY_HINTS
-    assert set(ARTISTS) <= set(AGENCY_HINTS)  # don't add an artist without its 소속사 hint
+    from koreaapi.sources.wikidata import _CURATED
+    curated_with_agency = {eid for eid, m in _CURATED.items() if m.get("agency")}
+    assert set(ARTISTS) <= (set(AGENCY_HINTS) | curated_with_agency)
+
+
+def test_strict_ko_guard_rejects_same_en_label_impostor(monkeypatch):
+    # 'TREASURE' the group shares its English name with 보물 the concept. Search drifts to the
+    # concept (en 'Treasure', ko '보물'); the en overlaps so the old guard would pass it. The strict
+    # KO guard rejects it because the Korean label (보물) contradicts the pinned ko (트레저) -> miss,
+    # never a wrong record (the Korean name would have been stored as 보물).
+    monkeypatch.setattr(WikidataSource, "_http_get", _fake_http_get("Q-concept", "Treasure", "보물"))
+    with pytest.raises(ValueError, match="ko identity mismatch"):
+        asyncio.run(WikidataSource().fetch("artist:treasure", "facts"))
+
+
+def test_strict_ko_guard_accepts_the_real_collision_act(monkeypatch):
+    # The real TREASURE (ko 트레저) passes — search collision is rejected, the true act is kept.
+    monkeypatch.setattr(WikidataSource, "_http_get", _fake_http_get("Q-treasure", "Treasure", "트레저"))
+    res = asyncio.run(WikidataSource().fetch("artist:treasure", "facts"))
+    assert res["payload"]["name_ko"] == "트레저"
+    assert res["payload"]["name_en_official"] == "Treasure"
+
+
+def test_strict_ko_guard_allows_latin_ko_label(monkeypatch):
+    # Some acts carry a latin (English) Korean-language label on Wikidata (e.g. NCT). A ko label that
+    # equals the expected EN name must NOT be rejected by the strict KO guard (it's not an impostor).
+    monkeypatch.setattr(WikidataSource, "_http_get", _fake_http_get("Q-nct", "NCT", "NCT"))
+    res = asyncio.run(WikidataSource().fetch("artist:nct", "facts"))
+    assert res["payload"]["name_en_official"] == "NCT"
 
 
 def test_roster_agency_hint_applies_to_noncurated(monkeypatch):
