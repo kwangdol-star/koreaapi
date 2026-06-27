@@ -393,12 +393,24 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
         chips = "".join(f'<a class="pchip" href="person/{s}.html">{html.escape(n)}</a>' for n, s in ppl)
         people_block = f"<h2 class=sec>{_ICON['people']} Verified people ({len(ppl)})</h2><div class=pchips>{chips}</div>"
 
+    # Labels & networks (the agency-hub axis) — chips to each /label/ hub.
+    labels = _collect_labels(by_entity)
+    lslugs = _label_slugs(labels)
+    label_items = sorted(((L["name"], L["slug"], len(L["items"])) for L in labels.values()
+                          if L["slug"] in lslugs), key=lambda x: -x[2])
+    labels_block = ""
+    if label_items:
+        lchips = "".join(f'<a class="pchip" href="label/{s}.html">{html.escape(n)} ({c})</a>'
+                         for n, s, c in label_items)
+        labels_block = (f"<h2 class=sec>{_ICON['label']} Labels &amp; networks ({len(label_items)})</h2>"
+                        f"<div class=pchips>{lchips}</div>")
+
     n_art, n_dr, n_fl = len(groups["artist"]), len(groups["drama"]), len(groups["film"])
     sections = (
         _report_section(f"{_ICON['artist']} K-pop artists ({n_art})", "Agency (소속사)", groups["artist"])
         + _report_section(f"{_ICON['drama']} K-dramas ({n_dr})", "Network / platform", groups["drama"])
         + _report_section(f"{_ICON['film']} K-films ({n_fl})", "Director / studio", groups["film"])
-        + people_block
+        + people_block + labels_block
     )
     now = datetime.now(timezone.utc)
     generated = now.strftime("%Y-%m-%d %H:%M UTC")
@@ -545,6 +557,9 @@ _ICON = {
                   '<line x1="17" y1="14" x2="21" y2="14"/>'),
     # person (people)
     "people": _icon('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+    # tag (labels / agencies / networks)
+    "label": _icon('<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 3 12.2V5a2 2 0 0 1 '
+                   '2-2h7.2a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8z"/><circle cx="7.6" cy="7.6" r="1.3"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -802,7 +817,8 @@ def _social_meta(title: str, desc: str, url: str, og_type: str = "website") -> s
 def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict,
                        qas: list[tuple[str, str]], jsonld: str, *,
                        entity_slugs: set | None = None, linked: set | None = None,
-                       related: list[tuple[str, str]] | None = None) -> None:
+                       related: list[tuple[str, str]] | None = None,
+                       label_url: str | None = None) -> None:
     entity_slugs, linked, related = entity_slugs or set(), linked or set(), related or []
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
     ko_raw, en_raw = primary.name.ko or "", primary.name.en_official or ""
@@ -844,7 +860,9 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     dir_block = (f"<h2>Director{'s' if len(directors) > 1 else ''}</h2>{_people_ul(directors)}"
                  if directors else "")
     rel_label = "More on this network / platform" if is_video else "More from this agency (소속사)"
-    rel_block = (f"<h2>{rel_label}</h2><ul class=people>"
+    # link the heading to the label/agency hub page when one exists (>=2 entities under that label)
+    rel_head = f'<a href="{label_url}">{rel_label} →</a>' if label_url else rel_label
+    rel_block = (f"<h2>{rel_head}</h2><ul class=people>"
                  + "".join(f'<li><a href="../artist/{s}.html">{html.escape(n)}</a></li>'
                            for n, s in related) + "</ul>") if related else ""
 
@@ -1002,6 +1020,65 @@ def _write_hub_html(out_dir: str, filename: str, icon: str, label: str, sub: str
         f.write(doc)
 
 
+def _collect_labels(by_entity: dict) -> dict:
+    """Pure: group verified entities by their LABEL — the 소속사 (artists) / network·platform
+    (drama·film) each is anchored to. The agency-hub axis of the graph made browsable. Returns
+    {key: {name, slug, items:[(entity_id, rec)]}} keyed by the case/space-normalized label name."""
+    labels: dict[str, dict] = {}
+    for entity_id, by_kind in by_entity.items():
+        rec = by_kind.get("facts")
+        if rec is None:
+            continue
+        name = (rec.data.get("agency_en") or rec.data.get("agency_ko") or "").strip()
+        if not name:
+            continue
+        key = name.casefold().replace(" ", "")
+        labels.setdefault(key, {"name": name, "slug": _person_slug(name), "items": []})["items"].append(
+            (entity_id, rec))
+    return labels
+
+
+def _label_slugs(labels: dict) -> set:
+    """Labels that earn a hub page: >=2 verified entities (a meaningful hub, not a one-off) and an
+    ASCII slug (clean URL / valid sitemap)."""
+    return {L["slug"] for L in labels.values() if len(L["items"]) >= 2 and L["slug"].isascii()}
+
+
+def _write_label_html(out_dir: str, name: str, items: list, jsonld: str) -> None:
+    """A per-label hub page at /label/<slug>.html (one level down — links hop up via `../`), listing
+    every verified entity under that 소속사 / network as linked chips. Organization + ItemList JSON-LD."""
+    slug = _person_slug(name)
+    url = f"{_SITE_BASE}/label/{slug}.html"
+    nm = html.escape(name)
+    desc = html.escape(f"{len(items)} verified Korean-culture entities under {name} — for AI agents "
+                       f"& answer engines.")
+    chips = "".join(
+        f'<a class="pchip" href="../artist/{_slug(eid)}.html">{html.escape(rec.name.en_official or rec.name.ko)}</a>'
+        for eid, rec in items)
+    doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{nm} — verified roster · KoreaAPI</title>
+<meta name="description" content="{desc}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="{url}">
+{_social_meta(nm, desc, url)}
+{_FONT_LINKS}
+<script type="application/ld+json">
+{jsonld}
+</script>
+{_HUB_STYLE}
+</head><body>
+<p class=back><a href="../index.html">← KoreaAPI · verifiable K-culture data</a></p>
+<h1>{_ICON['label']} {nm}</h1>
+<div class=sub>{len(items)} verified entities under this label / network · cross-checked · via KoreaAPI</div>
+<div class=pchips>{chips}</div>
+<footer>via KoreaAPI · <a href="../index.html">home</a> &middot; <a href="../llms.txt">/llms.txt</a> &middot; <a href="../sitemap.xml">/sitemap.xml</a></footer>
+</body></html>"""
+    os.makedirs(os.path.join(out_dir, "label"), exist_ok=True)
+    with open(os.path.join(out_dir, "label", f"{slug}.html"), "w", encoding="utf-8") as f:
+        f.write(doc)
+
+
 async def _load_by_entity(db_path: str | None = None) -> dict:
     """entity_id -> {kind: latest Record} over the whole store (shared by pages + sitemap)."""
     by_entity: dict[str, dict] = {}
@@ -1025,8 +1102,12 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     people = _collect_credits(by_entity)
     entity_slugs = {_slug(eid) for eid in by_entity}
     linked = _linked_person_slugs(people, entity_slugs)
+    labels = _collect_labels(by_entity)
+    label_slugs = _label_slugs(labels)  # which 소속사/network names get a hub page (computed early
+    #                                     so each entity page can link its label to that hub)
     os.makedirs(os.path.join(out_dir, "artist"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "person"), exist_ok=True)  # always exists -> `cp` never fails
+    os.makedirs(os.path.join(out_dir, "label"), exist_ok=True)
     written: list[dict] = []
     written_slugs: set[str] = set()
     for entity_id, by_kind in by_entity.items():
@@ -1044,8 +1125,11 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
                "@graph": [_entity_node(primary)]
                + ([_faqpage_node(qas)] if qas else []) + [_breadcrumb(name, url, middle=mid)]}
         related = _related(entity_id, primary, by_entity)
+        ag = primary.data.get("agency_en") or primary.data.get("agency_ko")
+        ag_slug = _person_slug(ag) if ag else ""
+        label_url = f"../label/{ag_slug}.html" if ag_slug in label_slugs else None  # link to label hub
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
-                           entity_slugs=entity_slugs, linked=linked, related=related)
+                           entity_slugs=entity_slugs, linked=linked, related=related, label_url=label_url)
         written.append({"slug": slug, "name": name, "url": url})
 
     # Person pages — the graph hubs. Dedup by slug (rare name->slug collisions: richest wins).
@@ -1104,7 +1188,26 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
                     pbody, _escape_jsonld({"@context": "https://schema.org", "@graph": pgraph}))
     hubs_written.append({"vertical": "people", "url": f"{_SITE_BASE}/people.html", "count": len(people_written)})
 
-    return {"entities": written, "people": people_written, "hubs": hubs_written}
+    # Label / agency / network hub pages — the agency-hub axis ("who's under HYBE / on Netflix?").
+    labels_written: list[dict] = []
+    done_l: set[str] = set()
+    for L in sorted(labels.values(), key=lambda x: -len(x["items"])):
+        s = L["slug"]
+        if s not in label_slugs or s in done_l:
+            continue
+        done_l.add(s)
+        items = sorted(L["items"], key=lambda it: (it[1].name.en_official or it[1].name.ko).lower())
+        lurl = f"{_SITE_BASE}/label/{s}.html"
+        graph = [{"@type": "Organization", "name": L["name"]},
+                 _itemlist_node(L["name"], [(rec.name.en_official or rec.name.ko,
+                  f"{_SITE_BASE}/artist/{_slug(eid)}.html") for eid, rec in items]),
+                 _breadcrumb(L["name"], lurl)]
+        _write_label_html(out_dir, L["name"], items,
+                          _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
+        labels_written.append({"name": L["name"], "slug": s, "url": lurl, "count": len(items)})
+
+    return {"entities": written, "people": people_written, "hubs": hubs_written,
+            "labels": labels_written}
 
 
 async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> str:
@@ -1133,6 +1236,13 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
         if s in linked and s not in pseen:
             pseen.add(s)
             urls.append((f"{_SITE_BASE}/person/{s}.html", "0.6"))
+    # label / agency / network hub pages — same set entity_pages() writes
+    labels = _collect_labels(by_entity)
+    lseen: set[str] = set()
+    for s in _label_slugs(labels):
+        if s not in lseen:
+            lseen.add(s)
+            urls.append((f"{_SITE_BASE}/label/{s}.html", "0.7"))
     body = "".join(
         f"  <url><loc>{u}</loc><lastmod>{today}</lastmod>"
         f"<changefreq>daily</changefreq><priority>{p}</priority></url>\n"
@@ -1462,11 +1572,13 @@ def _main(argv: list[str]) -> int:
         print("wrote", asyncio.run(report_html()))
     elif cmd == "entitypages":
         out = asyncio.run(entity_pages())
-        ents, ppl, hubs = out["entities"], out["people"], out["hubs"]
-        print(f"entitypages: wrote {len(ents)} entity + {len(ppl)} person + {len(hubs)} hub page(s) "
-              f"-> site/ (artist/, person/, *.html)")
+        ents, ppl, hubs, labs = out["entities"], out["people"], out["hubs"], out["labels"]
+        print(f"entitypages: wrote {len(ents)} entity + {len(ppl)} person + {len(hubs)} hub + "
+              f"{len(labs)} label page(s) -> site/ (artist/, person/, label/, *.html)")
         for h in hubs:
             print(f"  hub: {h['vertical']} ({h['count']}) -> {h['url']}")
+        for L in labs:
+            print(f"  label: {L['name']} ({L['count']}) -> {L['url']}")
     elif cmd == "sitemap":
         print("wrote", asyncio.run(sitemap()))
     elif cmd == "digest":

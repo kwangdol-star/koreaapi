@@ -53,6 +53,37 @@ def test_entity_and_person_pages_have_social_meta_and_breadcrumb(tmp_path):
     assert "/films.html" in par   # entity breadcrumb middle points at the vertical hub (3-level)
 
 
+def _label_seed(db: str) -> None:
+    facts = [
+        ("artist:bts", {"name_ko": "방탄소년단", "name_en_official": "BTS",
+                        "name_en_source": "official", "agency_en": "Big Hit Music"}),
+        ("artist:txt", {"name_ko": "투모로우바이투게더", "name_en_official": "Tomorrow X Together",
+                        "name_en_source": "official", "agency_en": "Big Hit Music"}),
+        ("artist:aespa", {"name_ko": "에스파", "name_en_official": "aespa",
+                          "name_en_source": "official", "agency_en": "SM Entertainment"}),  # only 1 -> no page
+    ]
+    for eid, p in facts:
+        asyncio.run(ingest_one("facts", eid, [MockSource("Wikidata", p), MockSource("Wikipedia", p)], db_path=db))
+
+
+def test_label_hub_pages_and_crosslinks(tmp_path):
+    db = tempfile.mktemp(suffix=".db")
+    _label_seed(db)
+    out_dir = str(tmp_path / "site")
+    res = asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
+    # a label with >=2 entities gets a hub; a single-artist label (SM) does not
+    names = {L["name"]: L["count"] for L in res["labels"]}
+    assert names == {"Big Hit Music": 2}
+    page = (tmp_path / "site" / "label" / "big-hit-music.html").read_text(encoding="utf-8")
+    assert "../artist/bts.html" in page and "../artist/txt.html" in page  # lists its roster
+    assert '"@type": "Organization"' in page and '"@type": "ItemList"' in page
+    bts = (tmp_path / "site" / "artist" / "bts.html").read_text(encoding="utf-8")
+    assert "../label/big-hit-music.html" in bts  # entity links to its label hub
+    sm = tempfile.mktemp(suffix=".xml")
+    asyncio.run(admin.sitemap(db_path=db, out_path=sm))
+    assert "/label/big-hit-music.html" in open(sm, encoding="utf-8").read()
+
+
 def test_vertical_hub_pages_with_itemlist(tmp_path):
     db = tempfile.mktemp(suffix=".db")
     _seed(db)
