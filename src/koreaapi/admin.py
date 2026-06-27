@@ -329,14 +329,15 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
             f"<td>{html.escape(rec.provenance.translation.source)}</td>"
             f"<td class={'fresh' if is_fresh else 'stale'}>{'fresh' if is_fresh else 'STALE'}</td>"
             f"<td>{e['snapshots']}</td>"
-            f"<td>{html.escape('; '.join(rec.provenance.sources))}</td>"
+            f"<td class=src>{html.escape('; '.join(rec.provenance.sources))}</td>"
             f"<td>{html.escape(rec.summary_en)}</td>"
             "</tr>"
         )
     now = datetime.now(timezone.utc)
     generated = now.strftime("%Y-%m-%d %H:%M UTC")
     jsonld = _jsonld(recs, now.isoformat())
-    doc = f"""<!doctype html><html><head><meta charset="utf-8">
+    doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>KoreaAPI — verifiable Korean-culture data for AI agents</title>
 <meta name="description" content="KoreaAPI - verifiable, bilingual Korean culture data for AI agents. Every record carries its source and a Skill Score.">
 <meta name="robots" content="index,follow">
@@ -344,30 +345,56 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 {jsonld}
 </script>
 <style>
- body{{font-family:system-ui,-apple-system,sans-serif;background:#0A0E1A;color:#F5F7FA;margin:0;padding:24px}}
- h1{{margin:0 0 4px}} .sub{{color:#A0AEC0;margin-bottom:20px}}
- .cards{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}}
- .card{{background:#131829;border:1px solid #2A3349;border-radius:10px;padding:12px 16px;min-width:120px}}
- .card .v{{font-size:24px;font-weight:700}} .card .k{{color:#A0AEC0;font-size:12px}}
- table{{width:100%;border-collapse:collapse;background:#131829;border:1px solid #2A3349;border-radius:10px;overflow:hidden}}
- th,td{{padding:10px 12px;text-align:left;border-bottom:1px solid #1F2638;font-size:13px;vertical-align:top}}
- th{{color:#A0AEC0;font-weight:600;background:#1A2036}}
- .ko{{color:#A0AEC0}} .rom{{color:#6B7585;font-size:11px}}
- .badge{{color:#0A0E1A;font-weight:700;padding:2px 8px;border-radius:6px;font-size:12px}}
- .fresh{{color:#10B981}} .stale{{color:#EF4444;font-weight:700}}
- footer{{color:#6B7585;margin-top:16px;font-size:12px}}
- code{{background:#1A2036;padding:1px 6px;border-radius:4px}}
- a{{color:#7DA2FF;text-decoration:none}} a:hover{{text-decoration:underline}}
- .intro{{background:#131829;border:1px solid #2A3349;border-radius:10px;padding:14px 18px;margin-bottom:20px;max-width:1100px;line-height:1.55}}
- .intro p{{margin:6px 0;font-size:13px;color:#C9D2E3}} .intro b{{color:#F5F7FA}}
-</style></head><body>
-<h1>KoreaAPI</h1>
-<div class="sub">The verifiable data layer for Korean culture &mdash; callable by any AI agent (MCP), citable by any answer engine.</div>
-<div class="intro">
- <p>Every row below is <b>verified</b>: cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, and stamped with a transparent <b>Skill Score</b> + <b>provenance</b>. Korean is canonical; English + romanization for distribution. Each artist is anchored to its <b>소속사 (agency)</b>, and the roster grows by discovering cross-verified labelmates.</p>
- <p><b>Agents</b> call 5 MCP tools &mdash; <code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_buy_options</code>. <b>Answer engines</b>: this page ships Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name &mdash; kind, as of date &middot; source &middot; Skill Score &middot; via KoreaAPI&rdquo;.</p>
- <p><b>Developers/agents:</b> fetch the verified data as JSON at <a href="./latest.json">/latest.json</a> (no MCP setup) &middot; <a href="https://github.com/kwangdol-star/koreaapi">Source &amp; docs on GitHub</a> &middot; <a href="./llms.txt">llms.txt</a></p>
+ :root{{--bg:#0A0E1A;--panel:#121829;--panel2:#171F33;--line:#262F47;--ink:#F2F5FA;--mut:#9AA7BD;--dim:#6B7790;--accent:#7DA2FF;--accent2:#A88BFF;--ok:#10B981;--bad:#EF4444}}
+ *{{box-sizing:border-box}}
+ body{{font-family:system-ui,-apple-system,'Segoe UI','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;background:radial-gradient(1100px 520px at 50% -160px,#16223D 0%,var(--bg) 58%);color:var(--ink);margin:0;padding:34px 20px 52px;line-height:1.5}}
+ .wrap{{max-width:1180px;margin:0 auto}}
+ .brand{{display:flex;align-items:center;gap:11px}}
+ .brand h1{{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}}
+ .dot{{width:11px;height:11px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 14px rgba(125,162,255,.6)}}
+ .tag{{color:var(--mut);margin:11px 0 18px;font-size:15px;max-width:780px}}
+ .pills{{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}}
+ .pill{{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--ink)}}
+ .pill:hover{{border-color:var(--accent);color:var(--accent);text-decoration:none}}
+ .chips{{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}}
+ .chip{{font-size:12px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 11px}}
+ .chip b{{color:var(--ink)}}
+ .note{{color:var(--mut);font-size:13px;line-height:1.65;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:14px 17px;margin-bottom:24px;max-width:1000px}}
+ .note b{{color:var(--ink)}}
+ code{{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px}}
+ .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;margin-bottom:24px}}
+ .card{{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}}
+ .card .v{{font-size:28px;font-weight:800;letter-spacing:-.02em}}
+ .card .k{{color:var(--mut);font-size:12px;margin-top:3px}}
+ .tablewrap{{overflow-x:auto;border:1px solid var(--line);border-radius:12px}}
+ table{{width:100%;border-collapse:collapse;min-width:900px;background:var(--panel)}}
+ th,td{{padding:13px 14px;text-align:left;font-size:13px;vertical-align:top;border-bottom:1px solid var(--line)}}
+ th{{color:var(--mut);font-weight:600;background:var(--panel2);font-size:11px;text-transform:uppercase;letter-spacing:.04em}}
+ tbody tr:last-child td{{border-bottom:none}}
+ tbody tr:hover{{background:var(--panel2)}}
+ td b a{{color:var(--ink);font-weight:700}} td b a:hover{{color:var(--accent)}}
+ .ko{{color:var(--mut)}} .rom{{color:var(--dim);font-size:11px}}
+ .badge{{color:#06140E;font-weight:800;padding:3px 9px;border-radius:6px;font-size:12px;white-space:nowrap}}
+ .fresh{{color:var(--ok);font-weight:700}} .stale{{color:var(--bad);font-weight:800}}
+ .src{{color:var(--mut);font-size:12px;max-width:230px}}
+ a{{color:var(--accent);text-decoration:none}} a:hover{{text-decoration:underline}}
+ footer{{color:var(--dim);margin-top:24px;font-size:12px;line-height:1.7}}
+</style></head><body><div class="wrap">
+<div class="brand"><span class="dot"></span><h1>KoreaAPI</h1></div>
+<div class="tag">The verifiable data layer for Korean culture — callable by any AI agent (MCP), citable by any answer engine.</div>
+<div class="pills">
+ <a class="pill" href="./latest.json">/latest.json · open data</a>
+ <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
+ <a class="pill" href="./korea-rising.md">/korea-rising.md · digest</a>
+ <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
+<div class="chips">
+ <span class="chip"><b>Cross-verified</b> · Wikidata + Wikipedia agree</span>
+ <span class="chip"><b>Provenance</b> + <b>Skill Score</b> on every record</span>
+ <span class="chip"><b>Hallucination-guarded</b></span>
+ <span class="chip"><b>Bilingual</b> · KO / EN / romanized</span>
+</div>
+<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 5 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
 <div class="cards">
  <div class="card"><div class="v">{s.get('entities', 0)}</div><div class="k">entities</div></div>
  <div class="card"><div class="v">{s.get('snapshots', 0)}</div><div class="k">snapshots (append-only)</div></div>
@@ -375,12 +402,12 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <div class="card"><div class="v">{s.get('fresh_entities', '-')}</div><div class="k">fresh</div></div>
  <div class="card"><div class="v">{s.get('low_confidence', 0)}</div><div class="k">low confidence</div></div>
 </div>
-<table>
-<tr><th>Name (EN / KO / rom)</th><th>Kind</th><th>Agency (소속사)</th><th>Skill Score</th><th>Translation</th><th>Freshness</th><th>Snapshots</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>
+<div class="tablewrap"><table>
+<tr><th>Name (EN / KO / rom)</th><th>Kind</th><th>Agency (소속사)</th><th>Skill Score</th><th>Translation</th><th>Freshness</th><th>Snap</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>
 {''.join(rows)}
-</table>
-<footer>Generated {generated} &middot; KoreaAPI Phase 1 (cold-start) &middot; verifiable Korean-culture data for AI agents &middot; <a href="./latest.json">/latest.json (data)</a> &middot; <a href="./llms.txt">/llms.txt</a> &middot; <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
-</body></html>"""
+</table></div>
+<footer>Generated {generated} · KoreaAPI Phase 1 (cold-start) · verifiable Korean-culture data for AI agents · <a href="./latest.json">/latest.json</a> · <a href="./llms.txt">/llms.txt</a> · <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
+</div></body></html>"""
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(doc)
     return out_path

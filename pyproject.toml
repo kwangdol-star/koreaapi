@@ -1,8 +1,20 @@
 [project]
 name = "koreaapi"
 version = "0.1.0"
-description = "The verifiable data layer for Korean culture & commerce, for AI agents."
+description = "The verifiable data layer for Korean culture & commerce, callable by any AI agent (MCP)."
+readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "kwangdol-star" }]
+keywords = ["mcp", "model-context-protocol", "ai-agents", "korea", "kpop", "kculture", "aeo", "geo", "wikidata", "verifiable-data"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "fastmcp",
     "httpx",
@@ -10,6 +22,11 @@ dependencies = [
     "python-dotenv",
     "anthropic",
 ]
+
+[project.urls]
+Homepage = "https://kwangdol-star.github.io/koreaapi/"
+Repository = "https://github.com/kwangdol-star/koreaapi"
+"Open data (JSON)" = "https://kwangdol-star.github.io/koreaapi/latest.json"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-asyncio", "ruff"]
