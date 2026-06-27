@@ -100,6 +100,9 @@ _CURATED = {
     "artist:boynextdoor": {"ko": "보이넥스트도어", "en": "BOYNEXTDOOR", "agency": "KOZ"},
     "film:ahardday": {"ko": "끝까지 간다", "en": "A Hard Day"},
     "film:svaha": {"ko": "사바하", "en": "Svaha"},
+    # Batch 3 collision-prone (real word / real name shares the English):
+    "artist:boa": {"ko": "보아", "en": "BoA", "agency": "SM Entertainment"},
+    "film:smugglers": {"ko": "밀수", "en": "Smugglers"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.

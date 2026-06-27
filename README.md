@@ -15,14 +15,21 @@ Anthropic's Model Context Protocol (MCP). Every response carries machine-readabl
 > standalone repo, split out from its incubation home with full git history preserved.
 
 ## What's live now (verified, on the public page + via MCP)
+- **~120 verified entities across 3 verticals** — K-pop artists, K-dramas, K-films — each
+  cross-verified, identity-/hallucination-guarded, and stamped with provenance + a Skill Score.
+- **A knowledge graph, not a flat list** — four linked axes: **entities** · **people** (cast /
+  director / member hubs) · **verticals** (artists / dramas / films) · **labels** (소속사 /
+  network — "who's under HYBE / on Netflix?"). Every page cross-links to its neighbours.
 - **Cross-verification** — Wikidata + Wikipedia must agree on the canonical bilingual name
-  before a fact clears the single-source cap (high Skill Score = independent concurrence).
-- **Identity guard** (rejects a contradictory label) + **hallucination guard** (LLM-extracted
-  data must appear verbatim in its source, else dropped — caught a fabricated chart entry live).
-- **소속사/Agency hub** — each artist anchored to its label (Wikidata P264); the roster grows by
-  discovering cross-verified **labelmates** (SPARQL) and is queryable via `get_agency`.
+  before a fact clears the single-source cap (high Skill Score = independent concurrence); a
+  strict Korean-name guard rejects same-English-name impostors. Every failure fails safe to a miss.
+- **Callable by agents (MCP)** — 7 tools: `get_artist_status`, `get_agency`, `get_kculture_calendar`,
+  `get_korea_rising`, `get_person`, `get_related`, `get_buy_options` — every response bilingual,
+  provenance-bearing, with a ready-to-cite line.
+- **Citable by answer engines (AEO/GEO)** — per-entity / per-person / per-label citable pages with
+  Schema.org JSON-LD (MusicGroup · TVSeries · Movie · Person · Organization · ItemList · FAQPage ·
+  BreadcrumbList), Open Graph, a daily `sitemap.xml`, a live-generated `/llms.txt`, and `/latest.json`.
 - **YouTube** official-channel release/stats (live-state) · **LLM romanization** at ingest.
-- **GEO/AEO** — JSON-LD (incl. `recordLabel`) + a ready-to-cite line on every record + `/llms.txt`.
 
 ## Why this exists
 Raw Korean API wrappers are a commodity (20+ already exist on GitHub). Our moat is the

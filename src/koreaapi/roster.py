@@ -71,6 +71,16 @@ ARTISTS = {
     "artist:everglow": "EVERGLOW",
     "artist:zico": "ZICO",
     "artist:boynextdoor": "BOYNEXTDOOR",
+    # Batch 3 — distinctive.
+    "artist:akmu": "AKMU",
+    "artist:nctdream": "NCT Dream",
+    "artist:triples": "tripleS",
+    "artist:xdinaryheroes": "Xdinary Heroes",
+    "artist:qwer": "QWER",
+    "artist:plave": "PLAVE",
+    "artist:younha": "Younha",
+    # Batch 3 — collision-prone (bilingual identity in wikidata._CURATED).
+    "artist:boa": "BoA",
 }
 
 # 소속사 disambiguation hint: entity_id -> agency CORE name. Wikidata's P264 can list several labels
@@ -118,6 +128,13 @@ AGENCY_HINTS = {
     "artist:sunmi": "ABYSS",
     "artist:chungha": "MNH",
     "artist:viviz": "Big Planet",
+    "artist:akmu": "YG",
+    "artist:nctdream": "SM Entertainment",
+    "artist:triples": "Modhaus",
+    "artist:xdinaryheroes": "JYP",
+    "artist:qwer": "3Y",
+    "artist:plave": "VLAST",
+    "artist:younha": "C9",
 }
 
 # K-drama vertical (Phase A breadth). Distinctive titles = low search-collision. Verified by the
@@ -152,6 +169,14 @@ DRAMAS = {
     "drama:queenoftears": "Queen of Tears",
     "drama:reply1997": "Reply 1997",
     "drama:misaeng": "Misaeng",
+    # Batch 3.
+    "drama:gyeongseongcreature": "Gyeongseong Creature",
+    "drama:marrymyhusband": "Marry My Husband",
+    "drama:maskgirl": "Mask Girl",
+    "drama:the8show": "The 8 Show",
+    "drama:lovelyrunner": "Lovely Runner",
+    "drama:kingtheland": "King the Land",
+    "drama:crashcourseinromance": "Crash Course in Romance",
 }
 
 # K-film vertical (more K-culture breadth, same engine). Distinctive titles; the lone generic-but-
@@ -180,6 +205,13 @@ FILMS = {
     # Batch 2 — collision-prone (real-word overlap): bilingual identity in wikidata._CURATED.
     "film:ahardday": "A Hard Day",
     "film:svaha": "Svaha",
+    # Batch 3.
+    "film:concreteutopia": "Concrete Utopia",
+    "film:alienoid": "Alienoid",
+    "film:killboksoon": "Kill Boksoon",
+    "film:1212theday": "12.12: The Day",
+    # Batch 3 — collision-prone (bilingual identity in wikidata._CURATED).
+    "film:smugglers": "Smugglers",
 }
 
 # Every verified entity (artists + dramas + films): id -> canonical name (search + identity term).
