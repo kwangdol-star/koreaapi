@@ -518,21 +518,24 @@ _FONT_LINKS = (
 )
 _FONT_STACK = "'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif"
 
-# Ambient animated gold "aurora" behind everything (Luma-style): a heavily-blurred, slowly-drifting
-# gold/amber gradient field on a fixed z-1 layer, so the glass panels refract a MOVING light. Pure CSS
-# (no JS) — works on static GitHub Pages. Single braces (not an f-string): injected verbatim, so it
-# drops cleanly into both plain <style> strings and f-string <style> blocks via {_AURORA}. Honors
-# prefers-reduced-motion (freezes to a static gradient).
+# Ambient "warp" light-rays behind everything (Luma-style): thin gold rays radiating from a focal
+# point, two counter-rotating layers slowly turning for a space/hyperspace shimmer. Built from
+# repeating-conic-gradient + a radial mask (rays fade in near the focal and out at the rim). Pure CSS
+# (no JS) — works on static GitHub Pages; the glass panels refract the moving rays. Single braces (not
+# an f-string): injected verbatim into both plain <style> strings and f-string <style> blocks via
+# {_AURORA}. Honors prefers-reduced-motion (freezes the rays).
 _AURORA = """
- @keyframes kaurora{0%{transform:translate3d(0,0,0) scale(1) rotate(0deg)}50%{transform:translate3d(-4%,3%,0) scale(1.22) rotate(8deg)}100%{transform:translate3d(3%,-3%,0) scale(1.08) rotate(-6deg)}}
- body::before{content:"";position:fixed;inset:-25%;z-index:-1;pointer-events:none;will-change:transform;
-  background:
-   radial-gradient(38% 48% at 20% 28%,rgba(233,196,106,.30),transparent 70%),
-   radial-gradient(44% 52% at 82% 18%,rgba(217,164,65,.26),transparent 70%),
-   radial-gradient(52% 60% at 62% 88%,rgba(201,138,46,.22),transparent 70%),
-   radial-gradient(40% 50% at 8% 82%,rgba(233,196,106,.18),transparent 70%);
-  filter:blur(72px) saturate(150%);animation:kaurora 26s ease-in-out infinite alternate}
- @media (prefers-reduced-motion:reduce){body::before{animation:none}}
+ @keyframes kray{to{transform:translate(-50%,-50%) rotate(360deg)}}
+ @keyframes kray2{to{transform:translate(-50%,-50%) rotate(-360deg)}}
+ body::before,body::after{content:"";position:fixed;left:50%;top:40%;width:150vmax;height:150vmax;
+  transform:translate(-50%,-50%);z-index:-1;pointer-events:none;will-change:transform;filter:blur(.6px)}
+ body::before{animation:kray 120s linear infinite;
+  background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(233,196,106,0) 0deg,rgba(233,196,106,0) 2.2deg,rgba(233,196,106,.17) 2.65deg,rgba(233,196,106,0) 3.1deg);
+  -webkit-mask:radial-gradient(closest-side,transparent 6%,#000 22%,#000 55%,transparent 82%);mask:radial-gradient(closest-side,transparent 6%,#000 22%,#000 55%,transparent 82%)}
+ body::after{animation:kray2 190s linear infinite;opacity:.85;
+  background:repeating-conic-gradient(from 1.5deg at 50% 50%,rgba(217,164,65,0) 0deg,rgba(217,164,65,0) 4.6deg,rgba(217,164,65,.12) 5.05deg,rgba(217,164,65,0) 5.5deg);
+  -webkit-mask:radial-gradient(closest-side,transparent 9%,#000 30%,#000 60%,transparent 88%);mask:radial-gradient(closest-side,transparent 9%,#000 30%,#000 60%,transparent 88%)}
+ @media (prefers-reduced-motion:reduce){body::before,body::after{animation:none}}
 """
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
