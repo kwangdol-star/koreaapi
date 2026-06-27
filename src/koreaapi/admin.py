@@ -399,6 +399,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     jsonld = _jsonld(recs, now.isoformat(), person_nodes)
     doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+{_FONT_LINKS}
 <title>KoreaAPI — verifiable Korean-culture data for AI agents</title>
 <meta name="description" content="KoreaAPI - verifiable, bilingual Korean culture data for AI agents. Every record carries its source and a Skill Score.">
 <meta name="robots" content="index,follow">
@@ -417,7 +418,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 <style>
  :root{{--bg:#0A0E1A;--panel:#121829;--panel2:#171F33;--line:#262F47;--ink:#F2F5FA;--mut:#9AA7BD;--dim:#6B7790;--accent:#7DA2FF;--accent2:#A88BFF;--ok:#10B981;--bad:#EF4444}}
  *{{box-sizing:border-box}}
- body{{font-family:system-ui,-apple-system,'Segoe UI','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;background:radial-gradient(1100px 520px at 50% -160px,#16223D 0%,var(--bg) 58%);color:var(--ink);margin:0;padding:34px 20px 52px;line-height:1.5}}
+ body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;background:radial-gradient(1100px 520px at 50% -160px,#16223D 0%,var(--bg) 58%);color:var(--ink);margin:0;padding:34px 20px 52px;line-height:1.5}}
  .wrap{{max-width:1180px;margin:0 auto}}
  .brand{{display:flex;align-items:center;gap:11px}}
  .brand h1{{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}}
@@ -488,8 +489,18 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 
 _SITE_BASE = "https://kwangdol-star.github.io/koreaapi"
 
-_ENTITY_STYLE = """<style>
- body{font-family:system-ui,-apple-system,sans-serif;background:#0A0E1A;color:#F5F7FA;margin:0;padding:24px;line-height:1.55;max-width:820px}
+# Brand typography: Montserrat for Latin/headings (loaded from Google Fonts), with system Korean
+# fonts as the fallback for Hangul (Montserrat has no Korean glyphs) — consistent brand, no heavy
+# Korean webfont. `_FONT_LINKS` goes in every page <head>; `_FONT_STACK` in every body font-family.
+_FONT_LINKS = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
+)
+_FONT_STACK = "'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif"
+
+_ENTITY_STYLE = _FONT_LINKS + """<style>
+ body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;background:#0A0E1A;color:#F5F7FA;margin:0;padding:24px;line-height:1.55;max-width:820px}
  a{color:#7DA2FF;text-decoration:none} a:hover{text-decoration:underline}
  h1{margin:0;font-size:26px} h2{margin:22px 0 8px;font-size:15px;color:#A0AEC0;border-bottom:1px solid #2A3349;padding-bottom:4px}
  .ko{color:#A0AEC0;font-weight:400} .rom{color:#6B7585;font-size:12px}
@@ -1206,8 +1217,9 @@ async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     doc = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>KoreaAPI · Monitor</title><meta name="robots" content="noindex">
+{_FONT_LINKS}
 <style>
- body{{font-family:system-ui,-apple-system,sans-serif;background:#0A0E1A;color:#F5F7FA;margin:0;padding:24px}}
+ body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;background:#0A0E1A;color:#F5F7FA;margin:0;padding:24px}}
  h1{{margin:0 0 2px}} h2{{font-size:14px;color:#A0AEC0;margin:22px 0 8px}} .sub{{color:#A0AEC0;margin-bottom:18px;font-size:13px}}
  .cards{{display:flex;gap:12px;flex-wrap:wrap}} .card{{background:#131829;border:1px solid #2A3349;border-radius:10px;padding:12px 16px;min-width:120px}}
  .card .v{{font-size:24px;font-weight:700}} .card .k{{color:#A0AEC0;font-size:12px}}
