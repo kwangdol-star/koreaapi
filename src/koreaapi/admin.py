@@ -428,7 +428,11 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
   --gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.28),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}}
  *{{box-sizing:border-box}}
  body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:var(--ink);margin:0;padding:34px 20px 52px;line-height:1.5;
-  background:radial-gradient(1200px 620px at 50% -230px,rgba(233,196,106,.06),transparent 62%),var(--bg);
+  background:
+   radial-gradient(900px 520px at 10% -12%,rgba(233,196,106,.20),transparent 60%),
+   radial-gradient(840px 480px at 102% -2%,rgba(217,164,65,.18),transparent 55%),
+   radial-gradient(760px 620px at 50% 118%,rgba(233,196,106,.12),transparent 60%),
+   radial-gradient(1100px 520px at 50% -160px,#241A06 0%,var(--bg) 58%);
   background-attachment:fixed}}
  .wrap{{max-width:1180px;margin:0 auto}}
  .brand{{display:flex;align-items:center;gap:11px}}
@@ -514,24 +518,10 @@ _FONT_LINKS = (
 )
 _FONT_STACK = "'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif"
 
-# Ambient PRISMATIC hyperspace behind everything (Luma-style): thin rainbow rays that pour OUTWARD
-# from a focal point. A full-spectrum conic gradient masked into thin rays (so each ray is its own
-# hue), scaled up + faded out on a loop = streaks rushing outward; two layers half a cycle apart keep
-# the stream continuous. Subtle (low opacity) on a near-black bg. Pure CSS (no JS) — the glass refracts
-# the moving rays. Single braces (not an f-string): injected verbatim into both plain and f-string
-# <style> blocks via {_AURORA}. Honors prefers-reduced-motion (freezes to a faint static burst).
-_AURORA = """
- @keyframes kwarp{0%{transform:translate(-50%,-50%) scale(.16);opacity:0}
-   14%{opacity:.18}60%{opacity:.11}100%{transform:translate(-50%,-50%) scale(2.7);opacity:0}}
- body::before,body::after{content:"";position:fixed;left:50%;top:42%;width:120vmax;height:120vmax;
-  transform:translate(-50%,-50%);z-index:-1;pointer-events:none;will-change:transform,opacity;filter:blur(.7px);
-  background:conic-gradient(from 0deg at 50% 50%,#ff5a5a,#ffae42,#ffe84a,#5aff8d,#46d8ff,#5a7bff,#c75aff,#ff5ab0,#ff5a5a);
-  -webkit-mask:repeating-conic-gradient(from 0deg at 50% 50%,#000 0 .34deg,transparent .34deg 2.6deg);
-          mask:repeating-conic-gradient(from 0deg at 50% 50%,#000 0 .34deg,transparent .34deg 2.6deg)}
- body::before{animation:kwarp 7.5s linear infinite}
- body::after{animation:kwarp 7.5s linear infinite;animation-delay:-3.75s}
- @media (prefers-reduced-motion:reduce){body::before{animation:none;opacity:.09;transform:translate(-50%,-50%) scale(1.5)}body::after{display:none}}
-"""
+# Background animation removed (was too heavy) — kept the static gold + glass look. `_AURORA` is
+# still injected into every <style> block; empty string = no animated layer. To bring motion back,
+# put a `@keyframes ... body::before{...}` string here.
+_AURORA = ""
 
 # Clean line (stroke) SVG icons — replace the emoji glyphs in section/hub/pill labels. Gold stroke,
 # currentColor-free so they read consistently on any surface. Sized in em; vertical-aligned inline.
@@ -560,7 +550,11 @@ _ICON = {
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
  :root{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}
  body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0 auto;padding:34px 22px 48px;line-height:1.55;max-width:860px;
-  background:radial-gradient(1100px 560px at 50% -210px,rgba(233,196,106,.06),transparent 62%),#0D0B06;background-attachment:fixed}
+  background:
+   radial-gradient(760px 440px at 0% -8%,rgba(233,196,106,.20),transparent 60%),
+   radial-gradient(720px 420px at 100% 0%,rgba(217,164,65,.18),transparent 55%),
+   radial-gradient(900px 520px at 50% 120%,rgba(233,196,106,.10),transparent 60%),
+   radial-gradient(1000px 480px at 50% -160px,#241A06 0%,#0D0B06 60%);background-attachment:fixed}
  a{color:#E9C46A;text-decoration:none} a:hover{text-decoration:underline}
  h1{margin:0;font-size:27px;font-weight:800;letter-spacing:-.02em} h2{margin:24px 0 9px;font-size:14px;color:#C2B7A3;text-transform:uppercase;letter-spacing:.04em}
  .ko{color:#C2B7A3;font-weight:400} .rom{color:#8C8068;font-size:12px}
@@ -941,7 +935,11 @@ _VERTICALS = {
 _HUB_STYLE = "<style>" + _AURORA + """
  :root{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}
  body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0 auto;padding:34px 20px 52px;line-height:1.5;max-width:1180px;
-  background:radial-gradient(1100px 560px at 50% -210px,rgba(233,196,106,.06),transparent 62%),#0D0B06;background-attachment:fixed}
+  background:
+   radial-gradient(900px 500px at 8% -10%,rgba(233,196,106,.20),transparent 60%),
+   radial-gradient(820px 460px at 102% 0%,rgba(217,164,65,.18),transparent 55%),
+   radial-gradient(760px 600px at 50% 120%,rgba(233,196,106,.10),transparent 60%),
+   radial-gradient(1100px 520px at 50% -160px,#241A06 0%,#0D0B06 58%);background-attachment:fixed}
  a{color:#E9C46A;text-decoration:none} a:hover{text-decoration:underline}
  h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em} .sub{color:#C2B7A3;margin:8px 0 20px;font-size:14px}
  .back{font-size:13px;margin:0 0 12px}
@@ -1406,7 +1404,7 @@ async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html
 <style>{_AURORA}
  :root{{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 40px rgba(0,0,0,.5),inset 0 1.5px 0 rgba(255,255,255,.24),inset 0 -14px 28px rgba(6,10,22,.55)}}
  body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0;padding:28px 24px;
-  background:radial-gradient(1000px 520px at 50% -210px,rgba(233,196,106,.05),transparent 62%),#0D0B06;background-attachment:fixed}}
+  background:radial-gradient(900px 480px at 10% -10%,rgba(233,196,106,.16),transparent 60%),radial-gradient(820px 460px at 100% 0%,rgba(217,164,65,.14),transparent 55%),#0D0B06;background-attachment:fixed}}
  h1{{margin:0 0 2px}} h2{{font-size:14px;color:#C2B7A3;margin:22px 0 8px}} .sub{{color:#C2B7A3;margin-bottom:18px;font-size:13px}}
  .cards{{display:flex;gap:12px;flex-wrap:wrap}} .card{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:14px;padding:13px 17px;min-width:120px;box-shadow:var(--gshadow)}}
  .card .v{{font-size:24px;font-weight:700}} .card .k{{color:#C2B7A3;font-size:12px}}
