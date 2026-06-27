@@ -391,13 +391,13 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     people_block = ""
     if ppl:
         chips = "".join(f'<a class="pchip" href="person/{s}.html">{html.escape(n)}</a>' for n, s in ppl)
-        people_block = f"<h2 class=sec>👤 Verified people ({len(ppl)})</h2><div class=pchips>{chips}</div>"
+        people_block = f"<h2 class=sec>{_ICON['people']} Verified people ({len(ppl)})</h2><div class=pchips>{chips}</div>"
 
     n_art, n_dr, n_fl = len(groups["artist"]), len(groups["drama"]), len(groups["film"])
     sections = (
-        _report_section(f"🎤 K-pop artists ({n_art})", "Agency (소속사)", groups["artist"])
-        + _report_section(f"📺 K-dramas ({n_dr})", "Network / platform", groups["drama"])
-        + _report_section(f"🎬 K-films ({n_fl})", "Director / studio", groups["film"])
+        _report_section(f"{_ICON['artist']} K-pop artists ({n_art})", "Agency (소속사)", groups["artist"])
+        + _report_section(f"{_ICON['drama']} K-dramas ({n_dr})", "Network / platform", groups["drama"])
+        + _report_section(f"{_ICON['film']} K-films ({n_fl})", "Director / studio", groups["film"])
         + people_block
     )
     now = datetime.now(timezone.utc)
@@ -428,11 +428,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
   --gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.28),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}}
  *{{box-sizing:border-box}}
  body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:var(--ink);margin:0;padding:34px 20px 52px;line-height:1.5;
-  background:
-   radial-gradient(900px 520px at 10% -12%,rgba(233,196,106,.20),transparent 60%),
-   radial-gradient(840px 480px at 102% -2%,rgba(217,164,65,.18),transparent 55%),
-   radial-gradient(760px 620px at 50% 118%,rgba(233,196,106,.12),transparent 60%),
-   radial-gradient(1100px 520px at 50% -160px,#241A06 0%,var(--bg) 58%);
+  background:radial-gradient(1200px 620px at 50% -230px,rgba(233,196,106,.06),transparent 62%),var(--bg);
   background-attachment:fixed}}
  .wrap{{max-width:1180px;margin:0 auto}}
  .brand{{display:flex;align-items:center;gap:11px}}
@@ -473,10 +469,10 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 <div class="brand"><span class="dot"></span><h1>KoreaAPI</h1></div>
 <div class="tag">The verifiable data layer for Korean culture — callable by any AI agent (MCP), citable by any answer engine.</div>
 <div class="pills">
- <a class="pill" href="./artists.html">🎤 Artists</a>
- <a class="pill" href="./dramas.html">📺 K-dramas</a>
- <a class="pill" href="./films.html">🎬 K-films</a>
- <a class="pill" href="./people.html">👤 People</a>
+ <a class="pill" href="./artists.html">{_ICON['artist']} Artists</a>
+ <a class="pill" href="./dramas.html">{_ICON['drama']} K-dramas</a>
+ <a class="pill" href="./films.html">{_ICON['film']} K-films</a>
+ <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
  <a class="pill" href="./korea-rising.md">/korea-rising.md · digest</a>
@@ -518,34 +514,53 @@ _FONT_LINKS = (
 )
 _FONT_STACK = "'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif"
 
-# Ambient "warp" light-rays behind everything (Luma-style): thin gold rays radiating from a focal
-# point, two counter-rotating layers slowly turning for a space/hyperspace shimmer. Built from
-# repeating-conic-gradient + a radial mask (rays fade in near the focal and out at the rim). Pure CSS
-# (no JS) — works on static GitHub Pages; the glass panels refract the moving rays. Single braces (not
-# an f-string): injected verbatim into both plain <style> strings and f-string <style> blocks via
-# {_AURORA}. Honors prefers-reduced-motion (freezes the rays).
+# Ambient PRISMATIC hyperspace behind everything (Luma-style): thin rainbow rays that pour OUTWARD
+# from a focal point. A full-spectrum conic gradient masked into thin rays (so each ray is its own
+# hue), scaled up + faded out on a loop = streaks rushing outward; two layers half a cycle apart keep
+# the stream continuous. Subtle (low opacity) on a near-black bg. Pure CSS (no JS) — the glass refracts
+# the moving rays. Single braces (not an f-string): injected verbatim into both plain and f-string
+# <style> blocks via {_AURORA}. Honors prefers-reduced-motion (freezes to a faint static burst).
 _AURORA = """
- @keyframes kray{to{transform:translate(-50%,-50%) rotate(360deg)}}
- @keyframes kray2{to{transform:translate(-50%,-50%) rotate(-360deg)}}
- body::before,body::after{content:"";position:fixed;left:50%;top:40%;width:150vmax;height:150vmax;
-  transform:translate(-50%,-50%);z-index:-1;pointer-events:none;will-change:transform;filter:blur(.6px)}
- body::before{animation:kray 120s linear infinite;
-  background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(233,196,106,0) 0deg,rgba(233,196,106,0) 2.2deg,rgba(233,196,106,.17) 2.65deg,rgba(233,196,106,0) 3.1deg);
-  -webkit-mask:radial-gradient(closest-side,transparent 6%,#000 22%,#000 55%,transparent 82%);mask:radial-gradient(closest-side,transparent 6%,#000 22%,#000 55%,transparent 82%)}
- body::after{animation:kray2 190s linear infinite;opacity:.85;
-  background:repeating-conic-gradient(from 1.5deg at 50% 50%,rgba(217,164,65,0) 0deg,rgba(217,164,65,0) 4.6deg,rgba(217,164,65,.12) 5.05deg,rgba(217,164,65,0) 5.5deg);
-  -webkit-mask:radial-gradient(closest-side,transparent 9%,#000 30%,#000 60%,transparent 88%);mask:radial-gradient(closest-side,transparent 9%,#000 30%,#000 60%,transparent 88%)}
- @media (prefers-reduced-motion:reduce){body::before,body::after{animation:none}}
+ @keyframes kwarp{0%{transform:translate(-50%,-50%) scale(.16);opacity:0}
+   14%{opacity:.18}60%{opacity:.11}100%{transform:translate(-50%,-50%) scale(2.7);opacity:0}}
+ body::before,body::after{content:"";position:fixed;left:50%;top:42%;width:120vmax;height:120vmax;
+  transform:translate(-50%,-50%);z-index:-1;pointer-events:none;will-change:transform,opacity;filter:blur(.7px);
+  background:conic-gradient(from 0deg at 50% 50%,#ff5a5a,#ffae42,#ffe84a,#5aff8d,#46d8ff,#5a7bff,#c75aff,#ff5ab0,#ff5a5a);
+  -webkit-mask:repeating-conic-gradient(from 0deg at 50% 50%,#000 0 .34deg,transparent .34deg 2.6deg);
+          mask:repeating-conic-gradient(from 0deg at 50% 50%,#000 0 .34deg,transparent .34deg 2.6deg)}
+ body::before{animation:kwarp 7.5s linear infinite}
+ body::after{animation:kwarp 7.5s linear infinite;animation-delay:-3.75s}
+ @media (prefers-reduced-motion:reduce){body::before{animation:none;opacity:.09;transform:translate(-50%,-50%) scale(1.5)}body::after{display:none}}
 """
+
+# Clean line (stroke) SVG icons — replace the emoji glyphs in section/hub/pill labels. Gold stroke,
+# currentColor-free so they read consistently on any surface. Sized in em; vertical-aligned inline.
+def _icon(paths: str) -> str:
+    return ('<svg viewBox="0 0 24 24" width="1.05em" height="1.05em" fill="none" stroke="#E9C46A" '
+            'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" '
+            'style="vertical-align:-0.16em;margin-right:.1em">' + paths + "</svg>")
+
+
+_ICON = {
+    # microphone (artists)
+    "artist": _icon('<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/>'
+                    '<line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/>'),
+    # tv / screen (dramas)
+    "drama": _icon('<rect x="2" y="4" width="20" height="14" rx="2"/>'
+                   '<polyline points="8 21 12 18 16 21"/>'),
+    # film strip (films)
+    "film": _icon('<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="4" x2="7" y2="20"/>'
+                  '<line x1="17" y1="4" x2="17" y2="20"/><line x1="3" y1="9" x2="7" y2="9"/>'
+                  '<line x1="3" y1="14" x2="7" y2="14"/><line x1="17" y1="9" x2="21" y2="9"/>'
+                  '<line x1="17" y1="14" x2="21" y2="14"/>'),
+    # person (people)
+    "people": _icon('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+}
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
  :root{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}
  body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0 auto;padding:34px 22px 48px;line-height:1.55;max-width:860px;
-  background:
-   radial-gradient(760px 440px at 0% -8%,rgba(233,196,106,.20),transparent 60%),
-   radial-gradient(720px 420px at 100% 0%,rgba(217,164,65,.18),transparent 55%),
-   radial-gradient(900px 520px at 50% 120%,rgba(233,196,106,.10),transparent 60%),
-   radial-gradient(1000px 480px at 50% -160px,#241A06 0%,#0D0B06 60%);background-attachment:fixed}
+  background:radial-gradient(1100px 560px at 50% -210px,rgba(233,196,106,.06),transparent 62%),#0D0B06;background-attachment:fixed}
  a{color:#E9C46A;text-decoration:none} a:hover{text-decoration:underline}
  h1{margin:0;font-size:27px;font-weight:800;letter-spacing:-.02em} h2{margin:24px 0 9px;font-size:14px;color:#C2B7A3;text-transform:uppercase;letter-spacing:.04em}
  .ko{color:#C2B7A3;font-weight:400} .rom{color:#8C8068;font-size:12px}
@@ -918,19 +933,15 @@ def _write_person_html(out_dir: str, name: str, credits: list[dict],
 # + an ItemList answer engines read as "the list of K-pop artists / K-dramas / K-films".
 # entity_id-namespace -> (label, filename, emoji, second-column header).
 _VERTICALS = {
-    "artist": ("K-pop artists", "artists.html", "🎤", "Agency (소속사)"),
-    "drama": ("K-dramas", "dramas.html", "📺", "Network / platform"),
-    "film": ("K-films", "films.html", "🎬", "Director / studio"),
+    "artist": ("K-pop artists", "artists.html", _ICON["artist"], "Agency (소속사)"),
+    "drama": ("K-dramas", "dramas.html", _ICON["drama"], "Network / platform"),
+    "film": ("K-films", "films.html", _ICON["film"], "Director / studio"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
  :root{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}
  body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0 auto;padding:34px 20px 52px;line-height:1.5;max-width:1180px;
-  background:
-   radial-gradient(900px 500px at 8% -10%,rgba(233,196,106,.20),transparent 60%),
-   radial-gradient(820px 460px at 102% 0%,rgba(217,164,65,.18),transparent 55%),
-   radial-gradient(760px 600px at 50% 120%,rgba(233,196,106,.10),transparent 60%),
-   radial-gradient(1100px 520px at 50% -160px,#241A06 0%,#0D0B06 58%);background-attachment:fixed}
+  background:radial-gradient(1100px 560px at 50% -210px,rgba(233,196,106,.06),transparent 62%),#0D0B06;background-attachment:fixed}
  a{color:#E9C46A;text-decoration:none} a:hover{text-decoration:underline}
  h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em} .sub{color:#C2B7A3;margin:8px 0 20px;font-size:14px}
  .back{font-size:13px;margin:0 0 12px}
@@ -962,11 +973,13 @@ def _itemlist_node(name: str, items: list[tuple[str, str]]) -> dict:
     }
 
 
-def _write_hub_html(out_dir: str, filename: str, h1: str, sub: str, body: str, jsonld: str) -> None:
+def _write_hub_html(out_dir: str, filename: str, icon: str, label: str, sub: str,
+                    body: str, jsonld: str) -> None:
     """A vertical hub page at the site ROOT (links use no `../` — entity/person pages are one level
-    down). Self-contained dark style; ItemList + BreadcrumbList JSON-LD for AEO."""
+    down). `icon` is raw inline SVG (not escaped); `label` is the (escaped) heading text — kept apart
+    so the SVG renders in <h1> but never leaks into <title>/<meta>. ItemList + BreadcrumbList JSON-LD."""
     url = f"{_SITE_BASE}/{filename}"
-    title = html.escape(f"{h1} — verified · KoreaAPI")
+    title = html.escape(f"{label} — verified · KoreaAPI")
     desc = html.escape(f"{sub}")
     doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -974,7 +987,7 @@ def _write_hub_html(out_dir: str, filename: str, h1: str, sub: str, body: str, j
 <meta name="description" content="{desc}">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="{url}">
-{_social_meta(html.escape(h1), desc, url)}
+{_social_meta(html.escape(label), desc, url)}
 {_FONT_LINKS}
 <script type="application/ld+json">
 {jsonld}
@@ -982,7 +995,7 @@ def _write_hub_html(out_dir: str, filename: str, h1: str, sub: str, body: str, j
 {_HUB_STYLE}
 </head><body>
 <p class=back><a href="index.html">← KoreaAPI · verifiable K-culture data</a></p>
-<h1>{html.escape(h1)}</h1>
+<h1>{icon} {html.escape(label)}</h1>
 <div class=sub>{html.escape(sub)}</div>
 {body}
 <footer>via KoreaAPI · <a href="index.html">home</a> · <a href="llms.txt">/llms.txt</a> · <a href="sitemap.xml">/sitemap.xml</a></footer>
@@ -1078,7 +1091,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         graph = [_itemlist_node(label, [(rec.name.en_official or rec.name.ko,
                  f"{_SITE_BASE}/artist/{_slug(eid)}.html") for eid, rec in items]),
                  _breadcrumb(label, f"{_SITE_BASE}/{fname}")]
-        _write_hub_html(out_dir, fname, f"{emoji} {label} ({len(items)})",
+        _write_hub_html(out_dir, fname, emoji, f"{label} ({len(items)})",
                         f"{len(items)} verified, cross-checked entities · via KoreaAPI", body,
                         _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
         hubs_written.append({"vertical": ns, "url": f"{_SITE_BASE}/{fname}", "count": len(items)})
@@ -1088,7 +1101,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     pgraph = [_itemlist_node("Verified Korean-culture people",
               [(pw["name"], pw["url"]) for pw in people_written]),
               _breadcrumb("People", f"{_SITE_BASE}/people.html")]
-    _write_hub_html(out_dir, "people.html", f"👤 Verified people ({len(people_written)})",
+    _write_hub_html(out_dir, "people.html", _ICON["people"], f"Verified people ({len(people_written)})",
                     f"{len(people_written)} directors & cross-work cast — each a verified credit hub · via KoreaAPI",
                     pbody, _escape_jsonld({"@context": "https://schema.org", "@graph": pgraph}))
     hubs_written.append({"vertical": "people", "url": f"{_SITE_BASE}/people.html", "count": len(people_written)})
@@ -1393,7 +1406,7 @@ async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html
 <style>{_AURORA}
  :root{{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 40px rgba(0,0,0,.5),inset 0 1.5px 0 rgba(255,255,255,.24),inset 0 -14px 28px rgba(6,10,22,.55)}}
  body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0;padding:28px 24px;
-  background:radial-gradient(900px 480px at 10% -10%,rgba(233,196,106,.16),transparent 60%),radial-gradient(820px 460px at 100% 0%,rgba(217,164,65,.14),transparent 55%),#0D0B06;background-attachment:fixed}}
+  background:radial-gradient(1000px 520px at 50% -210px,rgba(233,196,106,.05),transparent 62%),#0D0B06;background-attachment:fixed}}
  h1{{margin:0 0 2px}} h2{{font-size:14px;color:#C2B7A3;margin:22px 0 8px}} .sub{{color:#C2B7A3;margin-bottom:18px;font-size:13px}}
  .cards{{display:flex;gap:12px;flex-wrap:wrap}} .card{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:14px;padding:13px 17px;min-width:120px;box-shadow:var(--gshadow)}}
  .card .v{{font-size:24px;font-weight:700}} .card .k{{color:#C2B7A3;font-size:12px}}
