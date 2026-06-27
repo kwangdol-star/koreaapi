@@ -52,5 +52,26 @@ def test_roster_artist_wrong_resolution_is_rejected(monkeypatch):
         asyncio.run(WikidataSource().fetch("artist:blackpink", "facts"))
 
 
+def test_curated_agency_hint_picks_the_real_label(monkeypatch):
+    # BTS's Wikidata P264 lists a foreign distribution label BEFORE Big Hit; the curated agency
+    # hint must pick Big Hit (the 소속사), not the first value. The value still comes from Wikidata.
+    def http_get(self, url: str) -> dict:
+        if "QAVEX" in url:
+            return {"entities": {"QAVEX": {"labels": {"en": {"value": "Avex Trax"}, "ko": {"value": "에이벡스 트랙스"}}}}}
+        if "QBIGHIT" in url:
+            return {"entities": {"QBIGHIT": {"labels": {"en": {"value": "Big Hit Music"}, "ko": {"value": "빅히트 뮤직"}}}}}
+        # the BTS entity itself: two record labels, the wrong (foreign) one first
+        return {"entities": {"Q13580495": {"id": "Q13580495",
+                "labels": {"ko": {"value": "방탄소년단"}, "en": {"value": "BTS"}},
+                "claims": {"P264": [
+                    {"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QAVEX"}}}},
+                    {"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QBIGHIT"}}}},
+                ]}}}}
+    monkeypatch.setattr(WikidataSource, "_http_get", http_get)
+    res = asyncio.run(WikidataSource().fetch("artist:bts", "facts"))
+    assert res["payload"]["agency_en"] == "Big Hit Music"  # hint disambiguated, not the first value
+    assert res["payload"]["agency_source"] == "Wikidata QBIGHIT"
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

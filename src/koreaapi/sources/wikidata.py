@@ -39,10 +39,13 @@ _UA = {
 # identity guard caught. The expected names let fetch() VERIFY the live response really is
 # the entity we pinned and REJECT a contradictory label (invariant 2) instead of stamping a
 # wrong name as 'official'. Anything not listed here is resolved live via wbsearchentities.
+# `agency` is a disambiguation HINT: Wikidata's P264 can list several labels (e.g. a foreign
+# distribution label alongside the primary 소속사), so for a known artist the hint picks the RIGHT
+# one among the LIVE values - it never fabricates (same spirit as the identity guard).
 _CURATED = {
-    "artist:bts": {"qid": "Q13580495", "ko": "방탄소년단", "en": "BTS"},
-    "artist:newjeans": {"qid": "Q113189277", "ko": "뉴진스", "en": "NewJeans"},
-    "artist:aespa": {"qid": "Q100877982", "ko": "에스파", "en": "aespa"},
+    "artist:bts": {"qid": "Q13580495", "ko": "방탄소년단", "en": "BTS", "agency": "Big Hit"},
+    "artist:newjeans": {"qid": "Q113189277", "ko": "뉴진스", "en": "NewJeans", "agency": "ADOR"},
+    "artist:aespa": {"qid": "Q100877982", "ko": "에스파", "en": "aespa", "agency": "SM Entertainment"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path).
 _QID = {eid: meta["qid"] for eid, meta in _CURATED.items()}
@@ -245,18 +248,25 @@ class WikidataSource:
         if expected:
             _verify_identity(payload, expected)  # reject contradictory data (invariant 2)
 
-        # Resolve the 소속사/label anchor: the first P264 Q-id -> its ko/en name (one extra call).
+        # Resolve the 소속사/label anchor. P264 can list several labels (e.g. a foreign distribution
+        # label alongside the primary 소속사); for a curated artist a hint picks the RIGHT one among
+        # the live values (the value still comes from Wikidata - the hint only disambiguates).
         agency_qids = payload.pop("agency_qids", [])
-        if agency_qids:
+        hint = ((_CURATED.get(entity_id) or {}).get("agency") or "").lower()
+        for q in agency_qids:
             try:
-                ag = await asyncio.to_thread(self._http_get, self._label_url(agency_qids[0]))
-                label = parse_label(ag)
-                if label.get("en") or label.get("ko"):
-                    payload["agency_en"] = label.get("en")
-                    payload["agency_ko"] = label.get("ko")
-                    payload["agency_source"] = f"Wikidata {agency_qids[0]}"
+                label = parse_label(await asyncio.to_thread(self._http_get, self._label_url(q)))
             except Exception:
-                pass  # agency is supplementary; never fail the artist fetch for it
+                continue  # agency is supplementary; never fail the artist fetch for it
+            en, ko = label.get("en"), label.get("ko")
+            if not (en or ko):
+                continue
+            matches = bool(hint) and (hint in (en or "").lower() or hint in (ko or "").lower())
+            if "agency_en" not in payload or matches:  # first valid = default; a hint match wins
+                payload["agency_en"], payload["agency_ko"] = en, ko
+                payload["agency_source"] = f"Wikidata {q}"
+            if not hint or matches:
+                break  # no hint -> take the first valid label; with a hint -> stop at the match
 
         # Resolve members (P527 Q-ids) -> names in ONE batched call (best-effort; never fail for it).
         member_qids = payload.pop("member_qids", [])
