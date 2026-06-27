@@ -49,6 +49,7 @@ jobs:
           uv run python -m koreaapi.admin report
           uv run python -m koreaapi.admin entitypages
           uv run python -m koreaapi.admin digest
+          uv run python -m koreaapi.admin llms   # regenerate /llms.txt from live data (roster + people)
           uv run python -m koreaapi.admin monitor
           uv run python -m koreaapi.admin export
           mkdir -p _site
@@ -59,7 +60,8 @@ jobs:
           cp data/latest.json _site/latest.json   # open machine-readable verified data
           cp robots.txt _site/robots.txt   # explicitly welcome answer-engine crawlers (AEO)
           cp -r site/artist _site/artist   # per-entity citable answer pages (/artist/<slug>.html)
-          uv run python -m koreaapi.admin sitemap   # sitemap.xml incl. every entity page (daily lastmod)
+          cp -r site/person _site/person   # per-person credit pages (/person/<slug>.html)
+          uv run python -m koreaapi.admin sitemap   # sitemap.xml incl. every entity + person page (daily lastmod)
           cp sitemap.xml _site/sitemap.xml
 
       - uses: actions/configure-pages@v5

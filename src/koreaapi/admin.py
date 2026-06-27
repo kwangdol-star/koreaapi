@@ -17,6 +17,8 @@ CLI:
   python -m koreaapi.admin dump     # print recent snapshots
   python -m koreaapi.admin report   # write report.html (open it in a browser)
   python -m koreaapi.admin digest   # write data/korea-rising.md (shareable verified digest)
+  python -m koreaapi.admin llms     # regenerate llms.txt (agent index) from the live store
+  python -m koreaapi.admin entitypages  # write per-entity + per-person citable pages (site/)
   python -m koreaapi.admin monitor  # write monitor.html (human data-quality cockpit)
 
 For zero-code interactive browse / query / JSON API:  datasette koreaapi.db
@@ -801,6 +803,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     entity_slugs = {_slug(eid) for eid in by_entity}
     linked = _linked_person_slugs(people, entity_slugs)
     os.makedirs(os.path.join(out_dir, "artist"), exist_ok=True)
+    os.makedirs(os.path.join(out_dir, "person"), exist_ok=True)  # always exists -> `cp` never fails
     written: list[dict] = []
     for entity_id, by_kind in by_entity.items():
         primary = by_kind.get("facts") or max(by_kind.values(), key=lambda r: r.provenance.skill_score)
@@ -866,6 +869,87 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
            f"{body}</urlset>\n")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(doc)
+    return out_path
+
+
+_LLMS_HEAD = """# KoreaAPI
+> The verifiable data layer for Korean culture & commerce, callable by any AI agent.
+
+KoreaAPI exposes Korean entertainment, culture, and commerce data via Anthropic's MCP.
+Every response includes provenance (sources, fetched_at) and a Skill Score (0-1) so an
+agent can decide whether to trust and cite the data. Data is bilingual: Korean original
+(canonical) + English (official names preferred) + romanization.
+
+## Tools
+- get_artist_status(artist_id): verified facts, latest release, agency, next event. e.g. 'artist:bts'.
+- get_kculture_calendar(window_days): upcoming comebacks, releases, concerts.
+- get_agency(name): artists verified under a Korean agency/label (소속사), e.g. 'JYP Entertainment'.
+- get_korea_rising(category): what is rising in Korea now (ranked by observed demand + Skill Score).
+- get_buy_options(item): where to buy + availability + affiliate link (Phase 1: rail pending).
+
+## Verification (why cite us)
+- Cross-verified: a fact clears the single-source cap only when ≥2 independent sources (e.g.
+  Wikidata + Wikipedia) agree on the canonical bilingual name — so a high Skill Score means concurrence.
+- Identity- and hallucination-guarded: contradictory labels are rejected (incl. a strict Korean-name
+  check so a same-English-name impostor can't slip in), and LLM-extracted data must appear verbatim
+  in its source or it is dropped (never ship rumor or invention as fact).
+- Agency hub: each artist is anchored to its verified label (Wikidata P264); the roster grows by
+  discovering cross-verified labelmates. Every record carries a ready-to-cite line (source + as-of
+  date + Skill Score + "via KoreaAPI").
+- Fresh: re-verified daily and timestamped (as-of date) — answer engines favor recently-refreshed
+  sources, so a citation here is current, not stale.
+
+## Principles
+- Provenance + Skill Score on every response.
+- Korean canonical; English for distribution (official names over translation).
+- Append-only time-series — history is the moat.
+"""
+
+
+async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> str:
+    """Generate /llms.txt LIVE from the verified store — the agent-discoverable index (AEO/GEO).
+
+    The prose (tools / verification / principles) is stable; the Coverage section is regenerated each
+    build so the index reflects the ACTUAL live roster (entities by vertical) and the person graph,
+    and points crawlers at the per-entity + per-person pages and the sitemap. If the store is empty
+    (e.g. a blocked pull), the committed static file is left untouched rather than zeroed out.
+    """
+    by_entity = await _load_by_entity(db_path)
+    facts = {eid: bk["facts"] for eid, bk in by_entity.items() if "facts" in bk}
+    if not facts:
+        return out_path  # don't overwrite the good static file with an empty Coverage section
+
+    def names(prefix: str) -> list[str]:
+        return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
+
+    arts, dramas, films = names("artist:"), names("drama:"), names("film:")
+    people = _collect_credits(by_entity)
+    linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
+
+    def sample(xs: list[str], n: int = 14) -> str:
+        return ", ".join(xs[:n]) + (" …" if len(xs) > n else "")
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    coverage = f"""
+## Coverage (live, as of {today})
+- {len(facts)} verified entities across 3 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films.
+- {len(linked)} verified people (directors + cross-work cast), each a citable hub page linking their works.
+- K-pop artists: {sample(arts)}
+- K-dramas: {sample(dramas)}
+- K-films: {sample(films)}
+- Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
+- Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
+- Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml
+"""
+    tail = f"""
+## Public verified data
+- Human + Schema.org JSON-LD: {_SITE_BASE}/
+- Machine-readable (JSON, latest snapshot per entity+kind, with provenance + Skill Score):
+  {_SITE_BASE}/latest.json  — fetch it directly, no MCP setup.
+- Agent (MCP) + crawlable digest: /llms.txt · /korea-rising.md · /sitemap.xml
+"""
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(_LLMS_HEAD + coverage + tail)
     return out_path
 
 
@@ -1107,6 +1191,8 @@ def _main(argv: list[str]) -> int:
         print("wrote", asyncio.run(sitemap()))
     elif cmd == "digest":
         print("wrote", asyncio.run(markdown_digest()))
+    elif cmd == "llms":
+        print("wrote", asyncio.run(llms_txt()))
     elif cmd == "monitor":
         print("wrote", asyncio.run(monitor_html()))
     elif cmd == "pull":
