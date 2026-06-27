@@ -172,6 +172,28 @@ async def ingest_one(
         summary_ko = (f"{name.ko} — 검증된 한국 브랜드."
                       + (f" 설립 {year}." if year else "")
                       + (f" 소유: {owner}." if owner else ""))
+    elif kind == "facts" and entity_id.startswith("book:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        year = chosen.get("debut")
+        authors = chosen.get("members") or []  # author(s) P50
+        publisher = chosen.get("agency_en") or chosen.get("agency_ko")
+        summary_en = (f"{disp}{ko_part} — verified Korean book."
+                      + (f" Published {year}." if year else "")
+                      + (f" By {', '.join(authors)}." if authors else "")
+                      + (f" Publisher {publisher}." if publisher else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 도서."
+                      + (f" 출간 {year}." if year else "")
+                      + (f" 저자: {', '.join(authors)}." if authors else "")
+                      + (f" 출판사: {publisher}." if publisher else ""))
+    elif kind == "facts" and entity_id.startswith("history:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        year = chosen.get("debut")
+        summary_en = (f"{disp}{ko_part} — verified Korean history (dynasty / period / event)."
+                      + (f" From {year}." if year else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국사 (왕조 / 시대 / 사건)."
+                      + (f" 시작 {year}." if year else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

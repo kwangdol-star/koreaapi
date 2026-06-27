@@ -111,6 +111,11 @@ _CURATED = {
     "brand:innisfree": {"ko": "이니스프리", "en": "Innisfree"},
     "brand:naturerepublic": {"ko": "네이처리퍼블릭", "en": "Nature Republic"},
     "brand:thefaceshop": {"ko": "더페이스샵", "en": "The Face Shop"},
+    # Korean novels whose English title is a common word/phrase — pin bilingually.
+    "book:thevegetarian": {"ko": "채식주의자", "en": "The Vegetarian"},
+    "book:humanacts": {"ko": "소년이 온다", "en": "Human Acts"},
+    "book:almond": {"ko": "아몬드", "en": "Almond"},
+    "book:pleaselookaftermom": {"ko": "엄마를 부탁해", "en": "Please Look After Mom"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.
@@ -169,6 +174,10 @@ _NS_PROPS = {
     "company": {"agency": "P452", "date": "P571", "members": None, "directors": None},
     # brand (K-beauty / consumer): owned-by P127 (the parent) as the org edge, inception P571.
     "brand": {"agency": "P127", "date": "P571", "members": None, "directors": None},
+    # book / literature: publisher P123, publication date P577 (else P571), author(s) P50.
+    "book": {"agency": "P123", "date": "P577", "date2": "P571", "members": "P50", "directors": None},
+    # history (dynasty/period/event): start time P580 (else inception P571), no org/people edge.
+    "history": {"agency": None, "date": "P580", "date2": "P571", "members": None, "directors": None},
 }
 
 
@@ -480,6 +489,8 @@ _DISCOVER = {
     "food":    (["Q746549"], "P2012", "Q234138"),                       # dish, cuisine = Korean cuisine
     "company": (["Q4830453", "Q891723"], "P17", "Q884"),               # business/public company, country SK
     "brand":   (["Q431289"], "P17", "Q884"),                            # brand, country SK
+    "book":    (["Q7725634", "Q47461344"], "P407", "Q9176"),           # literary/written work, language Korean
+    # (history is seed-only: dynasty/period/event Wikidata classes are too heterogeneous to discover cleanly)
 }
 
 

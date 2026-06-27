@@ -337,5 +337,36 @@ BRANDS = {
     "brand:thefaceshop": "The Face Shop",  # bilingual in _CURATED (generic phrase)
 }
 
+# Book vertical: Korean literature (Wikidata-verifiable). `book:` maps to publisher (P123) +
+# publication date (P577) + author(s) (P50). Generic-title novels bilingually pinned in _CURATED.
+BOOKS = {
+    "book:kimjiyoung": "Kim Ji-young, Born 1982",
+    "book:ihavetheright": "I Have the Right to Destroy Myself",
+    "book:thehenwhodreamed": "The Hen Who Dreamed She Could Fly",
+    "book:theplotters": "The Plotters",
+    "book:thevegetarian": "The Vegetarian",        # bilingual in _CURATED (vs the concept)
+    "book:humanacts": "Human Acts",                # bilingual in _CURATED
+    "book:almond": "Almond",                       # bilingual in _CURATED (vs the nut)
+    "book:pleaselookaftermom": "Please Look After Mom",  # bilingual in _CURATED
+}
+
+# History vertical: Korean dynasties / periods / events (canonical, Wikidata-verifiable). `history:`
+# maps to start time (P580) / inception (P571). Distinctive names (low collision).
+HISTORY = {
+    "history:joseon": "Joseon",
+    "history:goryeo": "Goryeo",
+    "history:silla": "Silla",
+    "history:goguryeo": "Goguryeo",
+    "history:baekje": "Baekje",
+    "history:gojoseon": "Gojoseon",
+    "history:threekingdoms": "Three Kingdoms of Korea",
+    "history:koreanwar": "Korean War",
+    "history:march1": "March First Movement",
+    "history:gwangju": "Gwangju Uprising",
+    "history:koreanempire": "Korean Empire",
+    "history:donghak": "Donghak Peasant Revolution",
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
-NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS}
+NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
+         **BOOKS, **HISTORY}
