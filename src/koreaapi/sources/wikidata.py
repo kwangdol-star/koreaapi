@@ -101,9 +101,9 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         "name_romanized": None,  # Wikidata rarely carries clean romanization; filled elsewhere
         "name_en_source": "official" if en else "llm",
         "name_en_confidence": "high" if en else "low",
-        # Music: 소속사 (P264), members (P527), debut (P571). Drama/film: skip 소속사, use the
-        # air/release date (P577) and CAST (P161 — resolved by the SAME member machinery).
-        "agency_qids": [] if is_video else _claim_qids(item, "P264"),
+        # Music: 소속사 (P264), members (P527), debut (P571). Drama/film: original network/platform
+        # (P449, e.g. Netflix/tvN — reusing the agency machinery), air/release date (P577), cast (P161).
+        "agency_qids": _claim_qids(item, "P449") if is_video else _claim_qids(item, "P264"),
         "debut": _claim_time(item, "P577" if is_video else "P571"),
         "active": "active" if is_video else ("disbanded" if _claim_time(item, "P576") else "active"),
         "member_qids": _claim_qids(item, "P161") if is_video else _claim_qids(item, "P527"),

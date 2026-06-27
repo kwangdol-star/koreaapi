@@ -480,9 +480,13 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
                         f"{', '.join(members)} — {len(members)} members (verified via {src}, as of {asof})."))
     agency = d.get("agency_en") or d.get("agency_ko")
     if agency:
-        ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
-        qas.append((f"What agency (소속사) is {name} under?",
-                    f"{name} is under {ag} (verified via {src}, as of {asof})."))
+        if primary and primary.entity_id.startswith(("drama:", "film:")):
+            qas.append((f"What network or platform is {name} on?",
+                        f"{name} — original network/platform: {agency} (verified via {src}, as of {asof})."))
+        else:
+            ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
+            qas.append((f"What agency (소속사) is {name} under?",
+                        f"{name} is under {ag} (verified via {src}, as of {asof})."))
     for kind, rec in by_kind.items():  # fresh current-state Q — the answer an LLM's training set can't have
         if kind == "facts":
             continue

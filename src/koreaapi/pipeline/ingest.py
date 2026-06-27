@@ -105,13 +105,16 @@ async def ingest_one(
         year = chosen.get("debut")
         cast = chosen.get("members") or []
         is_film = entity_id.startswith("film:")
+        net = chosen.get("agency_en") or chosen.get("agency_ko")  # original network/platform (P449)
         noun_en, date_en = ("film", "Released") if is_film else ("drama (TV series)", "Aired")
         noun_ko, date_ko = ("K-영화", "개봉") if is_film else ("K-드라마", "방영")
         summary_en = (f"{disp}{ko_part} — verified Korean {noun_en}."
                       + (f" {date_en} {year}." if year else "")
+                      + (f" On {net}." if net else "")
                       + (f" {len(cast)} verified cast." if cast else ""))
         summary_ko = (f"{name.ko} — 검증된 {noun_ko}."
                       + (f" {date_ko} {year}." if year else "")
+                      + (f" 채널/플랫폼: {net}." if net else "")
                       + (f" 출연 {len(cast)}명 검증." if cast else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
