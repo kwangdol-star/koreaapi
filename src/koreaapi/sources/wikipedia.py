@@ -38,6 +38,11 @@ _TITLES = {
     "artist:ateez": "Ateez",
     "artist:babymonster": "BabyMonster",
     "artist:illit": "Illit (group)",
+    "drama:squidgame": "Squid Game",
+    "drama:crashlandingonyou": "Crash Landing on You",
+    "drama:itaewonclass": "Itaewon Class",
+    "drama:extraordinaryattorneywoo": "Extraordinary Attorney Woo",
+    "drama:reply1988": "Reply 1988",
 }
 
 

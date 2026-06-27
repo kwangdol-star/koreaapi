@@ -35,7 +35,7 @@ from datetime import datetime, timezone
 from .pipeline import store
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
-from .roster import ARTISTS
+from .roster import ARTISTS, NAMES
 from .sources.circlechart import CircleChartSource
 from .sources.mock import MockSource
 from .sources.wikidata import WikidataSource, fetch_labelmates
@@ -83,7 +83,7 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
     the sandbox allowlist) failed sources are dropped by graceful degradation - a snapshot is
     still appended if at least one source succeeds, and nothing if none do (never poison).
     """
-    ids = entity_ids or list(ARTISTS)
+    ids = entity_ids or list(NAMES)  # artists + dramas
     sources = [WikidataSource(), WikipediaSource()]  # two independent sources -> cross-verify
     ingested: list[str] = []
     failed: list[str] = []
@@ -231,16 +231,27 @@ def _wikidata_url(sources: list[str]) -> str | None:
     return None
 
 
-def _musicgroup_node(r) -> dict:
-    """One verified entity as a Schema.org MusicGroup node (shared by the index + entity pages)."""
+def _entity_node(r) -> dict:
+    """One verified entity as a Schema.org node, shared by the index + entity pages: a `drama:` ->
+    TVSeries, otherwise an artist -> MusicGroup (carrying the verified 소속사 edge)."""
+    name = r.name.en_official or r.name.ko
+    alt = [x for x in (r.name.ko, r.name.romanized) if x]
+    wd = _wikidata_url(r.provenance.sources)
+    if r.entity_id.startswith("drama:"):
+        node = {"@type": "TVSeries", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        if r.data.get("debut"):  # first air date -> citable "when did X air?"
+            node["datePublished"] = r.data["debut"]
+        return node
     node = {
         "@type": "MusicGroup",
-        "name": r.name.en_official or r.name.ko,
-        "alternateName": [x for x in (r.name.ko, r.name.romanized) if x],
+        "name": name,
+        "alternateName": alt,
         "description": r.summary_en,
         "dateModified": r.snapshot_at.isoformat(),
     }
-    wd = _wikidata_url(r.provenance.sources)
     if wd:
         node["sameAs"] = wd
     agency = r.data.get("agency_en") or r.data.get("agency_ko")
@@ -278,7 +289,7 @@ def _jsonld(records: list, generated_iso: str) -> str:
         if r.entity_id in seen:
             continue
         seen.add(r.entity_id)
-        groups.append(_musicgroup_node(r))
+        groups.append(_entity_node(r))
     doc = {
         "@context": "https://schema.org",
         "@graph": [
@@ -445,8 +456,12 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
     asof = primary.snapshot_at.strftime("%Y-%m-%d") if primary else ""
     src = "; ".join(primary.provenance.sources) if primary else ""
     if d.get("debut"):
-        qas.append((f"When did {name} debut?",
-                    f"{name} debuted/formed on {d['debut']} (verified via {src}, as of {asof})."))
+        if primary and primary.entity_id.startswith("drama:"):
+            qas.append((f"When did {name} first air?",
+                        f"{name} first aired in {d['debut']} (verified via {src}, as of {asof})."))
+        else:
+            qas.append((f"When did {name} debut?",
+                        f"{name} debuted/formed on {d['debut']} (verified via {src}, as of {asof})."))
     members = d.get("members") or []
     if members:
         qas.append((f"Who are the members of {name}?",
@@ -547,7 +562,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> lis
         name = primary.name.en_official or primary.name.ko
         qas = _entity_qa(name, primary, by_kind)
         doc = {"@context": "https://schema.org",
-               "@graph": [_musicgroup_node(primary)] + ([_faqpage_node(qas)] if qas else [])}
+               "@graph": [_entity_node(primary)] + ([_faqpage_node(qas)] if qas else [])}
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc))
         written.append({"slug": slug, "name": name, "url": url})
     return written

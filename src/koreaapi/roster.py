@@ -53,3 +53,17 @@ AGENCY_HINTS = {
     "artist:babymonster": "YG",
     "artist:illit": "Belift",
 }
+
+# K-drama vertical (Phase A breadth). Distinctive titles = low search-collision. Verified by the
+# SAME engine (name cross-verify Wikidata + Wikipedia); the `drama:` namespace switches the source
+# props (air date P577 instead of debut P571) and the JSON-LD type (TVSeries instead of MusicGroup).
+DRAMAS = {
+    "drama:squidgame": "Squid Game",
+    "drama:crashlandingonyou": "Crash Landing on You",
+    "drama:itaewonclass": "Itaewon Class",
+    "drama:extraordinaryattorneywoo": "Extraordinary Attorney Woo",
+    "drama:reply1988": "Reply 1988",
+}
+
+# Every verified entity (artists + dramas): id -> canonical name (live-search + identity-guard term).
+NAMES = {**ARTISTS, **DRAMAS}

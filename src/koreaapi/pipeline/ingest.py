@@ -99,7 +99,13 @@ async def ingest_one(
     # the source's specific summary (e.g. "BTS comeback scheduled 2026-06-13").
     summary_en = chosen.get("summary_en", "")
     summary_ko = chosen.get("summary_ko")
-    if kind == "facts":
+    if kind == "facts" and entity_id.startswith("drama:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        year = chosen.get("debut")
+        summary_en = f"{disp}{ko_part} — verified Korean drama (TV series)." + (f" Aired {year}." if year else "")
+        summary_ko = f"{name.ko} — 검증된 K-드라마." + (f" 방영 {year}." if year else "")
+    elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
         agency = chosen.get("agency_en") or chosen.get("agency_ko")

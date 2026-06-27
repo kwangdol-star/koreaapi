@@ -23,7 +23,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
-from ..roster import AGENCY_HINTS, ARTISTS
+from ..roster import AGENCY_HINTS, NAMES
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"  # agency-hub roster discovery (sweep)
@@ -94,20 +94,19 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
     en = labels.get("en", {}).get("value")
     if not ko and not en:
         raise ValueError("no ko/en label in Wikidata response")
+    is_drama = entity_id.startswith("drama:")
     return {
         "name_ko": ko or en,
         "name_en_official": en,
         "name_romanized": None,  # Wikidata rarely carries clean romanization; filled elsewhere
         "name_en_source": "official" if en else "llm",
         "name_en_confidence": "high" if en else "low",
-        # 소속사/label anchor: P264 (record label) Q-ids, resolved to names in fetch(). The agency
-        # is a verified HUB - anchoring artist->agency lets us cross-link comebacks/roster later.
-        "agency_qids": _claim_qids(item, "P264"),
-        # Verified K-pop depth: debut (P571 inception), active status (P576 dissolution), and member
-        # Q-ids (P527 has-part) - resolved to names in fetch(). The dates need no extra call.
-        "debut": _claim_time(item, "P571"),
-        "active": "disbanded" if _claim_time(item, "P576") else "active",
-        "member_qids": _claim_qids(item, "P527"),
+        # Music: 소속사 (P264 record label), members (P527), debut (P571 inception) — the verified
+        # artist->agency HUB. Drama: skip those (no agency/members) and use the air date (P577).
+        "agency_qids": [] if is_drama else _claim_qids(item, "P264"),
+        "debut": _claim_time(item, "P577" if is_drama else "P571"),
+        "active": "active" if is_drama else ("disbanded" if _claim_time(item, "P576") else "active"),
+        "member_qids": [] if is_drama else _claim_qids(item, "P527"),
         "summary_en": f"{en or ko} - {kind} (Wikidata labels).",
         "summary_ko": f"{ko or en} - {kind} (위키데이터 라벨).",
     }
@@ -226,7 +225,7 @@ class WikidataSource:
             return _QID[entity_id]
         if entity_id in self._discovered:
             return self._discovered[entity_id]
-        term = ARTISTS.get(entity_id) or self._aliases.get(entity_id) or entity_id.split(":", 1)[-1].strip()
+        term = NAMES.get(entity_id) or self._aliases.get(entity_id) or entity_id.split(":", 1)[-1].strip()
         if not term:
             raise ValueError(f"cannot derive a search term from entity_id {entity_id!r}")
         raw = await asyncio.to_thread(self._http_get, self._search_url(term))
@@ -242,7 +241,7 @@ class WikidataSource:
         payload = parse_entity(raw, entity_id, kind)
         expected = (
             _CURATED.get(entity_id)
-            or ({"en": ARTISTS[entity_id]} if entity_id in ARTISTS else None)
+            or ({"en": NAMES[entity_id]} if entity_id in NAMES else None)
             or ({"en": self._aliases[entity_id]} if entity_id in self._aliases else None)
         )
         if expected:
