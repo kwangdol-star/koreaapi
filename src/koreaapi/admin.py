@@ -421,7 +421,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 <script type="application/ld+json">
 {jsonld}
 </script>
-<style>
+<style>{_AURORA}
  :root{{--bg:#0D0B06;--panel:#17120A;--panel2:#1E1710;--line:#3A2F1A;--ink:#F7F2E8;--mut:#C2B7A3;--dim:#8C8068;--accent:#E9C46A;--accent2:#D9A441;--ok:#10B981;--bad:#EF4444;
   --glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);
   --blur:saturate(170%) blur(18px);
@@ -518,7 +518,24 @@ _FONT_LINKS = (
 )
 _FONT_STACK = "'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif"
 
-_ENTITY_STYLE = _FONT_LINKS + """<style>
+# Ambient animated gold "aurora" behind everything (Luma-style): a heavily-blurred, slowly-drifting
+# gold/amber gradient field on a fixed z-1 layer, so the glass panels refract a MOVING light. Pure CSS
+# (no JS) — works on static GitHub Pages. Single braces (not an f-string): injected verbatim, so it
+# drops cleanly into both plain <style> strings and f-string <style> blocks via {_AURORA}. Honors
+# prefers-reduced-motion (freezes to a static gradient).
+_AURORA = """
+ @keyframes kaurora{0%{transform:translate3d(0,0,0) scale(1) rotate(0deg)}50%{transform:translate3d(-4%,3%,0) scale(1.22) rotate(8deg)}100%{transform:translate3d(3%,-3%,0) scale(1.08) rotate(-6deg)}}
+ body::before{content:"";position:fixed;inset:-25%;z-index:-1;pointer-events:none;will-change:transform;
+  background:
+   radial-gradient(38% 48% at 20% 28%,rgba(233,196,106,.30),transparent 70%),
+   radial-gradient(44% 52% at 82% 18%,rgba(217,164,65,.26),transparent 70%),
+   radial-gradient(52% 60% at 62% 88%,rgba(201,138,46,.22),transparent 70%),
+   radial-gradient(40% 50% at 8% 82%,rgba(233,196,106,.18),transparent 70%);
+  filter:blur(72px) saturate(150%);animation:kaurora 26s ease-in-out infinite alternate}
+ @media (prefers-reduced-motion:reduce){body::before{animation:none}}
+"""
+
+_ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
  :root{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}
  body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0 auto;padding:34px 22px 48px;line-height:1.55;max-width:860px;
   background:
@@ -903,7 +920,7 @@ _VERTICALS = {
     "film": ("K-films", "films.html", "🎬", "Director / studio"),
 }
 
-_HUB_STYLE = """<style>
+_HUB_STYLE = "<style>" + _AURORA + """
  :root{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 44px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35),inset 0 1.5px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.04),inset 0 -16px 30px rgba(6,10,22,.6)}
  body{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0 auto;padding:34px 20px 52px;line-height:1.5;max-width:1180px;
   background:
@@ -1370,7 +1387,7 @@ async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html
     doc = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>KoreaAPI · Monitor</title><meta name="robots" content="noindex">
 {_FONT_LINKS}
-<style>
+<style>{_AURORA}
  :root{{--glass:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));--gbord:rgba(255,255,255,.14);--blur:saturate(170%) blur(18px);--gshadow:0 14px 40px rgba(0,0,0,.5),inset 0 1.5px 0 rgba(255,255,255,.24),inset 0 -14px 28px rgba(6,10,22,.55)}}
  body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0;padding:28px 24px;
   background:radial-gradient(900px 480px at 10% -10%,rgba(233,196,106,.16),transparent 60%),radial-gradient(820px 460px at 100% 0%,rgba(217,164,65,.14),transparent 55%),#0D0B06;background-attachment:fixed}}
