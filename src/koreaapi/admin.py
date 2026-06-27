@@ -440,6 +440,9 @@ _ENTITY_STYLE = """<style>
  .ko{color:#A0AEC0;font-weight:400} .rom{color:#6B7585;font-size:12px}
  .sub{color:#A0AEC0;margin:4px 0 8px;font-size:13px}
  ul{padding-left:18px} li{margin:5px 0}
+ .people{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+ .people li{margin:0;background:#131829;border:1px solid #2A3349;border-radius:7px;padding:4px 10px;font-size:13px}
+ .people li a{color:#7DA2FF}
  .qa{background:#131829;border:1px solid #2A3349;border-radius:8px;padding:10px 14px;margin:8px 0}
  .qa .q{font-weight:700} .qa .a{color:#C9D2E3;margin-top:3px;font-size:14px}
  .cite{background:#10231A;border:1px solid #1E5E43;border-radius:8px;padding:10px 14px;margin:18px 0;font-size:13px}
@@ -451,6 +454,144 @@ def _slug(entity_id: str) -> str:
     """`artist:bts` -> `bts` (stable, semantic per-entity URL slug)."""
     raw = entity_id.split(":", 1)[-1].lower()
     return "".join(c if (c.isalnum() or c in "-_") else "-" for c in raw).strip("-") or "entity"
+
+
+def _person_slug(name: str) -> str:
+    """A person name -> a stable URL slug: 'Bong Joon-ho' -> 'bong-joon-ho'. Comparable to _slug
+    so a person who is ALSO a tracked entity (a soloist) resolves to the same slug."""
+    return "".join(c if (c.isalnum() or c in "-_") else "-" for c in name.lower()).strip("-") or "person"
+
+
+# --- Person / credit knowledge graph -----------------------------------------------------------
+# The verified store already carries each work's people (members P527 / cast P161 / director P57),
+# resolved to names. Pivoting those edges by PERSON turns a flat list into a navigable graph: a
+# director becomes a hub linking the films they made (Bong Joon-ho -> Parasite, Memories of Murder,
+# ...), which is exactly the internal-link + entity structure answer engines reward. Pure aggregation
+# over ALREADY-verified records — no new fetch, no new trust surface (provenance = the works' own).
+
+_ROLE_TYPE = {"film": "Movie", "drama": "TVSeries", "artist": "MusicGroup"}
+
+
+def _entity_kind(entity_id: str) -> str:
+    return entity_id.split(":", 1)[0]  # "artist" | "drama" | "film"
+
+
+def _collect_credits(by_entity: dict) -> dict:
+    """Pure: pivot verified works by person -> {name: {slug, credits:[{entity_id, work_name,
+    work_slug, role, kind, sources, asof}]}}. role: 'member' (artist) / 'cast' (drama·film) /
+    'director'. Names come straight from the works' verified data (no new claims)."""
+    people: dict[str, dict] = {}
+
+    def add(name: str, rec, role: str) -> None:
+        name = (name or "").strip()
+        if not name:
+            return
+        p = people.setdefault(name, {"slug": _person_slug(name), "credits": []})
+        p["credits"].append({
+            "entity_id": rec.entity_id,
+            "work_name": rec.name.en_official or rec.name.ko,
+            "work_slug": _slug(rec.entity_id),
+            "role": role,
+            "kind": _entity_kind(rec.entity_id),
+            "sources": list(rec.provenance.sources),
+            "asof": rec.snapshot_at.strftime("%Y-%m-%d"),
+        })
+
+    for entity_id, by_kind in by_entity.items():
+        rec = by_kind.get("facts")
+        if rec is None:
+            continue
+        member_role = "cast" if entity_id.startswith(("drama:", "film:")) else "member"
+        for nm in (rec.data.get("members") or []):
+            add(nm, rec, member_role)
+        for nm in (rec.data.get("directors") or []):
+            add(nm, rec, "director")
+    return people
+
+
+def _qualifies_for_person_page(credits: list[dict]) -> bool:
+    """Who earns a standalone citable page: a director (a prominent cross-work hub even with one
+    film) OR anyone credited in ≥2 verified works (the graph's connective tissue). A one-work cast
+    member stays a plain name on the work page — avoids a long tail of thin, duplicative pages."""
+    return any(c["role"] == "director" for c in credits) or len(credits) >= 2
+
+
+def _linked_person_slugs(people: dict, entity_slugs: set) -> set:
+    """Slugs that get a person page: qualifying, ASCII-sluggable (clean URL / valid sitemap), and
+    NOT already a tracked entity (a soloist links to their own entity page instead)."""
+    return {
+        p["slug"]
+        for p in people.values()
+        if _qualifies_for_person_page(p["credits"])
+        and p["slug"].isascii()
+        and p["slug"] not in entity_slugs
+    }
+
+
+def _credit_link(name: str, entity_slugs: set, linked: set, *, from_dir: str = "artist") -> str:
+    """Render a person's name as a link to their entity page (if they're tracked), else their person
+    page (if it exists), else plain escaped text. `from_dir` is the dir the link is emitted from
+    (pages live under site/<from_dir>/), so the relative path hops up one level."""
+    s = _person_slug(name)
+    label = html.escape(name)
+    if s in entity_slugs:
+        return f'<a href="../artist/{s}.html">{label}</a>'
+    if s in linked:
+        return f'<a href="../person/{s}.html">{label}</a>'
+    return label
+
+
+def _person_node(name: str, credits: list[dict]) -> dict:
+    """Schema.org Person with `knownFor` the verified works (each linked) — a citable node that ties
+    a person to their cross-verified filmography/discography on the open web."""
+    known = [
+        {"@type": _ROLE_TYPE.get(c["kind"], "CreativeWork"), "name": c["work_name"],
+         "url": f"{_SITE_BASE}/artist/{c['work_slug']}.html"}
+        for c in credits
+    ]
+    return {"@type": "Person", "name": name, "knownFor": known}
+
+
+def _person_qa(name: str, credits: list[dict]) -> list[tuple[str, str]]:
+    """Answer-shaped Q&A for a person, grouped by role — emitted visibly AND as FAQPage JSON-LD."""
+    src = "; ".join(sorted({s for c in credits for s in c["sources"]}))
+    qas: list[tuple[str, str]] = []
+
+    def names(role: str) -> list[str]:
+        return [c["work_name"] for c in credits if c["role"] == role]
+
+    directed, acted, member = names("director"), names("cast"), names("member")
+    if directed:
+        qas.append((f"What did {name} direct?",
+                    f"{name} directed {', '.join(directed)} (verified via {src})."))
+    if acted:
+        qas.append((f"What is {name} known for acting in?",
+                    f"{name} appears in {', '.join(acted)} (verified via {src})."))
+    if member:
+        qas.append((f"What group is {name} in?",
+                    f"{name} is a member of {', '.join(member)} (verified via {src})."))
+    return qas
+
+
+def _related(entity_id: str, primary, by_entity: dict, *, limit: int = 8) -> list[tuple[str, str]]:
+    """Verified hub edges to OTHER entities: artists sharing a 소속사, or videos sharing a network/
+    platform (the same P264/P449 value). Returns [(name, slug)] — the internal-link graph crawlers
+    and answer engines follow from one verified node to its neighbours."""
+    key = (primary.data.get("agency_en") or primary.data.get("agency_ko") or "").strip().lower()
+    if not key:
+        return []
+    is_artist = entity_id.startswith("artist:")
+    out: list[tuple[str, str]] = []
+    for oid, by_kind in by_entity.items():
+        if oid == entity_id or oid.startswith("artist:") != is_artist:
+            continue  # keep "related" within the same family (artist↔artist, video↔video)
+        r = by_kind.get("facts")
+        if r is None:
+            continue
+        okey = (r.data.get("agency_en") or r.data.get("agency_ko") or "").strip().lower()
+        if okey and okey == key:
+            out.append((r.name.en_official or r.name.ko, _slug(oid)))
+    return sorted(out)[:limit]
 
 
 def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
@@ -515,7 +656,10 @@ def _faqpage_node(qas: list[tuple[str, str]]) -> dict:
 
 
 def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict,
-                       qas: list[tuple[str, str]], jsonld: str) -> None:
+                       qas: list[tuple[str, str]], jsonld: str, *,
+                       entity_slugs: set | None = None, linked: set | None = None,
+                       related: list[tuple[str, str]] | None = None) -> None:
+    entity_slugs, linked, related = entity_slugs or set(), linked or set(), related or []
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
     ko_raw, en_raw = primary.name.ko or "", primary.name.en_official or ""
     ko, en, rom = html.escape(ko_raw), html.escape(en_raw), html.escape(primary.name.romanized or "")
@@ -539,6 +683,27 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
                        f"{'; '.join(primary.provenance.sources)} · Skill {sc:.2f} · via KoreaAPI")
     current_block = f"<h2>Current state (as of {asof})</h2><ul>{current}</ul>" if current else ""
     qa_block = f"<h2>Q&amp;A — what agents ask</h2>{qa_html}" if qa_html else ""
+
+    # The verified people + hub edges, rendered as an internal-link GRAPH (cross-links to person /
+    # entity pages) — the connective tissue answer engines and crawlers traverse.
+    is_video = primary.entity_id.startswith(("drama:", "film:"))
+    members = primary.data.get("members") or []
+    directors = primary.data.get("directors") or []
+
+    def _people_ul(names: list[str]) -> str:
+        return ("<ul class=people>"
+                + "".join(f"<li>{_credit_link(n, entity_slugs, linked)}</li>" for n in names)
+                + "</ul>")
+
+    people_block = (f"<h2>{'Cast' if is_video else 'Members'} ({len(members)})</h2>{_people_ul(members)}"
+                    if members else "")
+    dir_block = (f"<h2>Director{'s' if len(directors) > 1 else ''}</h2>{_people_ul(directors)}"
+                 if directors else "")
+    rel_label = "More on this network / platform" if is_video else "More from this agency (소속사)"
+    rel_block = (f"<h2>{rel_label}</h2><ul class=people>"
+                 + "".join(f'<li><a href="../artist/{s}.html">{html.escape(n)}</a></li>'
+                           for n, s in related) + "</ul>") if related else ""
+
     doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>{title} — verified profile · KoreaAPI</title>
 <meta name="description" content="{desc}">
@@ -555,7 +720,10 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 <div class=sub>Verified Korean-culture entity · as of {asof} · cross-checked + Skill-scored · via KoreaAPI</div>
 {current_block}
 <h2>Verified facts</h2><p>{html.escape(primary.summary_en)}</p>
+{people_block}
+{dir_block}
 {qa_block}
+{rel_block}
 <div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span></div>
 <footer>Provenance: {src} · Skill Score {sc:.2f} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
 </body></html>"""
@@ -563,19 +731,75 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
         f.write(doc)
 
 
-async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> list[dict]:
-    """One citable answer-page per entity — the AEO citation-surface multiplier.
+def _write_person_html(out_dir: str, name: str, credits: list[dict],
+                       qas: list[tuple[str, str]], jsonld: str) -> None:
+    """A citable per-person page: verified credits (each work linked), Q&A, cite line + provenance.
+    Provenance is the union of the works' sources — the person edge is asserted by those records."""
+    slug = _person_slug(name)
+    url = f"{_SITE_BASE}/person/{slug}.html"
+    sources = sorted({s for c in credits for s in c["sources"]})
+    asof = max((c["asof"] for c in credits), default="")
+    role_word = {"director": "Director", "cast": "Cast", "member": "Member"}
+    items = "".join(
+        f'<li>{role_word.get(c["role"], c["role"]).lower()} · '
+        f'<a href="../artist/{c["work_slug"]}.html">{html.escape(c["work_name"])}</a></li>'
+        for c in credits
+    )
+    qa_html = "".join(
+        f"<div class=qa><div class=q>{html.escape(q)}</div><div class=a>{html.escape(a)}</div></div>"
+        for q, a in qas
+    )
+    qa_block = f"<h2>Q&amp;A — what agents ask</h2>{qa_html}" if qa_html else ""
+    nm = html.escape(name)
+    desc = html.escape(f"{name} — verified Korean-culture credits ({len(credits)} works) for AI "
+                       f"agents & answer engines.")
+    cite = html.escape(f"{name} — {len(credits)} verified credits · {'; '.join(sources)} · via KoreaAPI")
+    doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>{nm} — verified credits · KoreaAPI</title>
+<meta name="description" content="{desc}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="{url}">
+<script type="application/ld+json">
+{jsonld}
+</script>
+{_ENTITY_STYLE}
+</head><body>
+<p class=back><a href="../index.html">← KoreaAPI · verifiable K-culture data</a></p>
+<h1>{nm}</h1>
+<div class=sub>Verified Korean-culture credits · {len(credits)} works · cross-checked · via KoreaAPI</div>
+<h2>Verified credits</h2><ul class=people>{items}</ul>
+{qa_block}
+<div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span></div>
+<footer>Provenance: {html.escape('; '.join(sources))} · as of {asof} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
+</body></html>"""
+    os.makedirs(os.path.join(out_dir, "person"), exist_ok=True)
+    with open(os.path.join(out_dir, "person", f"{slug}.html"), "w", encoding="utf-8") as f:
+        f.write(doc)
 
-    Each page leads with fresh current-state ("as of" — what an LLM's training data can't have),
-    then verified facts, an answer-shaped Q&A block, a ready-to-cite line, and JSON-LD
-    (MusicGroup + FAQPage) so an answer engine can land on a specific entity and quote it.
-    """
-    ents = await store.entities(db_path=db_path)
+
+async def _load_by_entity(db_path: str | None = None) -> dict:
+    """entity_id -> {kind: latest Record} over the whole store (shared by pages + sitemap)."""
     by_entity: dict[str, dict] = {}
-    for e in ents:
+    for e in await store.entities(db_path=db_path):
         rec = await store.latest(e["entity_id"], e["kind"], db_path=db_path)
         if rec is not None:
             by_entity.setdefault(e["entity_id"], {})[e["kind"]] = rec
+    return by_entity
+
+
+async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dict:
+    """Citable answer-pages — the AEO citation-surface multiplier — for BOTH entities and people.
+
+    Each entity page leads with fresh current-state ("as of" — what an LLM's training data can't
+    have), then verified facts, the cast/members + director + related entities as an internal-link
+    GRAPH, an answer-shaped Q&A block, a cite line, and JSON-LD (+ FAQPage). Each qualifying person
+    (a director, or anyone in ≥2 works) gets a Person page tying their verified credits together —
+    so an answer engine can land on a specific entity OR person and quote it.
+    """
+    by_entity = await _load_by_entity(db_path)
+    people = _collect_credits(by_entity)
+    entity_slugs = {_slug(eid) for eid in by_entity}
+    linked = _linked_person_slugs(people, entity_slugs)
     os.makedirs(os.path.join(out_dir, "artist"), exist_ok=True)
     written: list[dict] = []
     for entity_id, by_kind in by_entity.items():
@@ -586,9 +810,26 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> lis
         qas = _entity_qa(name, primary, by_kind)
         doc = {"@context": "https://schema.org",
                "@graph": [_entity_node(primary)] + ([_faqpage_node(qas)] if qas else [])}
-        _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc))
+        related = _related(entity_id, primary, by_entity)
+        _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
+                           entity_slugs=entity_slugs, linked=linked, related=related)
         written.append({"slug": slug, "name": name, "url": url})
-    return written
+
+    # Person pages — the graph hubs. Dedup by slug (rare name->slug collisions: richest wins).
+    people_written: list[dict] = []
+    done: set[str] = set()
+    for name, p in sorted(people.items(), key=lambda kv: -len(kv[1]["credits"])):
+        slug = p["slug"]
+        if slug not in linked or slug in done:
+            continue
+        done.add(slug)
+        credits = p["credits"]
+        qas = _person_qa(name, credits)
+        doc = {"@context": "https://schema.org",
+               "@graph": [_person_node(name, credits)] + ([_faqpage_node(qas)] if qas else [])}
+        _write_person_html(out_dir, name, credits, qas, _escape_jsonld(doc))
+        people_written.append({"slug": slug, "name": name, "url": f"{_SITE_BASE}/person/{slug}.html"})
+    return {"entities": written, "people": people_written}
 
 
 async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> str:
@@ -599,12 +840,22 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     urls = [(f"{_SITE_BASE}/", "1.0"), (f"{_SITE_BASE}/korea-rising.md", "0.8"),
             (f"{_SITE_BASE}/latest.json", "0.6")]
+    by_entity = await _load_by_entity(db_path=db_path)
     seen: set[str] = set()
-    for e in await store.entities(db_path=db_path):
-        s = _slug(e["entity_id"])
+    for entity_id in by_entity:
+        s = _slug(entity_id)
         if s not in seen:
             seen.add(s)
             urls.append((f"{_SITE_BASE}/artist/{s}.html", "0.7"))
+    # person pages (the graph hubs) — same set entity_pages() writes, so the sitemap never lists a 404
+    people = _collect_credits(by_entity)
+    linked = _linked_person_slugs(people, set(seen))
+    pseen: set[str] = set()
+    for p in people.values():
+        s = p["slug"]
+        if s in linked and s not in pseen:
+            pseen.add(s)
+            urls.append((f"{_SITE_BASE}/person/{s}.html", "0.6"))
     body = "".join(
         f"  <url><loc>{u}</loc><lastmod>{today}</lastmod>"
         f"<changefreq>daily</changefreq><priority>{p}</priority></url>\n"
@@ -846,10 +1097,12 @@ def _main(argv: list[str]) -> int:
     elif cmd == "report":
         print("wrote", asyncio.run(report_html()))
     elif cmd == "entitypages":
-        pages = asyncio.run(entity_pages())
-        print(f"entitypages: wrote {len(pages)} per-entity citable page(s) -> site/artist/")
-        for p in pages:
-            print(f"  {p['url']}")
+        out = asyncio.run(entity_pages())
+        ents, ppl = out["entities"], out["people"]
+        print(f"entitypages: wrote {len(ents)} entity page(s) -> site/artist/ + "
+              f"{len(ppl)} person page(s) -> site/person/")
+        for p in ppl:
+            print(f"  person: {p['name']} -> {p['url']}")
     elif cmd == "sitemap":
         print("wrote", asyncio.run(sitemap()))
     elif cmd == "digest":
