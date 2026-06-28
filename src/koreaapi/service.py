@@ -246,6 +246,35 @@ async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None
     }
 
 
+async def verified(entity_id: str, *, db_path: str | None = None) -> dict:
+    """The cross-verification status of one entity — the moat made queryable. Returns how many
+    INDEPENDENT sources agreed on the bilingual name, the Skill Score + confidence, the source list,
+    and cross_verified / triple_verified flags — so an agent can decide trust BEFORE it cites.
+    entity_id e.g. 'artist:bts' or 'place:gyeongbokgung'."""
+    await _log("query", f"verified:{entity_id}", db_path)
+    rec = await store.latest(entity_id, "facts", db_path=db_path)
+    if rec is None:
+        return {"entity_id": entity_id, "found": False, "note": "no verified facts for this entity yet"}
+    p = rec.provenance
+    n = getattr(p, "agreeing_sources", 0)
+    return {
+        "entity_id": entity_id,
+        "found": True,
+        "name": {"ko": rec.name.ko, "en_official": rec.name.en_official, "romanized": rec.name.romanized},
+        "skill_score": p.skill_score,
+        "confidence": p.confidence,
+        "agreeing_sources": n,
+        "cross_verified": n >= 2,
+        "triple_verified": n >= 3,
+        "sources": p.sources,
+        "as_of": rec.snapshot_at.date().isoformat(),
+        "citation": _citation(rec),
+        "note": ("triple cross-verified — ≥3 independent sources agreed" if n >= 3
+                 else "cross-verified — ≥2 independent sources agreed" if n >= 2
+                 else "single-source / uncorroborated — Skill Score capped at 0.7"),
+    }
+
+
 async def buy_options(item: str, *, db_path: str | None = None) -> dict:
     """Where to buy a release/ticket/goods. Phase 1: commerce rail pending; logs buy-intent."""
     await _log("buy_intent", item, db_path)  # the buy-intent signal accrues even at $0 commission

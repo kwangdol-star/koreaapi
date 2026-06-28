@@ -26,6 +26,7 @@ EXPECTED_TOOLS = {
     "get_korea_rising",
     "get_person",
     "get_related",
+    "get_verified",
     "get_buy_options",
 }
 

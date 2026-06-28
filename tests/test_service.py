@@ -180,6 +180,24 @@ def test_buy_options_phase1_stub_is_honest():
     assert "buy-intent" in out["note"]
 
 
+def test_verified_reports_cross_verification_status():
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.unlink(path)
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="artist:bts", kind="facts", name=Name(ko="방탄소년단", en_official="BTS"),
+                 snapshot_at=now, summary_en="BTS — verified.", data={},
+                 provenance=Provenance(sources=["Wikidata Q1", "Wikipedia BTS", "MusicBrainz mbid"],
+                                       fetched_at=now, skill_score=1.0, confidence="high",
+                                       agreeing_sources=3))
+    asyncio.run(store.append_record(rec, db_path=path))
+    out = asyncio.run(service.verified("artist:bts", db_path=path))
+    assert out["found"] and out["triple_verified"] and out["cross_verified"]
+    assert out["agreeing_sources"] == 3 and len(out["sources"]) == 3 and "triple" in out["note"]
+    miss = asyncio.run(service.verified("artist:nope", db_path=path))
+    assert miss["found"] is False
+
+
 if __name__ == "__main__":
     test_artist_status_is_verified_and_bilingual()
     test_korea_rising_ranks_high_skill_first()

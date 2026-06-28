@@ -60,6 +60,15 @@ async def get_related(entity_id: str) -> dict:
 
 
 @mcp.tool
+async def get_verified(entity_id: str) -> dict:
+    """Cross-verification status of an entity — the trust moat made queryable. Returns how many
+    INDEPENDENT sources agreed (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), the
+    Skill Score + confidence, the source list, and cross_verified / triple_verified flags, so an
+    agent can decide trust before citing. entity_id e.g. 'artist:bts' or 'place:gyeongbokgung'."""
+    return await service.verified(entity_id)
+
+
+@mcp.tool
 async def get_buy_options(item: str) -> dict:
     """Where to buy a release/ticket/goods (Phase 1: commerce rail pending; logs buy-intent)."""
     return await service.buy_options(item)

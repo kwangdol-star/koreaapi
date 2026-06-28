@@ -103,6 +103,10 @@ _CURATED = {
     # Batch 3 collision-prone (real word / real name shares the English):
     "artist:boa": {"ko": "보아", "en": "BoA", "agency": "SM Entertainment"},
     "film:smugglers": {"ko": "밀수", "en": "Smugglers"},
+    # Batch 4 collision-prone films/dramas (common words / shared English titles) — pin bilingually.
+    "film:thehost": {"ko": "괴물", "en": "The Host"},
+    "film:burning": {"ko": "버닝", "en": "Burning"},
+    "drama:kingdom": {"ko": "킹덤", "en": "Kingdom"},
     # webtoon whose English title is the common word "lookism" (the concept) — pin bilingually.
     "webtoon:lookism": {"ko": "외모지상주의", "en": "Lookism", "agency": "Naver"},
     # Korean blood sausage "sundae" collides with the English "sundae" (ice cream) — pin bilingually.

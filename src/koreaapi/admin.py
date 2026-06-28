@@ -780,7 +780,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <span class="chip"><b>Hallucination-guarded</b></span>
  <span class="chip"><b>Bilingual</b> · KO / EN / romanized</span>
 </div>
-<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 7 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
+<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 8 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_verified</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
 <div class="cards">{cards_html}</div>
 {sections}
 <footer>Generated {generated} · KoreaAPI Phase 1 (cold-start) · verifiable Korean-culture data for AI agents · <a href="./latest.json">/latest.json</a> · <a href="./llms.txt">/llms.txt</a> · <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
@@ -1800,6 +1800,8 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
 - get_korea_rising(category): what is rising in Korea now (ranked by observed demand + Skill Score).
 - get_person(name): verified credits for a director/actor/idol member across works, with provenance.
 - get_related(entity_id): entities sharing a 소속사 (artists) or network/platform (drama·film).
+- get_verified(entity_id): cross-verification status — how many independent sources agreed, Skill
+  Score, source list, cross_verified / triple_verified flags. Decide trust before citing.
 - get_buy_options(item): where to buy + availability + affiliate link (Phase 1: rail pending).
 
 ## Verification (why cite us)
@@ -1944,7 +1946,7 @@ async def markdown_digest(db_path: str | None = None, out_path: str = "data/kore
         "---",
         "Cite as: `Name — kind, as of <date> · source · Skill Score · via KoreaAPI`. "
         "MCP tools: get_artist_status, get_agency, get_kculture_calendar, get_korea_rising, "
-        "get_person, get_related, get_buy_options.",
+        "get_person, get_related, get_verified, get_buy_options.",
     ]
     doc = "\n".join(out)
     parent = os.path.dirname(out_path)
@@ -2195,11 +2197,14 @@ def _main(argv: list[str]) -> int:
         out = asyncio.run(discover())
         tot = sum(len(r["ingested"]) for r in out.values())
         print(f"discover: {tot} new verified entit(ies) across {len(out)} verticals -> {store._db_path(None)}")
+        # Print EVERY vertical's candidate count (incl. 0) — a vertical at "0 candidates" is the exact
+        # signal that its SPARQL class/filter needs tuning (vs "candidates>0, 0 new" = already ingested).
         for v, r in out.items():
-            if r["ingested"]:
-                tail = " …" if len(r["ingested"]) > 8 else ""
-                print(f"  {v}: +{len(r['ingested'])} ({r['candidates']} candidates) -> "
-                      f"{', '.join(s.split(':', 1)[-1] for s in r['ingested'][:8])}{tail}")
+            sample = ", ".join(s.split(":", 1)[-1] for s in r["ingested"][:8])
+            tail = " …" if len(r["ingested"]) > 8 else ""
+            flag = "  ⚠ 0 candidates — tune SPARQL" if r["candidates"] == 0 else ""
+            print(f"  {v}: +{len(r['ingested'])} new / {r['candidates']} candidates{flag}"
+                  + (f" -> {sample}{tail}" if sample else ""))
         if not tot:
             print("  → 0 new: either all candidates already ingested, or SPARQL egress is blocked "
                   "(runs on GitHub's open-network runners).")

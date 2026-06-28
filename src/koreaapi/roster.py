@@ -211,6 +211,11 @@ DRAMAS = {
     "drama:lovelyrunner": "Lovely Runner",
     "drama:kingtheland": "King the Land",
     "drama:crashcourseinromance": "Crash Course in Romance",
+    # Batch 4 — distinctive titles; the common-word one (Kingdom) pinned in _CURATED.
+    "drama:hellbound": "Hellbound",
+    "drama:dp": "D.P.",
+    "drama:juvenilejustice": "Juvenile Justice",
+    "drama:kingdom": "Kingdom",        # bilingual in _CURATED (vs the common word)
 }
 
 # K-film vertical (more K-culture breadth, same engine). Distinctive titles; the lone generic-but-
@@ -246,6 +251,17 @@ FILMS = {
     "film:1212theday": "12.12: The Day",
     # Batch 3 — collision-prone (bilingual identity in wikidata._CURATED).
     "film:smugglers": "Smugglers",
+    # Batch 4 — acclaimed classics (distinctive titles; collision-prone ones pinned in _CURATED).
+    "film:snowpiercer": "Snowpiercer",
+    "film:theroundup": "The Roundup",
+    "film:secretsunshine": "Secret Sunshine",
+    "film:mrvengeance": "Sympathy for Mr. Vengeance",
+    "film:ladyvengeance": "Sympathy for Lady Vengeance",
+    "film:jsa": "Joint Security Area",
+    "film:tazza": "Tazza",
+    "film:peninsula": "Peninsula",
+    "film:thehost": "The Host",        # bilingual in _CURATED (vs the concept/other films)
+    "film:burning": "Burning",         # bilingual in _CURATED
 }
 
 # K-webtoon vertical (4th vertice, same engine, namespace-switched): the `webtoon:` namespace maps to
