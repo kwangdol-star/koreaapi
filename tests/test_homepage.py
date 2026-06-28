@@ -38,6 +38,9 @@ def test_homepage_groups_by_vertical_and_surfaces_people():
     assert "artist/parasite.html" in t                                  # links to the per-entity page
     assert '"@type": "Person"' in t and '"@type": "Movie"' in t          # Schema.org for people + films
     assert 'property="og:title"' in t and 'name="twitter:card"' in t     # social preview meta
+    # root-authority markup: an enriched Dataset (with downloads) + WebSite + Organization nodes
+    assert '"@type": "Dataset"' in t and '"@type": "DataDownload"' in t
+    assert '"@type": "WebSite"' in t and '"@type": "Organization"' in t
 
 
 def test_entity_and_person_pages_have_social_meta_and_breadcrumb(tmp_path):
