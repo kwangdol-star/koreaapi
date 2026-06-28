@@ -30,9 +30,13 @@ Repository = "https://github.com/kwangdol-star/koreaapi"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-asyncio", "ruff"]
+# The paid HTTP API (x402 monetization). starlette+uvicorn ship transitively via fastmcp;
+# pinned here so an API-only deploy installs them explicitly. (httpx is already a core dep.)
+web = ["starlette", "uvicorn"]
 
 [project.scripts]
 koreaapi-mcp = "koreaapi.server:main"
+koreaapi-api = "koreaapi.api:main"
 
 [build-system]
 requires = ["hatchling"]
