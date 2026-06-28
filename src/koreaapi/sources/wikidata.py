@@ -688,17 +688,18 @@ def fetch_labelmates(label_qid: str, *, limit: int = 12) -> list[dict]:
 _DISCOVER = {
     "artist":  (["Q215380", "Q864897", "Q4439542"], "P495", "Q884"),   # group/boy band/girl group, origin SK
     "drama":   (["Q5398426"], "P495", "Q884"),                          # television series, origin SK
-    "film":    (["Q11424"], "P495", "Q884"),                            # film, origin SK
+    "film":    (["Q11424", "Q506240"], "P495", "Q884"),                 # film + television film, origin SK
     "webtoon": (["Q1062335"], "P495", "Q884"),                          # webtoon, origin SK
-    "place":   (["Q570116", "Q16560", "Q33506", "Q839954"], "P17", "Q884"),  # attraction/palace/museum/archaeological site, country SK
-    "food":    (["Q746549"], "P2012", "Q234138"),                       # dish, cuisine = Korean cuisine
-    "company": (["Q4830453", "Q891723"], "P17", "Q884"),               # business/public company, country SK
+    "place":   (["Q570116", "Q16560", "Q33506", "Q839954", "Q44539", "Q22698", "Q23413"], "P17", "Q884"),
+    #            attraction/palace/museum/archaeological site + temple/park/castle, country SK
+    "food":    (["Q746549", "Q2095"], "P2012", "Q234138"),              # dish + food, cuisine = Korean cuisine
+    "company": (["Q4830453", "Q891723", "Q783794", "Q6881511"], "P17", "Q884"),  # business/public/company/enterprise, SK
     "brand":   (["Q431289"], "P17", "Q884"),                            # brand, country SK
     "book":    (["Q7725634", "Q47461344"], "P407", "Q9176"),           # literary/written work, language Korean
     "medical": (["Q16917"], "P17", "Q884"),                            # hospital, country SK
     "game":    (["Q7889"], "P495", "Q884"),                            # video game, origin SK
     "animation": (["Q581714", "Q202866"], "P495", "Q884"),             # animated series/film, origin SK
-    "university": (["Q3918"], "P17", "Q884"),                          # university, country SK
+    "university": (["Q3918", "Q189004"], "P17", "Q884"),               # university + college, country SK
     # (history/heritage/folklore/region/show are seed-only: too heterogeneous / class-overlapping to
     #  discover cleanly — e.g. a variety "television program" class overlaps the drama vertical)
 }
