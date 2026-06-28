@@ -1162,6 +1162,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
             ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
             qas.append((f"What agency (소속사) is {name} under?",
                         f"{name} is under {ag} (verified via {src}, as of {asof})."))
+    for k, v in (d.get("attrs") or {}).items():  # per-vertical structured attrs -> citable Q&A
+        qas.append((f"What is {name}'s {k.lower()}?",
+                    f"{name} — {k}: {v} (verified via {src}, as of {asof})."))
     for kind, rec in by_kind.items():  # fresh current-state Q — the answer an LLM's training set can't have
         if kind == "facts":
             continue
@@ -1241,6 +1244,12 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     about_block = (f"<h2>About</h2><p>{html.escape(abstract)}</p>"
                    "<p class=rom>Description via Wikipedia (lead extract) · name cross-verified "
                    "Wikidata + Wikipedia.</p>") if abstract else ""
+    # Per-vertical structured attributes (genre / language / runtime / ingredients / …) — the depth
+    # that makes the verified record specific and queryable.
+    attrs = primary.data.get("attrs") or {}
+    details_block = ("<h2>Details</h2><ul class=attrs>"
+                     + "".join(f"<li><b>{html.escape(str(k))}:</b> {html.escape(str(v))}</li>"
+                               for k, v in attrs.items()) + "</ul>") if attrs else ""
 
     # The verified people + hub edges, rendered as an internal-link GRAPH (cross-links to person /
     # entity pages) — the connective tissue answer engines and crawlers traverse.
@@ -1286,6 +1295,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {current_block}
 {about_block}
 <h2>Verified facts</h2><p>{html.escape(primary.summary_en)}</p>
+{details_block}
 {people_block}
 {dir_block}
 {qa_block}

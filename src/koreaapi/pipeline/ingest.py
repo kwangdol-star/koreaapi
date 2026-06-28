@@ -78,6 +78,10 @@ async def ingest_one(
     # (abstract) comes from Wikipedia. Pull it across so the verified record carries real substance.
     if not chosen.get("abstract_en"):
         chosen["abstract_en"] = next((p.get("abstract_en") for p in payloads if p.get("abstract_en")), None)
+    if not chosen.get("attrs"):  # per-vertical structured attrs live on the Wikidata payload
+        merged_attrs = next((p.get("attrs") for p in payloads if p.get("attrs")), None)
+        if merged_attrs:
+            chosen["attrs"] = merged_attrs
 
     if not chosen.get("name_romanized") and chosen.get("name_ko"):
         rom = await asyncio.to_thread(romanize, chosen["name_ko"])  # cheap LLM; best-effort

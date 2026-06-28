@@ -149,6 +149,37 @@ def test_food_is_name_only_and_node_is_thing():
     assert "recordLabel" not in node and "actor" not in node
 
 
+def test_extras_extracted_per_vertical_label_str_qty():
+    # Depth: per-vertical extra attrs. label-typed (genre/language) defer to fetch() as Q-ids; qty
+    # (episodes) resolves inline to a clean number. A vertical with no _EXTRAS yields neither key.
+    raw = {"entities": {"Q1": {"labels": {"ko": {"value": "오징어 게임"}, "en": {"value": "Squid Game"}},
+           "claims": {
+               "P136": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QGENRE"}}}}],
+               "P1113": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"amount": "+9"}}}}],
+               "P364": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QKOREAN"}}}}],
+           }}}}
+    p = parse_entity(raw, "drama:squidgame", "facts")
+    assert p["extra_label_qids"]["Genre"] == ["QGENRE"]
+    assert p["extra_label_qids"]["Original language"] == ["QKOREAN"]
+    assert p["attrs"]["Episodes"] == "9"           # qty amount, sign + .0 stripped
+    # folklore has no _EXTRAS -> no extra keys at all (rely on the abstract for substance)
+    fp = parse_entity({"entities": {"Q2": {"labels": {"en": {"value": "Dokkaebi"}}}}}, "folklore:x", "facts")
+    assert "attrs" not in fp and "extra_label_qids" not in fp
+
+
+def test_attrs_render_as_citable_qa():
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="drama:squidgame", kind="facts",
+                 name=Name(ko="오징어 게임", en_official="Squid Game"), snapshot_at=now,
+                 summary_en="Squid Game — verified Korean drama.",
+                 data={"attrs": {"Genre": "thriller", "Episodes": "9"}},
+                 provenance=Provenance(sources=["Wikidata Q1", "Wikipedia Squid Game"], fetched_at=now,
+                                       skill_score=1.0, confidence="high"))
+    qmap = dict(admin._entity_qa("Squid Game", rec, {"facts": rec}))
+    assert "What is Squid Game's genre?" in qmap and "Genre: thriller" in qmap["What is Squid Game's genre?"]
+    assert "What is Squid Game's episodes?" in qmap
+
+
 def test_region_parses_stable_infobox_facts_and_excludes_volatile():
     # The country: parse_entity pulls STABLE facts (capital P36 / language P37 / currency P38 entity
     # Q-ids + ISO P297 / calling code P474 strings) and IGNORES volatile stats (population P1082).

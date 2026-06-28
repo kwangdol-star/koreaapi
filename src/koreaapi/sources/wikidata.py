@@ -176,6 +176,25 @@ def _claim_string(item: dict, prop: str) -> str | None:
     return None
 
 
+def _claim_qty(item: dict, prop: str) -> str | None:
+    """Pure: a quantity claim's amount as a clean number string (e.g. P1113 episodes, P2047 runtime)
+    — sign + trailing '.0' stripped; the unit is dropped (the display label carries it)."""
+    for claim in item.get("claims", {}).get(prop, []):
+        ms = claim.get("mainsnak", {})
+        if ms.get("snaktype") != "value":
+            continue
+        amt = ((ms.get("datavalue") or {}).get("value") or {}).get("amount")
+        if not amt:
+            continue
+        a = amt.lstrip("+")
+        try:
+            f = float(a)
+            return str(int(f)) if f.is_integer() else str(f)
+        except ValueError:
+            return a
+    return None
+
+
 # Per-namespace Wikidata property map — the SAME engine, switched by entity namespace. `agency` is
 # the org edge (소속사 / network / publisher), `date` the debut/air/publication date (`date2` a
 # fallback), `members` the people edge (group members / cast / authors), `directors` drama·film only,
@@ -221,6 +240,30 @@ _NS_PROPS = {
     "university": {"agency": "P131", "date": "P571", "members": None, "directors": None},
 }
 
+# Per-vertical EXTRA structured attributes — depth BEYOND name/date/agency/people, so a verified page
+# actually says something (genre, language, runtime, ingredients, heritage designation, platform …).
+# Each = (display, property, kind); kind: "label" (entity Q-ids -> resolved names), "str", "time",
+# "qty" (numeric amount). STABLE facts only (volatile stats stay off-model). Best-effort + supplementary
+# (a missing one never fails the record, never enters cross-verification, never moves the Skill Score).
+_EXTRAS = {
+    "artist":    [("Genre", "P136", "label")],
+    "drama":     [("Genre", "P136", "label"), ("Episodes", "P1113", "qty"),
+                  ("Original language", "P364", "label")],
+    "film":      [("Genre", "P136", "label"), ("Runtime (min)", "P2047", "qty"),
+                  ("Original language", "P364", "label")],
+    "webtoon":   [("Genre", "P136", "label")],
+    "place":     [("Heritage status", "P1435", "label")],
+    "food":      [("Country of origin", "P495", "label"), ("Made from", "P186", "label")],
+    "company":   [("Headquarters", "P159", "label")],
+    "brand":     [("Country of origin", "P495", "label")],
+    "book":      [("Genre", "P136", "label"), ("Original language", "P407", "label")],
+    "history":   [("End", "P582", "time")],
+    "heritage":  [("Heritage designation", "P1435", "label")],
+    "game":      [("Genre", "P136", "label"), ("Platform", "P400", "label")],
+    "show":      [("Genre", "P136", "label")],
+    "animation": [("Genre", "P136", "label")],
+}
+
 
 def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
     """Pure: turn a Wikidata `wbgetentities` response into our payload shape (agency/publisher,
@@ -261,6 +304,25 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         payload["currency_qids"] = _claim_qids(item, "P38")
         payload["iso_code"] = _claim_string(item, "P297")      # ISO 3166-1 alpha-2
         payload["calling_code"] = _claim_string(item, "P474")  # country calling code
+    # Per-vertical extra attrs: resolve "str"/"time"/"qty" now; defer "label" (entity Q-ids) to fetch()
+    # where they're batch-resolved to names. attrs = the resolved {display: value} we render + cite.
+    extra_attrs: dict = {}
+    extra_label_qids: dict = {}
+    for display, prop, ekind in _EXTRAS.get(ns, []):
+        if ekind == "label":
+            qs = _claim_qids(item, prop)[:3]
+            if qs:
+                extra_label_qids[display] = qs
+        else:
+            v = (_claim_string(item, prop) if ekind == "str"
+                 else _claim_time(item, prop) if ekind == "time"
+                 else _claim_qty(item, prop) if ekind == "qty" else None)
+            if v:
+                extra_attrs[display] = v
+    if extra_attrs:
+        payload["attrs"] = extra_attrs
+    if extra_label_qids:
+        payload["extra_label_qids"] = extra_label_qids
     return payload
 
 
@@ -481,6 +543,23 @@ class WikidataSource:
                 if en_l or ko_l:
                     payload[f"{key}_en"], payload[f"{key}_ko"] = en_l, ko_l
                 break  # take the first (preferred) value only
+
+        # Per-vertical extra attrs (genre / language / platform / …): resolve the label-typed Q-ids ->
+        # names in ONE batched call, merged into payload["attrs"]. Best-effort + supplementary.
+        extra_label_qids = payload.pop("extra_label_qids", {})
+        if extra_label_qids:
+            all_q = [q for qs in extra_label_qids.values() for q in qs][:40]
+            try:
+                raw_l = await asyncio.to_thread(self._http_get, self._labels_url(all_q))
+            except Exception:
+                raw_l = {}
+            attrs = payload.get("attrs") or {}
+            for display, qs in extra_label_qids.items():
+                names = parse_member_names(raw_l, qs)  # reuses the one batched response
+                if names:
+                    attrs[display] = ", ".join(names)
+            if attrs:
+                payload["attrs"] = attrs
 
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         return {"payload": payload, "citation": f"Wikidata {qid} {ts}"}
