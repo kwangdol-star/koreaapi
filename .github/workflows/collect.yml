@@ -9,7 +9,7 @@ name: collect
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "17 0 * * *" # daily ~00:17 UTC
+    - cron: "17 */6 * * *" # every 6h (00:17/06:17/12:17/18:17 UTC) — 4x faster accumulation + discovery
 
 permissions:
   contents: read
