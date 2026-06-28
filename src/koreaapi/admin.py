@@ -849,7 +849,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  .pchip:hover{{border-color:var(--accent);color:var(--accent);text-decoration:none;transform:translateY(-1px)}}
  footer{{color:var(--dim);margin-top:24px;font-size:12px;line-height:1.7}}
 </style></head><body><div class="wrap">
-<div class="brand"><span class="dot"></span><h1>KoreaAPI <span class="flag" aria-label="South Korea" role="img">🇰🇷</span></h1></div>
+<div class="brand"><span class="dot"></span><h1>KoreaAPI {_FLAG}</h1></div>
 <div class="tag">The verifiable data layer for Korean culture — callable by any AI agent (MCP), citable by any answer engine.</div>
 <div class="pills">
  <a class="pill" href="./artists.html">{_ICON['artist']} Artists</a>
@@ -901,6 +901,23 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 
 
 _SITE_BASE = "https://kwangdol-star.github.io/koreaapi"
+
+# Inline 태극기 (Korean flag) for the wordmark — an SVG renders identically EVERYWHERE; the emoji flag
+# 🇰🇷 shows as the letters "KR" on Windows. Taegeuk (red top / blue bottom) + the four trigrams
+# (Geon ☰ top-left, Gam ☵ top-right, Ri ☲ bottom-left, Gon ☷ bottom-right). Verified by screenshot.
+_FLAG = (
+    '<svg viewBox="0 0 36 24" width="1.15em" height="0.77em" role="img" aria-label="태극기 (South Korea)" '
+    'style="vertical-align:-0.1em;margin-left:.14em;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.18)">'
+    '<rect width="36" height="24" fill="#fff"/>'
+    '<circle cx="18" cy="12" r="6" fill="#0047A0"/>'
+    '<path transform="rotate(-90 18 12)" fill="#CD2E3A" d="M18,6 a6,6 0 0,1 0,12 a3,3 0 0,1 0,-6 a3,3 0 0,0 0,-6 z"/>'
+    '<g fill="#000">'
+    '<rect x="3" y="4" width="6" height="1"/><rect x="3" y="6" width="6" height="1"/><rect x="3" y="8" width="6" height="1"/>'
+    '<rect x="27" y="15" width="2.5" height="1"/><rect x="30.5" y="15" width="2.5" height="1"/><rect x="27" y="17" width="2.5" height="1"/><rect x="30.5" y="17" width="2.5" height="1"/><rect x="27" y="19" width="2.5" height="1"/><rect x="30.5" y="19" width="2.5" height="1"/>'
+    '<rect x="27" y="4" width="2.5" height="1"/><rect x="30.5" y="4" width="2.5" height="1"/><rect x="27" y="6" width="6" height="1"/><rect x="27" y="8" width="2.5" height="1"/><rect x="30.5" y="8" width="2.5" height="1"/>'
+    '<rect x="3" y="15" width="6" height="1"/><rect x="3" y="17" width="2.5" height="1"/><rect x="6.5" y="17" width="2.5" height="1"/><rect x="3" y="19" width="6" height="1"/>'
+    '</g></svg>'
+)
 
 # Brand typography: Montserrat for Latin/headings (loaded from Google Fonts), with system Korean
 # fonts as the fallback for Hangul (Montserrat has no Korean glyphs) — consistent brand, no heavy
@@ -1527,7 +1544,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 </script>
 {_ENTITY_STYLE}
 </head><body>
-<p class=back><a href="../index.html">← KoreaAPI 🇰🇷 · verifiable K-culture data</a></p>
+<p class=back><a href="../index.html">← KoreaAPI {_FLAG} · verifiable K-culture data</a></p>
 <h1>{en} <span class=ko>{ko}</span></h1>
 <div class=rom>{rom}</div>
 <div class=sub>Verified Korean-culture entity · as of {asof} · cross-checked + Skill-scored · via KoreaAPI{cert_badge}{verify_badge}</div>
@@ -1597,7 +1614,7 @@ def _write_person_html(out_dir: str, name: str, credits: list[dict],
 </script>
 {_ENTITY_STYLE}
 </head><body>
-<p class=back><a href="../index.html">← KoreaAPI 🇰🇷 · verifiable K-culture data</a></p>
+<p class=back><a href="../index.html">← KoreaAPI {_FLAG} · verifiable K-culture data</a></p>
 <h1>{nm}</h1>
 <div class=sub>Verified Korean-culture credits · {len(credits)} works · cross-checked · via KoreaAPI</div>
 <h2>Verified credits</h2><ul class=people>{items}</ul>
@@ -1700,7 +1717,7 @@ def _write_hub_html(out_dir: str, filename: str, icon: str, label: str, sub: str
 </script>
 {_HUB_STYLE}
 </head><body>
-<p class=back><a href="index.html">← KoreaAPI 🇰🇷 · verifiable K-culture data</a></p>
+<p class=back><a href="index.html">← KoreaAPI {_FLAG} · verifiable K-culture data</a></p>
 <h1>{icon} {html.escape(label)}</h1>
 <div class=sub>{html.escape(sub)}</div>
 {body}
@@ -1758,7 +1775,7 @@ def _write_label_html(out_dir: str, name: str, items: list, jsonld: str) -> None
 </script>
 {_HUB_STYLE}
 </head><body>
-<p class=back><a href="../index.html">← KoreaAPI 🇰🇷 · verifiable K-culture data</a></p>
+<p class=back><a href="../index.html">← KoreaAPI {_FLAG} · verifiable K-culture data</a></p>
 <h1>{_ICON['label']} {nm}</h1>
 <div class=sub>{len(items)} verified entities under this label / network · cross-checked · via KoreaAPI</div>
 <div class=pchips>{chips}</div>
@@ -1923,7 +1940,7 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None
 </script>
 {_ENTITY_STYLE}
 </head><body>
-<p class=back><a href="../../index.html">← KoreaAPI 🇰🇷 · 검증 가능한 한국문화 데이터</a> · <a href="../../artist/{slug}.html">English</a></p>
+<p class=back><a href="../../index.html">← KoreaAPI {_FLAG} · 검증 가능한 한국문화 데이터</a> · <a href="../../artist/{slug}.html">English</a></p>
 <h1>{ko} <span class=ko>{en}</span></h1>
 <div class=rom>{rom}</div>
 <div class=sub>검증된 한국문화 엔티티 · {asof} 기준 · 교차검증 + Skill Score · via KoreaAPI{cert_badge}{verify_badge}</div>
@@ -1949,7 +1966,7 @@ def _write_ko_home(out_dir: str, total: int, sample: list[tuple[str, str]]) -> N
     pills = " · ".join(f'<a href="./{fname}">{emoji} {html.escape(_KO_VERTICAL.get(ns, label))}</a>'
                        for ns, (label, fname, emoji, _c) in _VERTICALS.items())
     recent = "".join(f'<li><a href="./artist/{s}.html">{html.escape(n)}</a></li>' for s, n in sample)
-    title = "KoreaAPI 🇰🇷 — AI·검색엔진을 위한 검증된 한국문화 데이터"
+    title = "KoreaAPI — AI·검색엔진을 위한 검증된 한국문화 데이터"
     desc = ("한국 문화의 검증 가능한 데이터 레이어. 모든 항목이 독립 출처로 교차검증되고 양국어 + "
             "Skill Score + 출처가 붙습니다. 모든 AI 에이전트가 호출(MCP), 모든 답변엔진이 인용.")
     doc = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
@@ -1965,7 +1982,7 @@ def _write_ko_home(out_dir: str, total: int, sample: list[tuple[str, str]]) -> N
 {_ENTITY_STYLE}
 </head><body>
 <p class=back><a href="../index.html">← English</a></p>
-<h1>KoreaAPI 🇰🇷</h1>
+<h1>KoreaAPI {_FLAG}</h1>
 <div class=sub>한국 문화의 검증 가능한 데이터 레이어 — 모든 AI 에이전트가 호출(MCP)하고, 모든 답변엔진이 인용.</div>
 <h2>KoreaAPI란?</h2>
 <p>모든 항목은 독립 출처(Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB · 한국관광공사)로 <b>교차검증</b>되고, 양국어(한국어 / 공식 영문 / 로마자)로 제공되며, 투명한 <b>Skill Score</b>와 출처(provenance)가 붙습니다. 현재 약 {total}개 검증 엔티티.</p>
@@ -2012,7 +2029,7 @@ def _write_ko_list_page(out_dir: str, filename: str, ko_title: str, sub: str, bo
 {jsonld}
 </script>
 </head><body>
-<p class=back><a href="./index.html">← KoreaAPI 🇰🇷 · 검증 가능한 한국문화 데이터</a> · <a href="../{filename}">English</a></p>
+<p class=back><a href="./index.html">← KoreaAPI {_FLAG} · 검증 가능한 한국문화 데이터</a> · <a href="../{filename}">English</a></p>
 <h1>{html.escape(ko_title)}</h1>
 <div class=sub>{desc}</div>
 {body}
@@ -2060,7 +2077,7 @@ def _write_person_html_ko(out_dir: str, name: str, credits: list[dict], *, colla
 </script>
 {_ENTITY_STYLE}
 </head><body>
-<p class=back><a href="../index.html">← KoreaAPI 🇰🇷 · 검증 가능한 한국문화 데이터</a> · <a href="../../person/{slug}.html">English</a></p>
+<p class=back><a href="../index.html">← KoreaAPI {_FLAG} · 검증 가능한 한국문화 데이터</a> · <a href="../../person/{slug}.html">English</a></p>
 <h1>{nm}</h1>
 <div class=sub>검증된 한국문화 크레딧 · {len(credits)}개 작품 · 교차검증 · via KoreaAPI</div>
 <h2>검증된 크레딧</h2><ul class=people>{items}</ul>
