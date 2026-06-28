@@ -149,6 +149,48 @@ def test_food_is_name_only_and_node_is_thing():
     assert "recordLabel" not in node and "actor" not in node
 
 
+def test_region_parses_stable_infobox_facts_and_excludes_volatile():
+    # The country: parse_entity pulls STABLE facts (capital P36 / language P37 / currency P38 entity
+    # Q-ids + ISO P297 / calling code P474 strings) and IGNORES volatile stats (population P1082).
+    raw = {"entities": {"Q884": {"labels": {"ko": {"value": "대한민국"}, "en": {"value": "South Korea"}},
+           "claims": {
+               "P36": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QSEOUL"}}}}],
+               "P37": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QKOREAN"}}}}],
+               "P38": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QWON"}}}}],
+               "P297": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": "KR"}}}],
+               "P474": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": "+82"}}}],
+               "P1082": [{"mainsnak": {"snaktype": "value",  # population — must NOT be captured
+                   "datavalue": {"value": {"amount": "+51000000"}}}}],
+           }}}}
+    p = parse_entity(raw, "region:southkorea", "facts")
+    assert p["capital_qids"] == ["QSEOUL"] and p["lang_qids"] == ["QKOREAN"] and p["currency_qids"] == ["QWON"]
+    assert p["iso_code"] == "KR" and p["calling_code"] == "+82"
+    assert "population" not in p and "P1082" not in p  # volatile stat excluded (off-model)
+
+
+def test_country_node_is_country_with_infobox_additionalproperty():
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="region:southkorea", kind="facts",
+                 name=Name(ko="대한민국", en_official="South Korea"), snapshot_at=now,
+                 summary_en="South Korea — verified region. Capital: Seoul.",
+                 data={"capital_en": "Seoul", "language_en": "Korean", "currency_en": "South Korean won",
+                       "iso_code": "KR", "calling_code": "+82"},
+                 provenance=Provenance(sources=["Wikidata Q884", "Wikipedia South Korea"],
+                                       fetched_at=now, skill_score=1.0, confidence="high"))
+    node = admin._entity_node(rec)
+    assert node["@type"] == "Country"  # the country gets Country; provinces get AdministrativeArea
+    props = {p["name"]: p["value"] for p in node.get("additionalProperty", [])}
+    assert props["Capital"] == "Seoul" and props["Official language"] == "Korean"
+    assert props["Currency"] == "South Korean won" and props["ISO 3166-1"] == "KR"
+    assert props["Country calling code"] == "+82"
+    # a province is a plain AdministrativeArea
+    prov = Record(entity_id="region:jeju", kind="facts", name=Name(ko="제주", en_official="Jeju Province"),
+                  snapshot_at=now, summary_en="Jeju Province — verified region.", data={},
+                  provenance=Provenance(sources=["Wikidata Q1"], fetched_at=now, skill_score=1.0,
+                                        confidence="high"))
+    assert admin._entity_node(prov)["@type"] == "AdministrativeArea"
+
+
 if __name__ == "__main__":
     import pytest
 

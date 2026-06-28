@@ -406,12 +406,25 @@ def _entity_node(r) -> dict:
             node["foundingDate"] = r.data["debut"]
         return node
     if r.entity_id.startswith("region:"):
-        # South Korea + its administrative divisions: AdministrativeArea (one type keeps the vertical
-        # uniform); verified bilingual name + Wikidata sameAs is the citable asset.
-        node = {"@type": "AdministrativeArea", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        # The country -> schema.org Country; its administrative divisions -> AdministrativeArea. Verified
+        # bilingual name + sameAs + the STABLE infobox facts (capital/language/currency/ISO/calling code)
+        # as additionalProperty — citable, machine-readable. (Volatile stats stay off-model.)
+        is_country = r.entity_id == "region:southkorea"
+        node = {"@type": "Country" if is_country else "AdministrativeArea", "name": name,
+                "alternateName": alt, "description": r.summary_en,
+                "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
+        facts = [
+            ("Capital", r.data.get("capital_en") or r.data.get("capital_ko")),
+            ("Official language", r.data.get("language_en") or r.data.get("language_ko")),
+            ("Currency", r.data.get("currency_en") or r.data.get("currency_ko")),
+            ("ISO 3166-1", r.data.get("iso_code")),
+            ("Country calling code", r.data.get("calling_code")),
+        ]
+        props = [{"@type": "PropertyValue", "name": n, "value": v} for n, v in facts if v]
+        if props:
+            node["additionalProperty"] = props
         return node
     if r.entity_id.startswith("game:"):
         node = {"@type": "VideoGame", "name": name, "alternateName": alt,
@@ -1037,6 +1050,24 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         ko_part = f" ({ko})" if ko and ko != name else ""
         qas.append((f"What is {name}?",
                     f"{name}{ko_part} is {_whatis[_entity_kind(eid0)]} (cross-checked via {src}, as of {asof})."))
+    if _entity_kind(eid0) == "region":  # stable infobox facts -> citable Q&A (capital / language / …)
+        cap = d.get("capital_en") or d.get("capital_ko")
+        if cap:
+            qas.append((f"What is the capital of {name}?",
+                        f"The capital of {name} is {cap} (verified via {src}, as of {asof})."))
+        lang = d.get("language_en") or d.get("language_ko")
+        if lang:
+            qas.append((f"What is the official language of {name}?",
+                        f"The official language of {name} is {lang} (verified via {src}, as of {asof})."))
+        cur = d.get("currency_en") or d.get("currency_ko")
+        if cur:
+            qas.append((f"What currency does {name} use?",
+                        f"{name} uses the {cur} (verified via {src}, as of {asof})."))
+        codes = ([f"ISO 3166-1 code {d['iso_code']}"] if d.get("iso_code") else []) + \
+                ([f"calling code {d['calling_code']}"] if d.get("calling_code") else [])
+        if codes:
+            qas.append((f"What is the country code of {name}?",
+                        f"{name}: {', '.join(codes)} (verified via {src}, as of {asof})."))
     if d.get("debut"):
         eid = primary.entity_id if primary else ""
         if eid.startswith("film:"):

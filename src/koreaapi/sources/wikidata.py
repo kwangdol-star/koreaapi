@@ -164,6 +164,18 @@ def _claim_time(item: dict, prop: str) -> str | None:
     return None
 
 
+def _claim_string(item: dict, prop: str) -> str | None:
+    """Pure: a string-valued claim (e.g. P297 ISO 3166-1 alpha-2, P474 country calling code)."""
+    for claim in item.get("claims", {}).get(prop, []):
+        ms = claim.get("mainsnak", {})
+        if ms.get("snaktype") != "value":
+            continue
+        val = (ms.get("datavalue") or {}).get("value")
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return None
+
+
 # Per-namespace Wikidata property map — the SAME engine, switched by entity namespace. `agency` is
 # the org edge (소속사 / network / publisher), `date` the debut/air/publication date (`date2` a
 # fallback), `members` the people edge (group members / cast / authors), `directors` drama·film only,
@@ -222,9 +234,10 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
     en = labels.get("en", {}).get("value")
     if not ko and not en:
         raise ValueError("no ko/en label in Wikidata response")
-    p = _NS_PROPS.get(entity_id.split(":", 1)[0], _NS_PROPS["artist"])
+    ns = entity_id.split(":", 1)[0]
+    p = _NS_PROPS.get(ns, _NS_PROPS["artist"])
     debut = _claim_time(item, p["date"]) or (_claim_time(item, p["date2"]) if p.get("date2") else None)
-    return {
+    payload = {
         "name_ko": ko or en,
         "name_en_official": en,
         "name_romanized": None,  # Wikidata rarely carries clean romanization; filled elsewhere
@@ -238,6 +251,17 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         "summary_en": f"{en or ko} - {kind} (Wikidata labels).",
         "summary_ko": f"{ko or en} - {kind} (위키데이터 라벨).",
     }
+    if ns == "region":
+        # Country/admin infobox: STABLE facts only (capital/language/currency entity Q-ids -> resolved
+        # to labels in fetch(); ISO code + calling code are direct strings). Volatile stats (population,
+        # GDP, head of state) are deliberately EXCLUDED — those are an off-model curated digest, not the
+        # cross-verify entity model.
+        payload["capital_qids"] = _claim_qids(item, "P36")
+        payload["lang_qids"] = _claim_qids(item, "P37")
+        payload["currency_qids"] = _claim_qids(item, "P38")
+        payload["iso_code"] = _claim_string(item, "P297")      # ISO 3166-1 alpha-2
+        payload["calling_code"] = _claim_string(item, "P474")  # country calling code
+    return payload
 
 
 def parse_member_names(raw: dict, qids: list[str]) -> list[str]:
@@ -442,6 +466,21 @@ class WikidataSource:
                     payload["directors"] = directors
             except Exception:
                 pass
+
+        # Region infobox: resolve capital / official language / currency Q-ids -> labels (the first,
+        # preferred-ranked value each). Best-effort + supplementary (a region without these is still a
+        # valid record). The .pop is a no-op for every other namespace (the keys exist only for region).
+        for key, qkey in (("capital", "capital_qids"), ("language", "lang_qids"),
+                          ("currency", "currency_qids")):
+            for q in payload.pop(qkey, []):
+                try:
+                    label = parse_label(await asyncio.to_thread(self._http_get, self._label_url(q)))
+                except Exception:
+                    break  # the fact is supplementary; never fail the region fetch for it
+                en_l, ko_l = label.get("en"), label.get("ko")
+                if en_l or ko_l:
+                    payload[f"{key}_en"], payload[f"{key}_ko"] = en_l, ko_l
+                break  # take the first (preferred) value only
 
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         return {"payload": payload, "citation": f"Wikidata {qid} {ts}"}

@@ -221,8 +221,22 @@ async def ingest_one(
     elif kind == "facts" and entity_id.startswith("region:"):
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
-        summary_en = f"{disp}{ko_part} — verified South Korean region / administrative division."
-        summary_ko = f"{name.ko} — 검증된 대한민국 지역 / 행정구역."
+        cap = chosen.get("capital_en") or chosen.get("capital_ko")
+        lang = chosen.get("language_en") or chosen.get("language_ko")
+        cur = chosen.get("currency_en") or chosen.get("currency_ko")
+        iso, call = chosen.get("iso_code"), chosen.get("calling_code")
+        summary_en = (f"{disp}{ko_part} — verified South Korean region / administrative division."
+                      + (f" Capital: {cap}." if cap else "")
+                      + (f" Official language: {lang}." if lang else "")
+                      + (f" Currency: {cur}." if cur else "")
+                      + (f" ISO {iso}." if iso else "")
+                      + (f" Calling code {call}." if call else ""))
+        summary_ko = (f"{name.ko} — 검증된 대한민국 지역 / 행정구역."
+                      + (f" 수도: {cap}." if cap else "")
+                      + (f" 공용어: {lang}." if lang else "")
+                      + (f" 통화: {cur}." if cur else "")
+                      + (f" ISO {iso}." if iso else "")
+                      + (f" 국가번호 {call}." if call else ""))
     elif kind == "facts" and entity_id.startswith("game:"):
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
