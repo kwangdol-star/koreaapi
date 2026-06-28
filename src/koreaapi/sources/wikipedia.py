@@ -204,7 +204,7 @@ _TITLES = {
     "place:sungnyemun": "Sungnyemun",
     "place:namdaemunmarket": "Namdaemun Market",
     "place:cheomseongdae": "Cheomseongdae",
-    "place:donggungwolji": "Donggung and Wolji",
+    "place:donggungwolji": "Donggung Palace and Wolji Pond",
     "place:gwangalli": "Gwangalli Beach",
     "place:sewoonsangga": "Sewoon Sangga",
     "place:euljiro": "Euljiro",

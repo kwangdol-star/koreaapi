@@ -330,7 +330,7 @@ PLACES = {
     "place:sungnyemun": "Sungnyemun",                 # 남대문 · National Treasure No. 1
     "place:namdaemunmarket": "Namdaemun Market",      # 남대문시장
     "place:cheomseongdae": "Cheomseongdae",           # 첨성대 · Gyeongju observatory
-    "place:donggungwolji": "Donggung and Wolji",      # 동궁과 월지 (안압지)
+    "place:donggungwolji": "Donggung Palace and Wolji Pond",  # 동궁과 월지 (안압지)
     "place:gwangalli": "Gwangalli Beach",             # 광안리해수욕장
     "place:sewoonsangga": "Sewoon Sangga",            # 세운상가 · 김수근 landmark (을지로)
     "place:euljiro": "Euljiro",                       # 을지로 · the district itself
