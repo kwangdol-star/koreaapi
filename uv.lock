@@ -734,6 +734,10 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
+web = [
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -745,8 +749,10 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
     { name = "python-dotenv" },
     { name = "ruff", marker = "extra == 'dev'" },
+    { name = "starlette", marker = "extra == 'web'" },
+    { name = "uvicorn", marker = "extra == 'web'" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["dev", "web"]
 
 [[package]]
 name = "markdown-it-py"
