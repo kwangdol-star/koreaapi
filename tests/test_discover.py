@@ -10,22 +10,21 @@ import asyncio
 import tempfile
 
 from koreaapi import admin
-from koreaapi.sources.wikidata import _DISCOVER, WikidataSource, build_discover_query
+from koreaapi.sources.wikidata import _DISCOVER, WikidataSource, build_discover_search
 
 
-def test_discover_query_has_class_country_and_pagination():
-    q = build_discover_query("drama", limit=400, offset=800)
-    assert "wd:Q5398426" in q          # television series
-    assert "wd:Q884" in q and "wdt:P495" in q  # origin = South Korea
-    assert "LIMIT 400" in q and "OFFSET 800" in q and "ORDER BY ?item" in q
+def test_discover_search_targets_class_and_country():
+    q = build_discover_search("drama")  # CirrusSearch (haswbstatement) on the working API endpoint
+    assert "P31=Q5398426" in q                    # television series
+    assert "haswbstatement:P495=Q884" in q         # origin = South Korea
 
 
 def test_discover_food_uses_korean_cuisine_filter():
-    q = build_discover_query("food")
-    assert "wdt:P2012" in q and "wd:Q234138" in q  # cuisine = Korean cuisine
-    # every vertical has a query that names its filter property
+    q = build_discover_search("food")
+    assert "P2012=Q234138" in q  # cuisine = Korean cuisine
+    # every vertical builds a haswbstatement query
     for v in _DISCOVER:
-        assert "?item" in build_discover_query(v)
+        assert build_discover_search(v).startswith("haswbstatement:")
 
 
 def test_injected_qid_is_fetched_without_search(monkeypatch):

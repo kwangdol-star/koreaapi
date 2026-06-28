@@ -207,8 +207,8 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
     for v in verticals:
         try:
             cands = await asyncio.to_thread(fetch_discover, v, limit=limit)
-        except Exception:
-            out[v] = {"candidates": 0, "ingested": []}  # graceful: skip a vertical whose SPARQL failed
+        except Exception as e:  # surface WHY (endpoint error) vs an honest 0-results — for tuning
+            out[v] = {"candidates": 0, "ingested": [], "error": f"{type(e).__name__}: {e}"[:120]}
             continue
         todo: list[tuple[str, str, str]] = []
         seen: set[str] = set()
@@ -2278,7 +2278,8 @@ def _main(argv: list[str]) -> int:
         for v, r in out.items():
             sample = ", ".join(s.split(":", 1)[-1] for s in r["ingested"][:8])
             tail = " …" if len(r["ingested"]) > 8 else ""
-            flag = "  ⚠ 0 candidates — tune SPARQL" if r["candidates"] == 0 else ""
+            flag = (f"  ✗ {r['error']}" if r.get("error")
+                    else "  ⚠ 0 candidates — tune SPARQL" if r["candidates"] == 0 else "")
             print(f"  {v}: +{len(r['ingested'])} new / {r['candidates']} candidates{flag}"
                   + (f" -> {sample}{tail}" if sample else ""))
         if not tot:

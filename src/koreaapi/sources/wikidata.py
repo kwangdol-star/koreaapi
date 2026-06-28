@@ -622,22 +622,47 @@ class WikidataSource:
 # Wikidata+Wikipedia cross-verification, so only verified labelmates are ingested (the moat holds).
 
 
-def build_labelmates_query(label_qid: str, *, limit: int = 12) -> str:
-    """Pure: SPARQL for artists (group/duo/human) directly on the record label (P264) = label_qid.
+def _cirrus_url(srsearch: str, *, limit: int, offset: int = 0) -> str:
+    """A Wikidata CirrusSearch URL on the w/api.php endpoint (the one `pull` uses successfully; WDQS
+    at query.wikidata.org 429s / times out on the runner, so discovery/sweep moved here)."""
+    return f"{WIKIDATA_API}?" + urllib.parse.urlencode({
+        "action": "query", "list": "search", "srsearch": srsearch,
+        "srlimit": limit, "sroffset": offset, "srnamespace": 0, "srprop": "", "format": "json",
+    })
 
-    NB: a 'family' variant (follow P749 to sibling labels) was tried and reverted - it over-broadened
-    to obscure individual members (e.g. Japanese sub-unit members) and *lowered* result quality. Direct
-    P264 yields the actual labelmates. (Determinism is deferred: ORDER BY ?item sorts by Q-id, not fame.)
-    """
-    return (
-        "SELECT ?item ?en ?ko WHERE { "
-        f"?item wdt:P264 wd:{label_qid} . "
-        "{ ?item wdt:P31 wd:Q215380 } UNION { ?item wdt:P31 wd:Q5 } "
-        "UNION { ?item wdt:P31 wd:Q4439542 } UNION { ?item wdt:P31 wd:Q864897 } "
-        '?item rdfs:label ?en . FILTER(LANG(?en) = "en") '
-        'OPTIONAL { ?item rdfs:label ?ko . FILTER(LANG(?ko) = "ko") } '
-        f"}} LIMIT {limit}"
-    )
+
+def _discover_candidates(srsearch: str, *, limit: int) -> list[dict]:
+    """Live: CirrusSearch (`haswbstatement`) -> [{qid, en, ko, slug}], with labels resolved in
+    batched wbgetentities calls — ALL on www.wikidata.org/w/api.php (NOT WDQS). Sync (call via
+    asyncio.to_thread); raises on transport error (caller degrades gracefully)."""
+    raw = _http_get_json(_cirrus_url(srsearch, limit=limit), _UA)
+    qids = [h["title"] for h in raw.get("query", {}).get("search", [])
+            if re.fullmatch(r"Q\d+", (h.get("title") or ""))]
+    out: list[dict] = []
+    seen: set[str] = set()
+    for i in range(0, len(qids), 50):  # wbgetentities accepts <=50 ids per call
+        batch = qids[i:i + 50]
+        url = f"{WIKIDATA_API}?" + urllib.parse.urlencode({
+            "action": "wbgetentities", "ids": "|".join(batch),
+            "props": "labels", "languages": "ko|en", "format": "json"})
+        ents = _http_get_json(url, _UA).get("entities", {})
+        for q in batch:
+            labels = (ents.get(q) or {}).get("labels", {})
+            en = labels.get("en", {}).get("value")
+            if not en:
+                continue
+            slug = _slug(en)
+            if not slug or slug in seen:
+                continue
+            seen.add(slug)
+            out.append({"qid": q, "en": en, "ko": labels.get("ko", {}).get("value"), "slug": slug})
+    return out
+
+
+def build_labelmates_search(label_qid: str) -> str:
+    """Pure: CirrusSearch for artists (group/duo/human/boy-band/girl-group) on record label (P264)."""
+    p31 = "|".join(f"P31={c}" for c in ("Q215380", "Q5", "Q4439542", "Q864897"))
+    return f"haswbstatement:P264={label_qid} haswbstatement:{p31}"
 
 
 def _slug(name: str) -> str:
@@ -645,33 +670,10 @@ def _slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", name.lower())
 
 
-def parse_labelmates(raw: dict) -> list[dict]:
-    """Pure: SPARQL bindings -> [{qid, en, ko, slug}], de-duped by slug (drops blanks)."""
-    out: list[dict] = []
-    seen: set[str] = set()
-    for b in raw.get("results", {}).get("bindings", []):
-        uri = (b.get("item") or {}).get("value", "")
-        qid = uri.rsplit("/", 1)[-1] if uri else ""
-        en = (b.get("en") or {}).get("value")
-        if not qid or not en:
-            continue
-        slug = _slug(en)
-        if not slug or slug in seen:
-            continue
-        seen.add(slug)
-        out.append({"qid": qid, "en": en, "ko": (b.get("ko") or {}).get("value"), "slug": slug})
-    return out
-
-
 def fetch_labelmates(label_qid: str, *, limit: int = 12) -> list[dict]:
-    """Live: query.wikidata.org SPARQL -> labelmate artists. Sync (call via asyncio.to_thread);
-    needs open network (GitHub runner). Raises on transport error (caller degrades gracefully)."""
-    url = f"{WIKIDATA_SPARQL}?" + urllib.parse.urlencode(
-        {"query": build_labelmates_query(label_qid, limit=limit), "format": "json"}
-    )
-    req = urllib.request.Request(url, headers={**_UA, "Accept": "application/sparql-results+json"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return parse_labelmates(json.load(r))
+    """Live: a label's other artists via CirrusSearch on the working API endpoint (was WDQS SPARQL,
+    which returned 0 on the runner). Sync; raises on transport error (caller degrades gracefully)."""
+    return _discover_candidates(build_labelmates_search(label_qid), limit=min(limit, 50))
 
 
 # --- Universe discovery: bulk-find a vertical's Korean entities from Wikidata (the path to 10x) ----
@@ -697,26 +699,16 @@ _DISCOVER = {
 }
 
 
-def build_discover_query(vertical: str, *, limit: int = 400, offset: int = 0) -> str:
-    """Pure: SPARQL listing a vertical's Korean entities (instance-of class(es) + country/cuisine
-    filter), with ko/en labels. ORDER BY ?item for stable pagination; the caller dedups vs the store."""
+def build_discover_search(vertical: str) -> str:
+    """Pure: the CirrusSearch query for a vertical — instance-of ANY of its classes AND the
+    country/cuisine/language filter, via `haswbstatement` (matched on the working API endpoint)."""
     classes, prop, val = _DISCOVER[vertical]
-    union = " UNION ".join(f"{{ ?item wdt:P31 wd:{c} }}" for c in classes)
-    return (
-        "SELECT ?item ?en ?ko WHERE { "
-        f"{union} . ?item wdt:{prop} wd:{val} . "
-        '?item rdfs:label ?en . FILTER(LANG(?en) = "en") '
-        'OPTIONAL { ?item rdfs:label ?ko . FILTER(LANG(?ko) = "ko") } '
-        f"}} ORDER BY ?item LIMIT {limit} OFFSET {offset}"
-    )
+    p31 = "|".join(f"P31={c}" for c in classes)
+    return f"haswbstatement:{p31} haswbstatement:{prop}={val}"
 
 
 def fetch_discover(vertical: str, *, limit: int = 400, offset: int = 0) -> list[dict]:
-    """Live: SPARQL -> [{qid, en, ko, slug}] for a vertical's Korean entities. Sync (asyncio.to_thread);
-    needs open network. Raises on transport error (caller degrades gracefully)."""
-    url = f"{WIKIDATA_SPARQL}?" + urllib.parse.urlencode(
-        {"query": build_discover_query(vertical, limit=limit, offset=offset), "format": "json"}
-    )
-    req = urllib.request.Request(url, headers={**_UA, "Accept": "application/sparql-results+json"})
-    with urllib.request.urlopen(req, timeout=45) as r:
-        return parse_labelmates(json.load(r))
+    """Live: a vertical's Korean entities via CirrusSearch on www.wikidata.org/w/api.php — the SAME
+    endpoint `pull` uses successfully (WDQS SPARQL returned 0 on the runner). Sync (asyncio.to_thread);
+    raises on transport error (caller degrades gracefully)."""
+    return _discover_candidates(build_discover_search(vertical), limit=min(limit, 50))

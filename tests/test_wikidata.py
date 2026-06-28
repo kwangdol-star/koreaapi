@@ -12,10 +12,9 @@ import pathlib
 from koreaapi.sources.wikidata import (
     _claim_qids,
     _claim_time,
-    build_labelmates_query,
+    build_labelmates_search,
     parse_entity,
     parse_label,
-    parse_labelmates,
     parse_member_names,
     parse_search,
 )
@@ -86,18 +85,11 @@ def test_parse_member_names_resolves_in_order_and_drops_missing():
     assert parse_member_names(raw, ["Q494528", "Q_missing"]) == ["RM"]  # unresolved dropped
 
 
-def test_parse_labelmates_dedups_and_slugs():
-    raw = json.loads(LABELMATES_FIXTURE.read_text(encoding="utf-8"))
-    mates = parse_labelmates(raw)
-    assert [m["slug"] for m in mates] == ["redvelvet", "nct"]  # dup dropped, blank-uri dropped
-    assert mates[0] == {"qid": "Q484939", "en": "Red Velvet", "ko": "레드벨벳", "slug": "redvelvet"}
-    assert mates[1]["ko"] is None  # ko is optional
-
-
-def test_build_labelmates_query_targets_the_label():
-    q = build_labelmates_query("Q50602100", limit=5)
-    assert "wdt:P264 wd:Q50602100" in q and "LIMIT 5" in q
-    assert "wdt:P749" not in q  # direct labelmates only (the family/parent variant was reverted)
+def test_build_labelmates_search_targets_the_label():
+    # discovery/sweep moved off WDQS SPARQL (which 429s on the runner) to CirrusSearch on the API
+    q = build_labelmates_search("Q50602100")
+    assert "haswbstatement:P264=Q50602100" in q   # artists ON this record label
+    assert "P31=Q215380" in q and "P31=Q5" in q   # group / human classes (OR-ed)
 
 
 def test_claim_qids_prefers_preferred_rank_and_skips_novalue():
