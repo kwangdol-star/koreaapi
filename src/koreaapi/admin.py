@@ -393,6 +393,26 @@ def _entity_node(r) -> dict:
         if wd:
             node["sameAs"] = wd
         return node
+    if r.entity_id.startswith("medical:"):
+        node = {"@type": "Hospital", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
+        if region:  # citable "where is X?"
+            node["address"] = {"@type": "PostalAddress", "addressLocality": region,
+                               "addressCountry": "KR"}
+        if r.data.get("debut"):  # founded -> citable "when was X founded?"
+            node["foundingDate"] = r.data["debut"]
+        return node
+    if r.entity_id.startswith("region:"):
+        # South Korea + its administrative divisions: AdministrativeArea (one type keeps the vertical
+        # uniform); verified bilingual name + Wikidata sameAs is the citable asset.
+        node = {"@type": "AdministrativeArea", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        return node
     if r.entity_id.startswith(("drama:", "film:")):
         node = {"@type": "Movie" if r.entity_id.startswith("film:") else "TVSeries",
                 "name": name, "alternateName": alt,
@@ -657,6 +677,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./history.html">{_ICON['history']} History</a>
  <a class="pill" href="./heritage.html">{_ICON['heritage']} Heritage</a>
  <a class="pill" href="./folklore.html">{_ICON['folklore']} Folklore</a>
+ <a class="pill" href="./medical.html">{_ICON['medical']} Medical</a>
+ <a class="pill" href="./regions.html">{_ICON['region']} Regions</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -748,6 +770,12 @@ _ICON = {
     # ghost (folklore / myth / the supernatural)
     "folklore": _icon('<path d="M5 21V10a7 7 0 0 1 14 0v11l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6z"/>'
                       '<circle cx="9.5" cy="10" r="1"/><circle cx="14.5" cy="10" r="1"/>'),
+    # medical cross (hospitals / medical centers)
+    "medical": _icon('<rect x="3" y="3" width="18" height="18" rx="3"/>'
+                     '<line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>'),
+    # globe (Korea & regions)
+    "region": _icon('<circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/>'
+                    '<path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -941,6 +969,7 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         "history": "a verified part of Korean history (dynasty / period / event)",
         "heritage": "a verified Korean cultural heritage / traditional art",
         "folklore": "a verified Korean folktale / myth",
+        "region": "a verified South Korean region (the country or a first-level administrative division)",
     }
     if _entity_kind(eid0) in _whatis:
         ko = (primary.name.ko if primary else "") or ""
@@ -956,6 +985,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
             qas.append((f"When was {name} built or established?",
                         f"{name} dates to {d['debut']} (verified via {src}, as of {asof})."))
         elif eid.startswith("company:"):
+            qas.append((f"When was {name} founded?",
+                        f"{name} was founded in {d['debut']} (verified via {src}, as of {asof})."))
+        elif eid.startswith("medical:"):
             qas.append((f"When was {name} founded?",
                         f"{name} was founded in {d['debut']} (verified via {src}, as of {asof})."))
         elif eid.startswith("brand:"):
@@ -1004,7 +1036,7 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("webtoon:"):
             qas.append((f"What platform is {name} on?",
                         f"{name} — publisher/platform: {agency} (verified via {src}, as of {asof})."))
-        elif eid.startswith("place:"):
+        elif eid.startswith(("place:", "medical:")):
             qas.append((f"Where is {name}?",
                         f"{name} is located in {agency} (verified via {src}, as of {asof})."))
         elif eid.startswith("company:"):
@@ -1212,6 +1244,8 @@ _VERTICALS = {
     "history": ("Korean history", "history.html", _ICON["history"], "Period"),
     "heritage": ("Heritage & tradition", "heritage.html", _ICON["heritage"], "Type"),
     "folklore": ("Folklore & myth", "folklore.html", _ICON["folklore"], "Type"),
+    "medical": ("Hospitals & medical", "medical.html", _ICON["medical"], "Region"),
+    "region": ("Korea & regions", "regions.html", _ICON["region"], "Type"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -1572,10 +1606,12 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     def names(prefix: str) -> list[str]:
         return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
 
-    arts, dramas, films, webtoons, places, foods, companies, brands, books, history, heritage, folklore = (
+    (arts, dramas, films, webtoons, places, foods, companies, brands, books, history, heritage,
+     folklore, medical, region) = (
         names("artist:"), names("drama:"), names("film:"), names("webtoon:"),
         names("place:"), names("food:"), names("company:"), names("brand:"),
-        names("book:"), names("history:"), names("heritage:"), names("folklore:"))
+        names("book:"), names("history:"), names("heritage:"), names("folklore:"),
+        names("medical:"), names("region:"))
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
 
@@ -1585,7 +1621,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coverage = f"""
 ## Coverage (live, as of {today})
-- {len(facts)} verified entities across 12 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore.
+- {len(facts)} verified entities across 14 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions.
 - {len(linked)} verified people (directors + cross-work cast/creators), each a citable hub page linking their works.
 - K-pop artists: {sample(arts)}
 - K-dramas: {sample(dramas)}
@@ -1599,6 +1635,8 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Korean history: {sample(history)}
 - Heritage & traditional arts: {sample(heritage)}
 - Folklore & myth: {sample(folklore)}
+- Hospitals & medical: {sample(medical)}
+- Korea & regions: {sample(region)}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml

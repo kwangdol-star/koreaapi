@@ -401,6 +401,44 @@ FOLKLORE = {
     "folklore:samshin": "Samshin",
 }
 
+# Medical vertical: major Korean hospitals / medical centers (Wikidata-verifiable). `medical:` maps to
+# located-in P131 (the region) + inception P571. Distinctive institution names (low collision); the
+# wider universe (tertiary hospitals nationwide) is filled by auto-discovery (hospital class, country SK).
+MEDICAL = {
+    "medical:snuh": "Seoul National University Hospital",
+    "medical:asanmedical": "Asan Medical Center",
+    "medical:samsungmedical": "Samsung Medical Center",
+    "medical:severance": "Severance Hospital",
+    "medical:seoulstmarys": "Seoul St. Mary's Hospital",
+    "medical:koreauniv": "Korea University Medical Center",
+    "medical:ajou": "Ajou University Hospital",
+    "medical:gangnamseverance": "Gangnam Severance Hospital",
+}
+
+# Region vertical: South Korea + its first-level administrative divisions (광역자치단체) — the country
+# article + 8 metropolitan-level cities + 9 provinces. `region:` is name-anchored (canonical, stable).
+# The flagship 대한민국 (South Korea) is Q-id-pinned in wikidata._CURATED so the vertical is anchored.
+REGION = {
+    "region:southkorea": "South Korea",
+    "region:seoul": "Seoul",
+    "region:busan": "Busan",
+    "region:incheon": "Incheon",
+    "region:daegu": "Daegu",
+    "region:daejeon": "Daejeon",
+    "region:gwangju": "Gwangju",
+    "region:ulsan": "Ulsan",
+    "region:sejong": "Sejong",
+    "region:gyeonggi": "Gyeonggi Province",
+    "region:gangwon": "Gangwon Province",
+    "region:northchungcheong": "North Chungcheong Province",
+    "region:southchungcheong": "South Chungcheong Province",
+    "region:northjeolla": "North Jeolla Province",
+    "region:southjeolla": "South Jeolla Province",
+    "region:northgyeongsang": "North Gyeongsang Province",
+    "region:southgyeongsang": "South Gyeongsang Province",
+    "region:jeju": "Jeju Province",
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
-         **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE}
+         **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION}

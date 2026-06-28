@@ -207,6 +207,22 @@ async def ingest_one(
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
         summary_en = f"{disp}{ko_part} — verified Korean folklore / myth."
         summary_ko = f"{name.ko} — 검증된 한국 설화 / 신화."
+    elif kind == "facts" and entity_id.startswith("medical:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        region = chosen.get("agency_en") or chosen.get("agency_ko")  # located-in (P131)
+        year = chosen.get("debut")
+        summary_en = (f"{disp}{ko_part} — verified Korean hospital / medical center."
+                      + (f" In {region}." if region else "")
+                      + (f" Founded {year}." if year else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 병원 / 의료기관."
+                      + (f" 위치: {region}." if region else "")
+                      + (f" 설립 {year}." if year else ""))
+    elif kind == "facts" and entity_id.startswith("region:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        summary_en = f"{disp}{ko_part} — verified South Korean region / administrative division."
+        summary_ko = f"{name.ko} — 검증된 대한민국 지역 / 행정구역."
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

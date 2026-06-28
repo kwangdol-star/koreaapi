@@ -116,6 +116,9 @@ _CURATED = {
     "book:humanacts": {"ko": "소년이 온다", "en": "Human Acts"},
     "book:almond": {"ko": "아몬드", "en": "Almond"},
     "book:pleaselookaftermom": {"ko": "엄마를 부탁해", "en": "Please Look After Mom"},
+    # The flagship region — pin the country by VERIFIED Q-id (대한민국 = Q884) so the region vertical is
+    # anchored; cities/provinces + hospitals are distinctive enough for live search + the identity guard.
+    "region:southkorea": {"qid": "Q884", "ko": "대한민국", "en": "South Korea"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.
@@ -182,6 +185,10 @@ _NS_PROPS = {
     "heritage": {"agency": None, "date": "P571", "members": None, "directors": None},
     # folklore (legend / myth / shamanism / ghost): cross-verified by NAME only.
     "folklore": {"agency": None, "date": None, "members": None, "directors": None},
+    # medical: hospital / institution — located-in P131 (region) + inception P571.
+    "medical": {"agency": "P131", "date": "P571", "members": None, "directors": None},
+    # region: country / administrative division — name-anchored (capital/population not modelled here).
+    "region": {"agency": None, "date": None, "members": None, "directors": None},
 }
 
 
@@ -494,7 +501,8 @@ _DISCOVER = {
     "company": (["Q4830453", "Q891723"], "P17", "Q884"),               # business/public company, country SK
     "brand":   (["Q431289"], "P17", "Q884"),                            # brand, country SK
     "book":    (["Q7725634", "Q47461344"], "P407", "Q9176"),           # literary/written work, language Korean
-    # (history is seed-only: dynasty/period/event Wikidata classes are too heterogeneous to discover cleanly)
+    "medical": (["Q16917"], "P17", "Q884"),                            # hospital, country SK
+    # (history/heritage/folklore/region are seed-only: too heterogeneous / closed-set to discover cleanly)
 }
 
 
