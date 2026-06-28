@@ -135,6 +135,7 @@ _CURATED = {
     "webtoon:truebeauty": {"ko": "여신강림", "en": "True Beauty"},
     "webtoon:sweethome": {"ko": "스위트홈", "en": "Sweet Home"},
     "webtoon:windbreaker": {"ko": "윈드브레이커", "en": "Wind Breaker"},
+    "webtoon:semanticerror": {"ko": "시맨틱 에러", "en": "Semantic Error"},
     "book:pachinko": {"ko": "파친코", "en": "Pachinko"},
     "book:greeklessons": {"ko": "희랍어 시간", "en": "Greek Lessons"},
     "book:whitebook": {"ko": "흰", "en": "The White Book"},

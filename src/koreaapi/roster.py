@@ -81,6 +81,9 @@ ARTISTS = {
     "artist:younha": "Younha",
     # Batch 3 — collision-prone (bilingual identity in wikidata._CURATED).
     "artist:boa": "BoA",
+    # Batch 4 — distinctive coined names (agency hints in AGENCY_HINTS).
+    "artist:btob": "BTOB",
+    "artist:wjsn": "WJSN",
 }
 
 # 소속사 disambiguation hint: entity_id -> agency CORE name. Wikidata's P264 can list several labels
@@ -135,6 +138,8 @@ AGENCY_HINTS = {
     "artist:qwer": "3Y",
     "artist:plave": "VLAST",
     "artist:younha": "C9",
+    "artist:btob": "Cube",
+    "artist:wjsn": "Starship",
     # webtoon publisher/platform hints (P123 disambiguation; falls back to the first label)
     "webtoon:sololeveling": "Kakao",
     "webtoon:towerofgod": "Naver",
@@ -283,6 +288,10 @@ WEBTOONS = {
     "webtoon:truebeauty": "True Beauty",     # bilingual in _CURATED
     "webtoon:sweethome": "Sweet Home",       # bilingual in _CURATED
     "webtoon:windbreaker": "Wind Breaker",   # bilingual in _CURATED
+    "webtoon:hardcorelevelingwarrior": "Hardcore Leveling Warrior",
+    "webtoon:semanticerror": "Semantic Error",   # bilingual in _CURATED (vs the programming term)
+    "webtoon:thesoundofyourheart": "The Sound of Your Heart",
+    "webtoon:girlsofthewilds": "Girls of the Wild's",
 }
 
 # Travel vertical: Korean destinations / attractions (Wikidata-verifiable). `place:` namespace maps
@@ -466,6 +475,9 @@ BOOKS = {
     "book:whitebook": "The White Book",             # bilingual in _CURATED
     "book:loveinthebigcity": "Love in the Big City",  # bilingual in _CURATED
     "book:diaryofamurderer": "Diary of a Murderer",
+    "book:thecourtdancer": "The Court Dancer",
+    "book:theoldwomanwiththeknife": "The Old Woman with the Knife",
+    "book:welcometohyunamdong": "Welcome to the Hyunam-dong Bookshop",
 }
 
 # History vertical: Korean dynasties / periods / events (canonical, Wikidata-verifiable). `history:`
@@ -616,6 +628,9 @@ ANIMATIONS = {
     "animation:yobi": "Yobi, the Five Tailed Fox",
     "animation:satellitegirl": "The Satellite Girl and Milk Cow",
     "animation:seoulstation": "Seoul Station",   # bilingual in _CURATED (vs the railway station)
+    "animation:greendays": "Green Days: Dinosaur and I",
+    "animation:catchteenieping": "Catch! Teenieping",
+    "animation:thehauntedhouse": "The Haunted House",
 }
 
 # University vertical: major Korean universities (교육) — Wikidata-verifiable, foreigner-searched.
