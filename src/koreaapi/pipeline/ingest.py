@@ -352,6 +352,7 @@ async def ingest_one(
                 confidence="high" if translation_official else "medium",
             ),
             cache_age_seconds=0,
+            agreeing_sources=n_agree,  # >=3 -> "triple cross-verified" badge on the page
         ),
     )
 

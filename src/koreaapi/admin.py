@@ -44,6 +44,7 @@ from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS, NAMES
 from .sources.circlechart import CircleChartSource
 from .sources.mock import MockSource
+from .sources.musicbrainz import MusicBrainzSource
 from .sources.wikidata import _DISCOVER, WikidataSource, fetch_discover, fetch_labelmates
 from .sources.wikipedia import WikipediaSource
 from .sources.youtube import YouTubeSource
@@ -90,7 +91,11 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
     still appended if at least one source succeeds, and nothing if none do (never poison).
     """
     ids = entity_ids or list(NAMES)  # artists + dramas + films
-    sources = [WikidataSource(), WikipediaSource()]  # two independent sources -> cross-verify
+    # Three sources. MusicBrainz is a TRULY independent 3rd source (separate DB; Wikidata+Wikipedia
+    # are correlated) — it self-filters to artists (raises -> gracefully dropped for other verticals),
+    # so it only adds a cross-check where it's competent. (Roadmap: TMDB for video, Open Library for
+    # book/classic, Nominatim for place — add the same way; each self-scopes.)
+    sources = [WikidataSource(), WikipediaSource(), MusicBrainzSource()]
     ingested: list[str] = []
     failed: list[str] = []
     for i, entity_id in enumerate(ids):
@@ -169,7 +174,8 @@ async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
     todo = todo[:max_new]
     n_candidates = len(candidates)
     aliases = dict(todo)
-    sources = [WikidataSource(aliases=aliases), WikipediaSource(aliases=aliases)]
+    sources = [WikidataSource(aliases=aliases), WikipediaSource(aliases=aliases),
+               MusicBrainzSource(aliases=aliases)]
     ingested: list[str] = []
     for eid, _name in todo:
         rec = await ingest_one("facts", eid, sources, db_path=db_path)
@@ -210,7 +216,8 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
         todo = todo[:max_new]
         aliases = {eid: en for eid, en, _q in todo}
         qids = {eid: q for eid, _en, q in todo}
-        sources = [WikidataSource(aliases=aliases, qids=qids), WikipediaSource(aliases=aliases)]
+        sources = [WikidataSource(aliases=aliases, qids=qids), WikipediaSource(aliases=aliases),
+                   MusicBrainzSource(aliases=aliases)]
         ingested: list[str] = []
         for eid, _en, _q in todo:
             rec = await ingest_one("facts", eid, sources, db_path=db_path)
@@ -1312,6 +1319,10 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     diet = primary.data.get("diet")
     diet_block = (f"<h2>Dietary</h2><p>{html.escape(str(diet))} "
                   "<span class=rom>— KoreaAPI editorial note (not cross-verified)</span></p>") if diet else ""
+    # Trust tier from how many INDEPENDENT sources agreed on the name (Wikidata + Wikipedia + MusicBrainz…)
+    n_agree = getattr(primary.provenance, "agreeing_sources", 0)
+    verify_badge = (" · ✓✓✓ triple cross-verified" if n_agree >= 3
+                    else " · ✓✓ cross-verified" if n_agree >= 2 else "")
 
     # The verified people + hub edges, rendered as an internal-link GRAPH (cross-links to person /
     # entity pages) — the connective tissue answer engines and crawlers traverse.
@@ -1353,7 +1364,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 <p class=back><a href="../index.html">← KoreaAPI · verifiable K-culture data</a></p>
 <h1>{en} <span class=ko>{ko}</span></h1>
 <div class=rom>{rom}</div>
-<div class=sub>Verified Korean-culture entity · as of {asof} · cross-checked + Skill-scored · via KoreaAPI</div>
+<div class=sub>Verified Korean-culture entity · as of {asof} · cross-checked + Skill-scored · via KoreaAPI{verify_badge}</div>
 {current_block}
 {about_block}
 <h2>Verified facts</h2><p>{html.escape(primary.summary_en)}</p>

@@ -54,6 +54,7 @@ class Provenance(BaseModel):
     confidence: Confidence
     translation: TranslationProvenance = Field(default_factory=TranslationProvenance)
     cache_age_seconds: int = 0
+    agreeing_sources: int = 0  # how many independent sources AGREED on the name (>=3 -> "triple-verified")
 
     _utc_fetched = field_validator("fetched_at")(_to_utc)
 
