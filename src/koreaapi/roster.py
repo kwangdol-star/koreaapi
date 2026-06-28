@@ -367,6 +367,40 @@ HISTORY = {
     "history:donghak": "Donghak Peasant Revolution",
 }
 
+# Heritage vertical: Korean cultural heritage + traditional arts/music/국악 (canonical, verifiable).
+# `heritage:` is name-anchored (+ optional inception P571). Distinctive romanized terms (low collision).
+HERITAGE = {
+    "heritage:hunminjeongeum": "Hunminjeongeum",
+    "heritage:tripitakakoreana": "Tripitaka Koreana",
+    "heritage:pansori": "Pansori",
+    "heritage:samulnori": "Samul nori",
+    "heritage:gayageum": "Gayageum",
+    "heritage:taekwondo": "Taekwondo",
+    "heritage:hanbok": "Hanbok",
+    "heritage:talchum": "Talchum",
+    "heritage:minhwa": "Minhwa",
+    "heritage:koreanceladon": "Korean celadon",
+    "heritage:jongmyojerye": "Jongmyo jerye",
+    "heritage:kimjang": "Kimjang",
+}
+
+# Folklore vertical: Korean legends / myths / shamanism / ghosts (설화·민담·신화·무속·귀신). `folklore:`
+# is cross-verified by NAME only. English forms match the Wikipedia/Wikidata titles where they differ.
+FOLKLORE = {
+    "folklore:dangun": "Dangun",
+    "folklore:kumiho": "Kumiho",
+    "folklore:dokkaebi": "Dokkaebi",
+    "folklore:jeoseungsaja": "Jeoseung Saja",
+    "folklore:koreanshamanism": "Korean shamanism",
+    "folklore:chunhyangjeon": "Chunhyangga",
+    "folklore:heungbujeon": "Heungbujeon",
+    "folklore:simcheongjeon": "Simcheongga",
+    "folklore:honggildong": "The Tale of Hong Gildong",
+    "folklore:haetae": "Haetae",
+    "folklore:bulgasari": "Bulgasari",
+    "folklore:samshin": "Samshin",
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
-         **BOOKS, **HISTORY}
+         **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE}

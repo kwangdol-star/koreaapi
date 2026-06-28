@@ -178,6 +178,10 @@ _NS_PROPS = {
     "book": {"agency": "P123", "date": "P577", "date2": "P571", "members": "P50", "directors": None},
     # history (dynasty/period/event): start time P580 (else inception P571), no org/people edge.
     "history": {"agency": None, "date": "P580", "date2": "P571", "members": None, "directors": None},
+    # heritage (cultural property / traditional art / gugak): inception P571 (optional), name-anchored.
+    "heritage": {"agency": None, "date": "P571", "members": None, "directors": None},
+    # folklore (legend / myth / shamanism / ghost): cross-verified by NAME only.
+    "folklore": {"agency": None, "date": None, "members": None, "directors": None},
 }
 
 

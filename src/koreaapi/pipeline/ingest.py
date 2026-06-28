@@ -194,6 +194,19 @@ async def ingest_one(
                       + (f" From {year}." if year else ""))
         summary_ko = (f"{name.ko} — 검증된 한국사 (왕조 / 시대 / 사건)."
                       + (f" 시작 {year}." if year else ""))
+    elif kind == "facts" and entity_id.startswith("heritage:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        year = chosen.get("debut")
+        summary_en = (f"{disp}{ko_part} — verified Korean cultural heritage / traditional art."
+                      + (f" Since {year}." if year else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 문화유산 / 전통예술."
+                      + (f" {year}년~." if year else ""))
+    elif kind == "facts" and entity_id.startswith("folklore:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        summary_en = f"{disp}{ko_part} — verified Korean folklore / myth."
+        summary_ko = f"{name.ko} — 검증된 한국 설화 / 신화."
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
