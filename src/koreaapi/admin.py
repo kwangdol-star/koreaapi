@@ -1456,6 +1456,9 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 <meta name="description" content="{desc}">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="{url}">
+<link rel="alternate" hreflang="en" href="{url}">
+<link rel="alternate" hreflang="ko" href="{_SITE_BASE}/ko/artist/{slug}.html">
+<link rel="alternate" hreflang="x-default" href="{url}">
 {_social_meta(title, desc, url, "profile")}
 <script type="application/ld+json">
 {jsonld}
@@ -1708,6 +1711,144 @@ async def _load_by_entity(db_path: str | None = None) -> dict:
     return by_entity
 
 
+_KO_ATTR = {  # translate the common per-vertical attribute KEYS for the Korean answer page
+    "Genre": "장르", "Episodes": "화수", "Runtime": "러닝타임", "Awards": "수상", "Network": "채널",
+    "Author": "작가", "Publisher": "출판사", "Released": "출시", "Developer": "개발사",
+    "Founded": "설립", "Language": "언어", "Ingredients": "재료", "Inception": "시작",
+}
+_KO_PEOPLE_HEAD = {  # vertical -> the Korean label for its people list
+    "drama": "출연", "film": "출연", "show": "출연", "animation": "출연",
+    "webtoon": "작가", "book": "저자", "classic": "저자", "fashion": "디자이너",
+}
+
+
+def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None:
+    """Korean-led answer page (/ko/artist/<slug>.html) for Naver / 국내 질의: Korean h1 + summary_ko +
+    Korean headings/cite, hreflang-paired with the English page. Reuses the verified record and the
+    language-neutral Schema.org node (identity is the same; language targeting is via lang + hreflang)."""
+    ko_raw, en_raw = primary.name.ko or "", primary.name.en_official or ""
+    ko, en, rom = html.escape(ko_raw), html.escape(en_raw), html.escape(primary.name.romanized or "")
+    asof = primary.snapshot_at.strftime("%Y-%m-%d")
+    sc = primary.provenance.skill_score
+    src = html.escape("; ".join(primary.provenance.sources))
+    ko_url = f"{_SITE_BASE}/ko/artist/{slug}.html"
+    title = html.escape(f"{ko_raw or en_raw} ({en_raw})")
+    desc = html.escape(f"{ko_raw or en_raw} ({en_raw}) — AI·검색엔진을 위한 교차검증 한국문화 프로필. {asof} 기준.")
+    jsonld = _escape_jsonld({"@context": "https://schema.org",
+                             "@graph": [{**_entity_node(primary), "inLanguage": "ko"}]})
+    n_agree = getattr(primary.provenance, "agreeing_sources", 0)
+    verify_badge = (" · ✓✓✓ 3중 교차검증" if n_agree >= 3 else " · ✓✓ 교차검증" if n_agree >= 2 else "")
+    cert = CERTIFIED.get(primary.entity_id)
+    cert_badge = f" · 🏅 {html.escape(str(cert['by']))} 공식 인증" if cert else ""
+    about = ""
+    abstract = (primary.data.get("abstract_en") or "").strip()
+    if abstract:
+        about = f"<h2>설명</h2><p>{html.escape(abstract)} <span class=rom>— 영문 출처: Wikipedia</span></p>"
+    attrs = primary.data.get("attrs") or {}
+    details = ("<h2>상세</h2><ul class=attrs>"
+               + "".join(f"<li><b>{html.escape(_KO_ATTR.get(str(k), str(k)))}:</b> {html.escape(str(v))}</li>"
+                         for k, v in attrs.items()) + "</ul>") if attrs else ""
+    geo = primary.data.get("geo") or {}
+    geo_block = ""
+    try:
+        glat, glon = float(geo["lat"]), float(geo["lon"])
+    except (KeyError, TypeError, ValueError):
+        glat = None
+    if glat is not None:
+        maps = f"https://www.google.com/maps/search/?api=1&query={glat},{glon}"
+        geo_block = (f'<h2>위치</h2><p>{glat}, {glon} · '
+                     f'<a href="{maps}" rel="nofollow noopener" target="_blank">지도에서 보기 →</a></p>')
+    ns = _entity_kind(primary.entity_id)
+    members = primary.data.get("members") or []
+    directors = primary.data.get("directors") or []
+    phead = _KO_PEOPLE_HEAD.get(ns, "멤버")
+    ppl = (f"<h2>{phead} ({len(members)})</h2><ul class=people>"
+           + "".join(f"<li>{html.escape(m)}</li>" for m in members) + "</ul>") if members else ""
+    dirb = ("<h2>감독</h2><ul class=people>"
+            + "".join(f"<li>{html.escape(d)}</li>" for d in directors) + "</ul>") if directors else ""
+    srows = ""
+    for s in primary.provenance.sources:
+        label, _persp = _source_meta(s)
+        u = _one_source_url(s)
+        link = f' · <a href="{u}" rel="nofollow noopener" target="_blank">보기 ↗</a>' if u else ""
+        srows += f"<li><b>{html.escape(label)}</b>{link}</li>"
+    sources_block = (f"<h2>교차검증 출처 {len(primary.provenance.sources)}곳"
+                     f"{' · ✓✓✓ 3중검증' if n_agree >= 3 else ''}</h2>"
+                     f"<ul class=people>{srows}</ul>") if srows else ""
+    summary_ko = html.escape(primary.summary_ko or primary.summary_en or "")
+    cite = html.escape(f"{ko_raw or en_raw} ({en_raw}) — 검증됨, {asof} 기준 · {'; '.join(primary.provenance.sources)} "
+                       f"· Skill {sc:.2f} · via KoreaAPI")
+    doc = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<title>{title} — 검증된 한국문화 데이터 · KoreaAPI</title>
+<meta name="description" content="{desc}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="{ko_url}">
+<link rel="alternate" hreflang="ko" href="{ko_url}">
+<link rel="alternate" hreflang="en" href="{en_url}">
+<link rel="alternate" hreflang="x-default" href="{en_url}">
+{_social_meta(title, desc, ko_url, "profile")}
+<script type="application/ld+json">
+{jsonld}
+</script>
+{_ENTITY_STYLE}
+</head><body>
+<p class=back><a href="../../index.html">← KoreaAPI 🇰🇷 · 검증 가능한 한국문화 데이터</a> · <a href="../../artist/{slug}.html">English</a></p>
+<h1>{ko} <span class=ko>{en}</span></h1>
+<div class=rom>{rom}</div>
+<div class=sub>검증된 한국문화 엔티티 · {asof} 기준 · 교차검증 + Skill Score · via KoreaAPI{cert_badge}{verify_badge}</div>
+{about}
+<h2>검증된 사실</h2><p>{summary_ko}</p>
+{details}
+{geo_block}
+{ppl}
+{dirb}
+{sources_block}
+<div class=cite><b>이렇게 인용하세요:</b> {cite}<br><span class=rom>{ko_url}</span></div>
+<footer>출처(provenance): {src} · Skill Score {sc:.2f} · <a href="../../latest.json">/latest.json</a> &middot; <a href="../../llms.txt">/llms.txt</a></footer>
+</body></html>"""
+    with open(os.path.join(out_dir, "ko", "artist", f"{slug}.html"), "w", encoding="utf-8") as f:
+        f.write(doc)
+
+
+def _write_ko_home(out_dir: str, total: int, sample: list[tuple[str, str]]) -> None:
+    """Korean landing (/ko/index.html): the hreflang counterpart of the English home, a Korean
+    explainer for domestic (Naver) ranking, and internal links into the Korean entity pages."""
+    ko_url = f"{_SITE_BASE}/ko/"
+    pills = " · ".join(f'<a href="../{fname}">{emoji} {html.escape(label)}</a>'
+                       for label, fname, emoji, _c in _VERTICALS.values())
+    recent = "".join(f'<li><a href="./artist/{s}.html">{html.escape(n)}</a></li>' for s, n in sample)
+    title = "KoreaAPI 🇰🇷 — AI·검색엔진을 위한 검증된 한국문화 데이터"
+    desc = ("한국 문화의 검증 가능한 데이터 레이어. 모든 항목이 독립 출처로 교차검증되고 양국어 + "
+            "Skill Score + 출처가 붙습니다. 모든 AI 에이전트가 호출(MCP), 모든 답변엔진이 인용.")
+    doc = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<meta name="description" content="{html.escape(desc)}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="{ko_url}">
+<link rel="alternate" hreflang="ko" href="{ko_url}">
+<link rel="alternate" hreflang="en" href="{_SITE_BASE}/">
+<link rel="alternate" hreflang="x-default" href="{_SITE_BASE}/">
+{_social_meta(html.escape(title), html.escape(desc), ko_url, "website")}
+{_ENTITY_STYLE}
+</head><body>
+<p class=back><a href="../index.html">← English</a></p>
+<h1>KoreaAPI 🇰🇷</h1>
+<div class=sub>한국 문화의 검증 가능한 데이터 레이어 — 모든 AI 에이전트가 호출(MCP)하고, 모든 답변엔진이 인용.</div>
+<h2>KoreaAPI란?</h2>
+<p>모든 항목은 독립 출처(Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB · 한국관광공사)로 <b>교차검증</b>되고, 양국어(한국어 / 공식 영문 / 로마자)로 제공되며, 투명한 <b>Skill Score</b>와 출처(provenance)가 붙습니다. 현재 약 {total}개 검증 엔티티.</p>
+<h2>둘러보기</h2>
+<p>{pills}</p>
+<h2>데이터 · 에이전트</h2>
+<p><a href="../llms.txt">/llms.txt</a> · <a href="../llms-full.txt">/llms-full.txt</a> · <a href="../latest.json">/latest.json</a> · <a href="../feed.xml">/feed.xml</a></p>
+<h2>검증된 항목 (일부)</h2>
+<ul class=people>{recent}</ul>
+<footer>via KoreaAPI · <a href="../index.html">English home</a> &middot; <a href="../sitemap.xml">/sitemap.xml</a></footer>
+</body></html>"""
+    with open(os.path.join(out_dir, "ko", "index.html"), "w", encoding="utf-8") as f:
+        f.write(doc)
+
+
 async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dict:
     """Citable answer-pages — the AEO citation-surface multiplier — for BOTH entities and people.
 
@@ -1727,8 +1868,10 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     os.makedirs(os.path.join(out_dir, "artist"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "person"), exist_ok=True)  # always exists -> `cp` never fails
     os.makedirs(os.path.join(out_dir, "label"), exist_ok=True)
+    os.makedirs(os.path.join(out_dir, "ko", "artist"), exist_ok=True)  # Korean answer pages (hreflang)
     written: list[dict] = []
     written_slugs: set[str] = set()
+    ko_written: list[tuple[str, str]] = []  # (slug, ko_name) for the Korean home + counts
     for entity_id, by_kind in by_entity.items():
         primary = by_kind.get("facts") or max(by_kind.values(), key=lambda r: r.provenance.skill_score)
         slug = _slug(entity_id)
@@ -1749,7 +1892,12 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         label_url = f"../label/{ag_slug}.html" if ag_slug in label_slugs else None  # link to label hub
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
                            entity_slugs=entity_slugs, linked=linked, related=related, label_url=label_url)
+        _write_entity_html_ko(out_dir, slug, url, primary)  # Korean-led counterpart (/ko/artist/…)
+        ko_written.append((slug, primary.name.ko or name))
         written.append({"slug": slug, "name": name, "url": url})
+
+    # Korean landing (/ko/index.html) — the hreflang counterpart of the English home, links into /ko/.
+    _write_ko_home(out_dir, len(written), sorted(ko_written, key=lambda x: x[1])[:60])
 
     # Person pages — the graph hubs. Dedup by slug (rare name->slug collisions: richest wins).
     # First index works -> the people credited on them, so each person can link their collaborators.
@@ -1833,7 +1981,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         labels_written.append({"name": L["name"], "slug": s, "url": lurl, "count": len(items)})
 
     return {"entities": written, "people": people_written, "hubs": hubs_written,
-            "labels": labels_written}
+            "labels": labels_written, "ko": len(ko_written)}
 
 
 async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> str:
@@ -1842,7 +1990,7 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
     lastmod = today, changefreq = daily: advertises the freshness that drives AI citations.
     """
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    urls = [(f"{_SITE_BASE}/", "1.0")]
+    urls = [(f"{_SITE_BASE}/", "1.0"), (f"{_SITE_BASE}/ko/", "0.9")]
     urls += [(f"{_SITE_BASE}/{fname}", "0.8") for _label, fname, _e, _c in _VERTICALS.values()]
     urls += [(f"{_SITE_BASE}/people.html", "0.8"),
              (f"{_SITE_BASE}/korea-rising.md", "0.8"), (f"{_SITE_BASE}/latest.json", "0.6")]
@@ -1853,6 +2001,7 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
         if s not in seen:
             seen.add(s)
             urls.append((f"{_SITE_BASE}/artist/{s}.html", "0.7"))
+            urls.append((f"{_SITE_BASE}/ko/artist/{s}.html", "0.7"))  # Korean counterpart (hreflang)
     # person pages (the graph hubs) — same set entity_pages() writes, so the sitemap never lists a 404
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, set(seen))
@@ -2377,8 +2526,8 @@ def _main(argv: list[str]) -> int:
     elif cmd == "entitypages":
         out = asyncio.run(entity_pages())
         ents, ppl, hubs, labs = out["entities"], out["people"], out["hubs"], out["labels"]
-        print(f"entitypages: wrote {len(ents)} entity + {len(ppl)} person + {len(hubs)} hub + "
-              f"{len(labs)} label page(s) -> site/ (artist/, person/, label/, *.html)")
+        print(f"entitypages: wrote {len(ents)} entity + {out.get('ko', 0)} Korean (/ko/) + "
+              f"{len(ppl)} person + {len(hubs)} hub + {len(labs)} label page(s) -> site/")
         for h in hubs:
             print(f"  hub: {h['vertical']} ({h['count']}) -> {h['url']}")
         for L in labs:
