@@ -45,6 +45,8 @@ from .roster import ARTISTS, NAMES
 from .sources.circlechart import CircleChartSource
 from .sources.mock import MockSource
 from .sources.musicbrainz import MusicBrainzSource
+from .sources.nominatim import NominatimSource
+from .sources.tmdb import TMDBSource
 from .sources.wikidata import _DISCOVER, WikidataSource, fetch_discover, fetch_labelmates
 from .sources.wikipedia import WikipediaSource
 from .sources.youtube import YouTubeSource
@@ -91,11 +93,12 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
     still appended if at least one source succeeds, and nothing if none do (never poison).
     """
     ids = entity_ids or list(NAMES)  # artists + dramas + films
-    # Three sources. MusicBrainz is a TRULY independent 3rd source (separate DB; Wikidata+Wikipedia
-    # are correlated) — it self-filters to artists (raises -> gracefully dropped for other verticals),
-    # so it only adds a cross-check where it's competent. (Roadmap: TMDB for video, Open Library for
-    # book/classic, Nominatim for place — add the same way; each self-scopes.)
-    sources = [WikidataSource(), WikipediaSource(), MusicBrainzSource()]
+    # Independent 3rd sources, each SELF-SCOPED to the verticals it covers (raises -> gracefully
+    # dropped elsewhere), so the list is safe for every entity and only cross-checks where competent:
+    #   MusicBrainz -> artists · OpenStreetMap -> places · TMDB -> drama/film/animation (key-gated).
+    # Wikidata+Wikipedia are correlated; these come from separate DBs -> genuine triple-verification.
+    sources = [WikidataSource(), WikipediaSource(),
+               MusicBrainzSource(), NominatimSource(), TMDBSource()]
     ingested: list[str] = []
     failed: list[str] = []
     for i, entity_id in enumerate(ids):
@@ -175,7 +178,8 @@ async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
     n_candidates = len(candidates)
     aliases = dict(todo)
     sources = [WikidataSource(aliases=aliases), WikipediaSource(aliases=aliases),
-               MusicBrainzSource(aliases=aliases)]
+               MusicBrainzSource(aliases=aliases), NominatimSource(aliases=aliases),
+               TMDBSource(aliases=aliases)]
     ingested: list[str] = []
     for eid, _name in todo:
         rec = await ingest_one("facts", eid, sources, db_path=db_path)
@@ -217,7 +221,8 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
         aliases = {eid: en for eid, en, _q in todo}
         qids = {eid: q for eid, _en, q in todo}
         sources = [WikidataSource(aliases=aliases, qids=qids), WikipediaSource(aliases=aliases),
-                   MusicBrainzSource(aliases=aliases)]
+                   MusicBrainzSource(aliases=aliases), NominatimSource(aliases=aliases),
+                   TMDBSource(aliases=aliases)]
         ingested: list[str] = []
         for eid, _en, _q in todo:
             rec = await ingest_one("facts", eid, sources, db_path=db_path)
