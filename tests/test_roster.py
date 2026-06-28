@@ -144,18 +144,20 @@ def test_curated_anchors_are_bilingual():
 
 
 def test_roster_breadth():
-    # Guard the asset's breadth (15 verticals, 265+ entities) so a bad edit that drops rows is caught.
-    from koreaapi.roster import (ARTISTS, BOOKS, BRANDS, COMPANIES, DRAMAS, FILMS, FOLKLORE, FOODS,
-                                 GAMES, HERITAGE, HISTORY, MEDICAL, NAMES, PLACES, REGION, WEBTOONS)
+    # Guard the asset's breadth (18 verticals, 300+ entities) so a bad edit that drops rows is caught.
+    from koreaapi.roster import (ANIMATIONS, ARTISTS, BOOKS, BRANDS, COMPANIES, DRAMAS, FILMS, FOLKLORE,
+                                 FOODS, GAMES, HERITAGE, HISTORY, MEDICAL, NAMES, PLACES, REGION, SHOWS,
+                                 UNIVERSITIES, WEBTOONS)
     assert len(ARTISTS) >= 50 and len(DRAMAS) >= 18 and len(FILMS) >= 15
     assert len(WEBTOONS) >= 5 and len(PLACES) >= 10 and len(FOODS) >= 12
     assert len(COMPANIES) >= 8 and len(BRANDS) >= 8 and len(BOOKS) >= 6 and len(HISTORY) >= 8
     assert len(HERITAGE) >= 8 and len(FOLKLORE) >= 8
     assert len(MEDICAL) >= 6 and len(REGION) >= 15 and len(GAMES) >= 8
-    assert len(NAMES) >= 265
+    assert len(SHOWS) >= 8 and len(ANIMATIONS) >= 6 and len(UNIVERSITIES) >= 8
+    assert len(NAMES) >= 295
     assert len(NAMES) == sum(map(len, (ARTISTS, DRAMAS, FILMS, WEBTOONS, PLACES, FOODS, COMPANIES,
                                        BRANDS, BOOKS, HISTORY, HERITAGE, FOLKLORE, MEDICAL, REGION,
-                                       GAMES)))
+                                       GAMES, SHOWS, ANIMATIONS, UNIVERSITIES)))
 
 
 if __name__ == "__main__":

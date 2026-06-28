@@ -123,6 +123,10 @@ _CURATED = {
     # concept / "aion") — pin bilingually so the strict KO guard rejects a same-EN-label impostor.
     "game:lineage": {"ko": "리니지", "en": "Lineage"},
     "game:aion": {"ko": "아이온", "en": "Aion"},
+    # variety show whose English title is a common phrase ("Running Man" the concept/film) — pin.
+    "show:runningman": {"ko": "런닝맨", "en": "Running Man"},
+    # animation whose English title is a common word ("Larva" the insect) — pin bilingually.
+    "animation:larva": {"ko": "라바", "en": "Larva"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.
@@ -195,6 +199,14 @@ _NS_PROPS = {
     "region": {"agency": None, "date": None, "members": None, "directors": None},
     # game (Korean-developed video game): developer P178 as the studio edge, publication date P577.
     "game": {"agency": "P178", "date": "P577", "members": None, "directors": None},
+    # show (방송 / 예능 — variety & entertainment TV): original network P449, start date P580 (else
+    # air date P577), cast/host P161 as the people edge (feeds the person graph: an MC across shows).
+    "show": {"agency": "P449", "date": "P580", "date2": "P577", "members": "P161", "directors": None},
+    # animation (애니메이션): production company P272 as the studio edge, publication date P577 (else
+    # inception P571), no people edge.
+    "animation": {"agency": "P272", "date": "P577", "date2": "P571", "members": None, "directors": None},
+    # university (교육): located-in P131 (region) as the place edge + inception P571 (founded).
+    "university": {"agency": "P131", "date": "P571", "members": None, "directors": None},
 }
 
 
@@ -509,7 +521,10 @@ _DISCOVER = {
     "book":    (["Q7725634", "Q47461344"], "P407", "Q9176"),           # literary/written work, language Korean
     "medical": (["Q16917"], "P17", "Q884"),                            # hospital, country SK
     "game":    (["Q7889"], "P495", "Q884"),                            # video game, origin SK
-    # (history/heritage/folklore/region are seed-only: too heterogeneous / closed-set to discover cleanly)
+    "animation": (["Q581714", "Q202866"], "P495", "Q884"),             # animated series/film, origin SK
+    "university": (["Q3918"], "P17", "Q884"),                          # university, country SK
+    # (history/heritage/folklore/region/show are seed-only: too heterogeneous / class-overlapping to
+    #  discover cleanly — e.g. a variety "television program" class overlaps the drama vertical)
 }
 
 

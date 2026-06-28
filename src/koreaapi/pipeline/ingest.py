@@ -234,6 +234,42 @@ async def ingest_one(
         summary_ko = (f"{name.ko} — 검증된 한국 비디오 게임."
                       + (f" 출시 {year}." if year else "")
                       + (f" 개발: {dev}." if dev else ""))
+    elif kind == "facts" and entity_id.startswith("show:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        year = chosen.get("debut")
+        net = chosen.get("agency_en") or chosen.get("agency_ko")  # original network (P449)
+        cast = chosen.get("members") or []
+        summary_en = (f"{disp}{ko_part} — verified Korean variety / TV show."
+                      + (f" Aired {year}." if year else "")
+                      + (f" On {net}." if net else "")
+                      + (f" {len(cast)} verified cast." if cast else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 예능 / 방송."
+                      + (f" 방영 {year}." if year else "")
+                      + (f" 채널: {net}." if net else "")
+                      + (f" 출연 {len(cast)}명 검증." if cast else ""))
+    elif kind == "facts" and entity_id.startswith("animation:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        year = chosen.get("debut")
+        studio = chosen.get("agency_en") or chosen.get("agency_ko")  # production company (P272)
+        summary_en = (f"{disp}{ko_part} — verified Korean animation."
+                      + (f" Released {year}." if year else "")
+                      + (f" By {studio}." if studio else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 애니메이션."
+                      + (f" 공개 {year}." if year else "")
+                      + (f" 제작: {studio}." if studio else ""))
+    elif kind == "facts" and entity_id.startswith("university:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        region = chosen.get("agency_en") or chosen.get("agency_ko")  # located-in (P131)
+        year = chosen.get("debut")
+        summary_en = (f"{disp}{ko_part} — verified Korean university."
+                      + (f" In {region}." if region else "")
+                      + (f" Founded {year}." if year else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 대학교."
+                      + (f" 위치: {region}." if region else "")
+                      + (f" 설립 {year}." if year else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

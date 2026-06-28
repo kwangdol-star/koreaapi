@@ -382,6 +382,13 @@ HERITAGE = {
     "heritage:koreanceladon": "Korean celadon",
     "heritage:jongmyojerye": "Jongmyo jerye",
     "heritage:kimjang": "Kimjang",
+    # 건축 (architecture) + 미술/공예 (fine art & craft) — fold the culture-ToC's art/architecture
+    # sections in here rather than spinning up thin verticals.
+    "heritage:hanok": "Hanok",
+    "heritage:ondol": "Ondol",
+    "heritage:najeonchilgi": "Najeonchilgi",
+    "heritage:dancheong": "Dancheong",
+    "heritage:buncheong": "Buncheong",
 }
 
 # Folklore vertical: Korean legends / myths / shamanism / ghosts (설화·민담·신화·무속·귀신). `folklore:`
@@ -457,6 +464,53 @@ GAMES = {
     "game:aion": "Aion",                # bilingual in _CURATED (vs the common word)
 }
 
+# Show vertical: Korean variety / entertainment TV (방송 · 예능) — a major K-content export. `show:`
+# maps to original network P449 + start date P580 + cast/host P161 (the MC hubs feed the person graph).
+# Distinctive titles; the common-phrase one (Running Man) is bilingually pinned in wikidata._CURATED.
+SHOWS = {
+    "show:runningman": "Running Man",            # bilingual in _CURATED (vs the concept / film)
+    "show:infinitechallenge": "Infinite Challenge",
+    "show:2days1night": "2 Days & 1 Night",
+    "show:knowingbros": "Knowing Bros",
+    "show:physical100": "Physical: 100",
+    "show:kingofmaskedsinger": "King of Mask Singer",
+    "show:newjourneytothewest": "New Journey to the West",
+    "show:ilivealone": "I Live Alone",
+    "show:produce101": "Produce 101",
+    "show:streetwomanfighter": "Street Woman Fighter",
+}
+
+# Animation vertical: Korean animation (애니메이션) — globally syndicated (Pororo "뽀통령", Baby Shark).
+# `animation:` maps to production company P272 + publication date P577. Distinctive titles; the common-
+# word one (Larva) is bilingually pinned in wikidata._CURATED.
+ANIMATIONS = {
+    "animation:pororo": "Pororo the Little Penguin",
+    "animation:tayo": "Tayo the Little Bus",
+    "animation:robocarpoli": "Robocar Poli",
+    "animation:larva": "Larva",                  # bilingual in _CURATED (vs the insect)
+    "animation:babyshark": "Baby Shark",
+    "animation:pucca": "Pucca",
+    "animation:hellojadoo": "Hello Jadoo",
+    "animation:dooly": "Dooly the Little Dinosaur",
+}
+
+# University vertical: major Korean universities (교육) — Wikidata-verifiable, foreigner-searched.
+# `university:` maps to located-in P131 (region) + inception P571 (founded). Distinctive names. The
+# wider set is filled by auto-discovery (university class, country SK).
+UNIVERSITIES = {
+    "university:snu": "Seoul National University",
+    "university:kaist": "KAIST",
+    "university:yonsei": "Yonsei University",
+    "university:korea": "Korea University",
+    "university:postech": "Pohang University of Science and Technology",
+    "university:sungkyunkwan": "Sungkyunkwan University",
+    "university:hanyang": "Hanyang University",
+    "university:kyunghee": "Kyung Hee University",
+    "university:ewha": "Ewha Womans University",
+    "university:sogang": "Sogang University",
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
-         **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES}
+         **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
+         **SHOWS, **ANIMATIONS, **UNIVERSITIES}

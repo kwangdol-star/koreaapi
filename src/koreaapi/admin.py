@@ -424,6 +424,40 @@ def _entity_node(r) -> dict:
         if dev:  # citable "who made X?"
             node["creator"] = {"@type": "Organization", "name": dev}
         return node
+    if r.entity_id.startswith("show:"):
+        node = {"@type": "TVSeries", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        if r.data.get("debut"):  # first-aired -> citable "when did X start?"
+            node["datePublished"] = r.data["debut"]
+        cast = r.data.get("members") or []
+        if cast:  # verified host/cast -> citable "who's in X?"
+            node["actor"] = [{"@type": "Person", "name": m} for m in cast]
+        return node
+    if r.entity_id.startswith("animation:"):
+        node = {"@type": "TVSeries", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        if r.data.get("debut"):  # release date -> citable "when did X come out?"
+            node["datePublished"] = r.data["debut"]
+        studio = r.data.get("agency_en") or r.data.get("agency_ko")  # production company P272
+        if studio:
+            node["productionCompany"] = {"@type": "Organization", "name": studio}
+        return node
+    if r.entity_id.startswith("university:"):
+        node = {"@type": "CollegeOrUniversity", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
+        if region:  # citable "where is X?"
+            node["address"] = {"@type": "PostalAddress", "addressLocality": region,
+                               "addressCountry": "KR"}
+        if r.data.get("debut"):  # founded -> citable "when was X founded?"
+            node["foundingDate"] = r.data["debut"]
+        return node
     if r.entity_id.startswith(("drama:", "film:")):
         node = {"@type": "Movie" if r.entity_id.startswith("film:") else "TVSeries",
                 "name": name, "alternateName": alt,
@@ -691,6 +725,9 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./medical.html">{_ICON['medical']} Medical</a>
  <a class="pill" href="./regions.html">{_ICON['region']} Regions</a>
  <a class="pill" href="./games.html">{_ICON['game']} Games</a>
+ <a class="pill" href="./shows.html">{_ICON['show']} Variety</a>
+ <a class="pill" href="./animation.html">{_ICON['animation']} Animation</a>
+ <a class="pill" href="./universities.html">{_ICON['university']} Universities</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -792,6 +829,14 @@ _ICON = {
     "game": _icon('<rect x="2" y="7" width="20" height="10" rx="5"/><line x1="6" y1="12" x2="8" y2="12"/>'
                   '<line x1="7" y1="11" x2="7" y2="13"/><circle cx="16" cy="11.5" r="1"/>'
                   '<circle cx="18.5" cy="13.5" r="1"/>'),
+    # tv + play (variety / broadcast)
+    "show": _icon('<rect x="2" y="5" width="20" height="14" rx="2"/><polygon points="10 9 16 12 10 15"/>'),
+    # overlapping frame + play (animation)
+    "animation": _icon('<rect x="3" y="7" width="13" height="12" rx="1.5"/><path d="M8 7V4h13v12h-3"/>'
+                       '<polygon points="8 11 12.5 13.5 8 16"/>'),
+    # mortarboard (universities / education)
+    "university": _icon('<path d="M12 4 2 9l10 5 10-5-10-5z"/>'
+                        '<path d="M6 11v5c0 1.2 2.7 2.5 6 2.5s6-1.3 6-2.5v-5"/><line x1="22" y1="9.5" x2="22" y2="14"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -870,7 +915,7 @@ def _collect_credits(by_entity: dict) -> dict:
             continue
         member_role = ("creator" if entity_id.startswith("webtoon:")
                        else "author" if entity_id.startswith("book:")
-                       else "cast" if entity_id.startswith(("drama:", "film:")) else "member")
+                       else "cast" if entity_id.startswith(("drama:", "film:", "show:")) else "member")
         for nm in (rec.data.get("members") or []):
             add(nm, rec, member_role)
         for nm in (rec.data.get("directors") or []):
@@ -1015,10 +1060,16 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("game:"):
             qas.append((f"When was {name} released?",
                         f"{name} was released in {d['debut']} (verified via {src}, as of {asof})."))
+        elif eid.startswith("animation:"):
+            qas.append((f"When was {name} first released?",
+                        f"{name} was first released in {d['debut']} (verified via {src}, as of {asof})."))
+        elif eid.startswith("university:"):
+            qas.append((f"When was {name} founded?",
+                        f"{name} was founded in {d['debut']} (verified via {src}, as of {asof})."))
         elif eid.startswith("history:"):
             qas.append((f"When did {name} begin?",
                         f"{name} began in {d['debut']} (verified via {src}, as of {asof})."))
-        elif eid.startswith("drama:"):
+        elif eid.startswith(("drama:", "show:")):
             qas.append((f"When did {name} first air?",
                         f"{name} first aired in {d['debut']} (verified via {src}, as of {asof})."))
         elif eid.startswith("webtoon:"):
@@ -1030,7 +1081,7 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
     members = d.get("members") or []
     if members:
         eid = primary.entity_id if primary else ""
-        if eid.startswith(("drama:", "film:")):
+        if eid.startswith(("drama:", "film:", "show:")):
             qas.append((f"Who stars in {name}?",
                         f"Cast includes {', '.join(members)} (verified via {src}, as of {asof})."))
         elif eid.startswith("webtoon:"):
@@ -1049,13 +1100,13 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
     agency = d.get("agency_en") or d.get("agency_ko")
     if agency:
         eid = primary.entity_id if primary else ""
-        if eid.startswith(("drama:", "film:")):
+        if eid.startswith(("drama:", "film:", "show:")):
             qas.append((f"What network or platform is {name} on?",
                         f"{name} — original network/platform: {agency} (verified via {src}, as of {asof})."))
         elif eid.startswith("webtoon:"):
             qas.append((f"What platform is {name} on?",
                         f"{name} — publisher/platform: {agency} (verified via {src}, as of {asof})."))
-        elif eid.startswith(("place:", "medical:")):
+        elif eid.startswith(("place:", "medical:", "university:")):
             qas.append((f"Where is {name}?",
                         f"{name} is located in {agency} (verified via {src}, as of {asof})."))
         elif eid.startswith("company:"):
@@ -1070,6 +1121,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("game:"):
             qas.append((f"Who developed {name}?",
                         f"{name} was developed by {agency} (verified via {src}, as of {asof})."))
+        elif eid.startswith("animation:"):
+            qas.append((f"Who produced {name}?",
+                        f"{name} was produced by {agency} (verified via {src}, as of {asof})."))
         else:
             ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
             qas.append((f"What agency (소속사) is {name} under?",
@@ -1269,6 +1323,9 @@ _VERTICALS = {
     "medical": ("Hospitals & medical", "medical.html", _ICON["medical"], "Region"),
     "region": ("Korea & regions", "regions.html", _ICON["region"], "Type"),
     "game": ("Korean games", "games.html", _ICON["game"], "Developer / studio"),
+    "show": ("Variety & TV shows", "shows.html", _ICON["show"], "Network"),
+    "animation": ("Animation", "animation.html", _ICON["animation"], "Studio"),
+    "university": ("Universities", "universities.html", _ICON["university"], "Region / location"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -1630,11 +1687,12 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
         return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
 
     (arts, dramas, films, webtoons, places, foods, companies, brands, books, history, heritage,
-     folklore, medical, region, games) = (
+     folklore, medical, region, games, shows, animations, universities) = (
         names("artist:"), names("drama:"), names("film:"), names("webtoon:"),
         names("place:"), names("food:"), names("company:"), names("brand:"),
         names("book:"), names("history:"), names("heritage:"), names("folklore:"),
-        names("medical:"), names("region:"), names("game:"))
+        names("medical:"), names("region:"), names("game:"),
+        names("show:"), names("animation:"), names("university:"))
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
 
@@ -1644,7 +1702,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coverage = f"""
 ## Coverage (live, as of {today})
-- {len(facts)} verified entities across 15 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions, {len(games)} games.
+- {len(facts)} verified entities across 18 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions, {len(games)} games, {len(shows)} variety shows, {len(animations)} animations, {len(universities)} universities.
 - {len(linked)} verified people (directors + cross-work cast/creators), each a citable hub page linking their works.
 - K-pop artists: {sample(arts)}
 - K-dramas: {sample(dramas)}
@@ -1661,6 +1719,9 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Hospitals & medical: {sample(medical)}
 - Korea & regions: {sample(region)}
 - Korean games: {sample(games)}
+- Variety & TV shows: {sample(shows)}
+- Animation: {sample(animations)}
+- Universities: {sample(universities)}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml
