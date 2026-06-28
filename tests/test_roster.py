@@ -161,5 +161,12 @@ def test_roster_breadth():
                                        GAMES, SHOWS, ANIMATIONS, UNIVERSITIES, CLASSICS, FASHION)))
 
 
+def test_food_editorial_tags_cover_every_dish():
+    # every food carries a spice + dietary editorial tag (so a new dish can't silently miss them)
+    from koreaapi.roster import FOOD_SPICE, FOOD_VEG, FOODS
+    assert set(FOODS) <= set(FOOD_SPICE), set(FOODS) - set(FOOD_SPICE)
+    assert set(FOODS) <= set(FOOD_VEG), set(FOODS) - set(FOOD_VEG)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

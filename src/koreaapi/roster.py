@@ -367,6 +367,18 @@ FOODS = {
     "food:yukhoe": "Yukhoe",
     "food:dakbokkeumtang": "Dak-bokkeum-tang",
     "food:songpyeon": "Songpyeon",
+    # top foreigner-demand dishes (per 배민/크리에이트립/관광공사 data) we were missing — exactly what
+    # Chinese/Japanese tourists search (간장게장·닭발·낙지볶음·곱창·한정식·한우) + cafe/dessert trends.
+    "food:ganjanggejang": "Ganjang-gejang",
+    "food:dakbal": "Dak-bal",
+    "food:nakjibokkeum": "Nakji-bokkeum",
+    "food:gopchang": "Gopchang",
+    "food:hanjeongsik": "Hanjeongsik",
+    "food:hanwoo": "Hanwoo",
+    "food:hoe": "Hoe",                 # bilingual in _CURATED (vs the garden tool)
+    "food:yakgwa": "Yakgwa",
+    "food:bungeoppang": "Bungeoppang",
+    "food:croffle": "Croffle",
 }
 
 # Curated EDITORIAL spice rating (none / mild / medium / hot / very hot) — Wikidata has no spiciness
@@ -386,6 +398,9 @@ FOOD_SPICE = {
     "food:jjamppong": "hot", "food:kalguksu": "mild", "food:doenjangjjigae": "mild",
     "food:tteokguk": "mild", "food:mandu": "mild", "food:pajeon": "mild",
     "food:yukhoe": "mild", "food:dakbokkeumtang": "hot", "food:songpyeon": "none",
+    "food:ganjanggejang": "mild", "food:dakbal": "very hot", "food:nakjibokkeum": "hot",
+    "food:gopchang": "mild", "food:hanjeongsik": "mild", "food:hanwoo": "mild", "food:hoe": "none",
+    "food:yakgwa": "none", "food:bungeoppang": "none", "food:croffle": "none",
 }
 
 # Curated EDITORIAL dietary tag (#3) — like spice, Wikidata has no clean property, so this is a KoreaAPI
@@ -404,6 +419,16 @@ FOOD_VEG = {
     "food:bingsu": "vegetarian", "food:songpyeon": "vegetarian", "food:soju": "vegan",
     "food:makgeolli": "vegan", "food:gimbap": "varies", "food:sundubujjigae": "vegetarian option",
     "food:doenjangjjigae": "vegetarian option", "food:kimchijjigae": "contains meat (often pork)",
+    "food:ganjanggejang": "contains seafood (raw crab)", "food:dakbal": "contains meat (chicken)",
+    "food:nakjibokkeum": "contains seafood (octopus)", "food:gopchang": "contains meat (offal)",
+    "food:hanjeongsik": "varies (many meat/seafood sides)", "food:hanwoo": "contains meat (beef)",
+    "food:hoe": "contains seafood (raw fish)", "food:yakgwa": "vegetarian", "food:bungeoppang": "vegetarian",
+    "food:croffle": "vegetarian",
+    "food:budaejjigae": "contains meat (sausage/spam)", "food:dakbokkeumtang": "contains meat (chicken)",
+    "food:dalgona": "vegetarian", "food:dalgonacoffee": "vegetarian", "food:gochujang": "vegan",
+    "food:kalguksu": "varies (often anchovy/chicken broth)", "food:kimbap": "varies (often meat/egg)",
+    "food:koreancorndog": "contains meat (sausage)", "food:koreanfriedchicken": "contains meat (chicken)",
+    "food:sundae": "contains meat (blood sausage)", "food:tteokguk": "contains meat (beef broth)",
 }
 
 # Company vertical: major Korean companies/brands (Wikidata-verifiable). `company:` maps to industry

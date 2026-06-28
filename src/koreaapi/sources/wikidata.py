@@ -111,6 +111,8 @@ _CURATED = {
     "webtoon:lookism": {"ko": "외모지상주의", "en": "Lookism", "agency": "Naver"},
     # Korean blood sausage "sundae" collides with the English "sundae" (ice cream) — pin bilingually.
     "food:sundae": {"ko": "순대", "en": "Sundae"},
+    # Korean raw fish "hoe" collides with the English "hoe" (garden tool) — pin bilingually.
+    "food:hoe": {"ko": "회", "en": "Hoe"},
     # K-beauty brands whose English name is a common word/phrase — pin bilingually.
     "brand:innisfree": {"ko": "이니스프리", "en": "Innisfree"},
     "brand:naturerepublic": {"ko": "네이처리퍼블릭", "en": "Nature Republic"},
