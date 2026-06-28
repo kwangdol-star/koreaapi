@@ -310,27 +310,52 @@ async def stats(db_path: str | None = None) -> dict:
     }
 
 
+def _one_source_url(s: str) -> str | None:
+    """Canonical URL for one provenance citation, when the id reconstructs cleanly (Wikidata /
+    Wikipedia / MusicBrainz). OSM/TMDB omitted — their citation id lacks the element/media type."""
+    sl = s.lower()
+    if "wikidata" in sl and (m := re.search(r"\bQ\d+\b", s)):
+        return f"https://www.wikidata.org/entity/{m.group(0)}"
+    if sl.startswith("wikipedia ") and (title := re.sub(
+            r"\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$", "", s[len("Wikipedia "):]).strip()):
+        return "https://en.wikipedia.org/wiki/" + title.replace(" ", "_")
+    if "musicbrainz" in sl and (m := re.search(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", s)):
+        return f"https://musicbrainz.org/artist/{m.group(0)}"
+    return None
+
+
 def _source_urls(sources: list[str]) -> list[str]:
-    """Every verifying source's canonical URL, parsed from the provenance citations — Wikidata,
-    Wikipedia, and MusicBrainz (the IDs that reconstruct cleanly). Emitted as Schema.org sameAs so
-    each entity is a CROSS-SOURCE authority hub (reconciling multiple independent databases IS the
-    value — vs a single-source echo). Deduped, order-preserved. OSM/TMDB omitted (their citation id
-    lacks the element-type/media-type needed for a canonical URL)."""
+    """All verifying sources' canonical URLs (deduped, order-preserved). Emitted as Schema.org sameAs
+    so each entity is a CROSS-SOURCE authority hub (reconciling independent databases IS the value)."""
     out: list[str] = []
     for s in sources:
-        sl = s.lower()
-        url = None
-        if "wikidata" in sl and (m := re.search(r"\bQ\d+\b", s)):
-            url = f"https://www.wikidata.org/entity/{m.group(0)}"
-        elif sl.startswith("wikipedia ") and (title := re.sub(
-                r"\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$", "", s[len("Wikipedia "):]).strip()):
-            url = "https://en.wikipedia.org/wiki/" + title.replace(" ", "_")
-        elif "musicbrainz" in sl and (m := re.search(
-                r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", s)):
-            url = f"https://musicbrainz.org/artist/{m.group(0)}"
-        if url and url not in out:
-            out.append(url)
+        u = _one_source_url(s)
+        if u and u not in out:
+            out.append(u)
     return out
+
+
+# Each source's display name + the PERSPECTIVE it represents (absorbed from the entertainment MCP's
+# labeled multi-rating view): showing WHICH independent databases agree, and what each one is, makes
+# the verification legible to a human/answer-engine — not just a JSON-LD sameAs.
+_SOURCE_META = {
+    "wikidata": ("Wikidata", "structured open knowledge base"),
+    "wikipedia": ("Wikipedia", "encyclopedic article"),
+    "musicbrainz": ("MusicBrainz", "open music database"),
+    "openstreetmap": ("OpenStreetMap", "open geographic database"),
+    "tmdb": ("TMDB", "film/TV community database"),
+    "circle chart": ("Circle Chart", "official Korean music chart"),
+    "youtube": ("YouTube", "official channel"),
+}
+
+
+def _source_meta(citation: str) -> tuple[str, str]:
+    sl = citation.lower()
+    for key, meta in _SOURCE_META.items():
+        if key in sl:
+            return meta
+    return citation.split(" ", 1)[0], "source"
 
 
 def _entity_node(r) -> dict:
@@ -1348,6 +1373,19 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     n_agree = getattr(primary.provenance, "agreeing_sources", 0)
     verify_badge = (" · ✓✓✓ triple cross-verified" if n_agree >= 3
                     else " · ✓✓ cross-verified" if n_agree >= 2 else "")
+    # Visible cross-source verification (absorbed from the entertainment MCP's labeled multi-rating
+    # view): list WHICH independent databases verified this + what each is + a link out. The moat,
+    # made legible — not just a JSON-LD sameAs an agent has to parse.
+    src_rows = ""
+    for s in primary.provenance.sources:
+        label, persp = _source_meta(s)
+        u = _one_source_url(s)
+        link = f' · <a href="{u}" rel="nofollow noopener" target="_blank">view ↗</a>' if u else ""
+        src_rows += (f"<li><b>{html.escape(label)}</b> "
+                     f"<span class=rom>— {html.escape(persp)}</span>{link}</li>")
+    sources_block = (f"<h2>Cross-checked by {len(primary.provenance.sources)} source(s)"
+                     f"{' · ✓✓✓ triple-verified' if n_agree >= 3 else ''}</h2>"
+                     f"<ul class=people>{src_rows}</ul>") if primary.provenance.sources else ""
 
     # The verified people + hub edges, rendered as an internal-link GRAPH (cross-links to person /
     # entity pages) — the connective tissue answer engines and crawlers traverse.
@@ -1400,6 +1438,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {people_block}
 {dir_block}
 {qa_block}
+{sources_block}
 {rel_block}
 <div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span></div>
 <footer>Provenance: {src} · Skill Score {sc:.2f} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
