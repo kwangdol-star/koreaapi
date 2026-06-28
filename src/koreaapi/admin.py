@@ -20,6 +20,7 @@ CLI:
   python -m koreaapi.admin report   # write report.html (open it in a browser)
   python -m koreaapi.admin digest   # write data/korea-rising.md (shareable verified digest)
   python -m koreaapi.admin llms     # regenerate llms.txt (agent index) from the live store
+  python -m koreaapi.admin llmsfull # regenerate llms-full.txt (full LLM-ingestible corpus)
   python -m koreaapi.admin entitypages  # write per-entity + per-person citable pages (site/)
   python -m koreaapi.admin sitemap  # write sitemap.xml (every entity + person page)
   python -m koreaapi.admin monitor  # write monitor.html (human data-quality cockpit)
@@ -814,6 +815,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
+ <a class="pill" href="./llms-full.txt">/llms-full.txt · full corpus</a>
  <a class="pill" href="./korea-rising.md">/korea-rising.md · digest</a>
  <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
@@ -1979,10 +1981,86 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Human + Schema.org JSON-LD: {_SITE_BASE}/
 - Machine-readable (JSON, latest snapshot per entity+kind, with provenance + Skill Score):
   {_SITE_BASE}/latest.json  — fetch it directly, no MCP setup.
-- Agent (MCP) + crawlable digest: /llms.txt · /korea-rising.md · /sitemap.xml
+- Full LLM-ingestible corpus (every verified entity, one citable block each): {_SITE_BASE}/llms-full.txt
+- Agent (MCP) + crawlable digest: /llms.txt · /llms-full.txt · /korea-rising.md · /sitemap.xml
 """
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(_LLMS_HEAD + coverage + tail)
+    return out_path
+
+
+# Vertical order + labels for the full corpus (mirrors the homepage / llms.txt grouping).
+_CORPUS_VERTICALS = [
+    ("artist:", "K-pop artists"), ("drama:", "K-dramas"), ("film:", "K-films"),
+    ("webtoon:", "Webtoons"), ("place:", "Places to visit"), ("food:", "Korean food"),
+    ("company:", "Korean companies"), ("brand:", "Korean brands"), ("book:", "Korean books"),
+    ("history:", "Korean history"), ("heritage:", "Heritage & tradition"), ("folklore:", "Folklore & myth"),
+    ("medical:", "Hospitals & medical"), ("region:", "Korea & regions"), ("game:", "Korean games"),
+    ("show:", "Variety & TV shows"), ("animation:", "Animation"), ("university:", "Universities"),
+    ("classic:", "Classics & records"), ("fashion:", "Korean fashion"),
+]
+
+
+def _corpus_block(entity_id: str, r) -> str:
+    """One verified entity as a compact, self-contained, CITABLE block for /llms-full.txt: bilingual
+    name + romanization, the Wikipedia-sourced description, the verified facts, the cross-source
+    provenance + Skill Score, a ready-to-quote Cite line, and the canonical URL."""
+    en = r.name.en_official or r.name.ko
+    rom = f" [{r.name.romanized}]" if r.name.romanized else ""
+    lines = [f"### {en} — {r.name.ko or ''}{rom}".rstrip()]
+    abstract = (r.data.get("abstract_en") or "").strip()
+    if abstract:
+        lines.append(abstract)
+    if r.summary_en:
+        lines.append(f"Facts: {r.summary_en}")
+    attrs = r.data.get("attrs") or {}
+    if attrs:
+        lines.append("Details: " + " · ".join(f"{k}: {v}" for k, v in attrs.items()))
+    n_agree = getattr(r.provenance, "agreeing_sources", 0) or 0
+    tier = ("triple cross-verified" if n_agree >= 3
+            else "cross-verified" if n_agree >= 2 else "single-source (uncorroborated)")
+    lines.append(
+        f"Verified: Skill {r.provenance.skill_score:.2f} ({r.provenance.confidence}); "
+        f"{n_agree} independent source(s) agree — {tier}. Sources: {'; '.join(r.provenance.sources)}"
+    )
+    url = f"{_SITE_BASE}/artist/{_slug(entity_id)}.html"
+    lines.append(f'Cite: "{en} — verified, as of {r.snapshot_at.strftime("%Y-%m-%d")} · via KoreaAPI" — {url}')
+    return "\n".join(lines)
+
+
+async def llms_full_txt(db_path: str | None = None, out_path: str = "llms-full.txt") -> str:
+    """Generate /llms-full.txt — the COMPLETE LLM-ingestible corpus (every verified entity, one block
+    each); the companion to the /llms.txt index. This is the file an answer engine or agent slurps
+    WHOLE to cite KoreaAPI: each block carries the bilingual name + romanization, the description, the
+    verified facts, the cross-source provenance + Skill Score, a ready Cite line, and the canonical URL.
+    Regenerated each build from the live store; if empty (a blocked pull) the static file is untouched."""
+    by_entity = await _load_by_entity(db_path)
+    facts = {eid: bk["facts"] for eid, bk in by_entity.items() if "facts" in bk}
+    if not facts:
+        return out_path  # don't overwrite the good static file with an empty corpus
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    out = [
+        "# KoreaAPI — full verified corpus (/llms-full.txt)",
+        "",
+        "The verifiable data layer for Korean culture — callable by any AI agent (MCP), citable by any",
+        "answer engine. This is the COMPLETE corpus (every verified entity); /llms.txt is the short index.",
+        "Every entity is cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz ·",
+        "OpenStreetMap · TMDB · KTO), bilingual (KO / official EN / romanized), and stamped with a",
+        "transparent Skill Score + provenance. To cite a row, quote the Cite line under it.",
+        f"As of {today} · {len(facts)} verified entities · {_SITE_BASE}/ · machine-readable JSON: {_SITE_BASE}/latest.json",
+    ]
+    for prefix, label in _CORPUS_VERTICALS:
+        items = sorted(
+            ((e, r) for e, r in facts.items() if e.startswith(prefix)),
+            key=lambda er: (er[1].name.en_official or er[1].name.ko or "").lower(),
+        )
+        if not items:
+            continue
+        out.append(f"\n## {label} ({len(items)})\n")
+        out.extend(_corpus_block(e, r) + "\n" for e, r in items)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(out).rstrip() + "\n")
     return out_path
 
 
@@ -2232,6 +2310,8 @@ def _main(argv: list[str]) -> int:
         print("wrote", asyncio.run(markdown_digest()))
     elif cmd == "llms":
         print("wrote", asyncio.run(llms_txt()))
+    elif cmd == "llmsfull":
+        print("wrote", asyncio.run(llms_full_txt()))
     elif cmd == "monitor":
         print("wrote", asyncio.run(monitor_html()))
     elif cmd == "pull":

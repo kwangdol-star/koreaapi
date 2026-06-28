@@ -59,6 +59,32 @@ def test_llms_empty_store_keeps_static_file():
     os.remove(sentinel)
 
 
+def test_llms_full_corpus_has_every_entity_block_with_cite_and_url():
+    db = tempfile.mktemp(suffix=".db")
+    out = tempfile.mktemp(suffix=".txt")
+    _seed(db)
+    asyncio.run(admin.llms_full_txt(db_path=db, out_path=out))
+    text = open(out, encoding="utf-8").read()
+    assert "full verified corpus" in text.lower()
+    # every seeded entity appears as its own bilingual block ...
+    for en, ko in [("BTS", "방탄소년단"), ("Squid Game", "오징어 게임"), ("Parasite", "기생충")]:
+        assert f"### {en} — {ko}" in text
+    # ... grouped by vertical, each with a Skill Score, a ready Cite line, and the canonical URL
+    assert "## K-films (2)" in text
+    assert "Verified: Skill" in text and "via KoreaAPI" in text
+    assert "/artist/parasite.html" in text
+
+
+def test_llms_full_empty_store_keeps_static_file():
+    # A blocked pull (empty store) must NOT overwrite the committed static llms-full.txt with zeros.
+    sentinel = tempfile.mktemp(suffix=".txt")
+    with open(sentinel, "w", encoding="utf-8") as f:
+        f.write("STATIC-FALLBACK")
+    asyncio.run(admin.llms_full_txt(db_path=tempfile.mktemp(suffix=".db"), out_path=sentinel))
+    assert open(sentinel, encoding="utf-8").read() == "STATIC-FALLBACK"
+    os.remove(sentinel)
+
+
 if __name__ == "__main__":
     import pytest
 
