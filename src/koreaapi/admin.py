@@ -878,6 +878,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./korea-rising.md">/korea-rising.md · digest</a>
  <a class="pill" href="./feed.xml">/feed.xml · RSS</a>
  <a class="pill" href="./integrity.json">/integrity.json · verify</a>
+ <a class="pill" href="./methodology.html">/methodology · how we verify</a>
+ <a class="pill" href="./for-agents.html">/for-agents · integrate</a>
  <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
 <div class="chips">
@@ -1786,6 +1788,64 @@ _KO_PEOPLE_HEAD = {  # vertical -> the Korean label for its people list
 }
 
 
+_KO_DEBUT = {  # vertical -> the Korean noun for its "first date", used particle-safely as "{n} 시기는…"
+    "film": "개봉", "drama": "방영", "show": "방영", "animation": "공개", "game": "출시",
+    "book": "출간", "classic": "편찬", "company": "설립", "medical": "설립", "university": "설립",
+    "brand": "설립", "fashion": "설립", "webtoon": "연재", "history": "시작", "place": "조성",
+}
+_KO_WHATIS = {
+    "food": "검증된 한국 음식", "history": "검증된 한국사(왕조·시대·사건)",
+    "heritage": "검증된 한국 문화유산·전통예술", "folklore": "검증된 한국 설화·신화",
+    "region": "검증된 대한민국 지역(국가 또는 1차 행정구역)",
+}
+
+
+def _entity_qa_ko(primary) -> list[tuple[str, str]]:
+    """Korean (question, answer) pairs from the verified record — rendered visibly AND as FAQPage
+    JSON-LD so a Korean answer engine (Naver, Korean ChatGPT/Perplexity) can lift a cited answer.
+    Phrased particle-safely (의 / 시기는 …) to read naturally for any name."""
+    qas: list[tuple[str, str]] = []
+    if not primary:
+        return qas
+    d = primary.data or {}
+    ko = primary.name.ko or primary.name.en_official or ""
+    asof = primary.snapshot_at.strftime("%Y-%m-%d")
+    src = "; ".join(primary.provenance.sources)
+    ns = _entity_kind(primary.entity_id)
+    if ns in _KO_WHATIS:
+        qas.append((f"{ko}은(는) 무엇인가요?",
+                    f"{ko}은(는) {_KO_WHATIS[ns]}입니다 (교차검증: {src}, {asof} 기준)."))
+    if d.get("debut") and ns in _KO_DEBUT:
+        label = _KO_DEBUT[ns]
+        qas.append((f"{ko}의 {label} 시기는 언제인가요?",
+                    f"{ko} — {label} {d['debut']} (검증: {src}, {asof} 기준)."))
+    members = d.get("members") or []
+    if members:
+        if ns in ("drama", "film", "show", "animation"):
+            qas.append((f"{ko}의 출연진은 누구인가요?", f"출연: {', '.join(members)} (검증: {src}, {asof} 기준)."))
+        elif ns == "webtoon":
+            qas.append((f"{ko}의 작가는 누구인가요?", f"{ko} 작가: {', '.join(members)} (검증: {src}, {asof} 기준)."))
+        elif ns in ("book", "classic"):
+            qas.append((f"{ko}의 저자는 누구인가요?", f"{ko} 저자: {', '.join(members)} (검증: {src}, {asof} 기준)."))
+        elif ns == "fashion":
+            qas.append((f"{ko}의 디자이너는 누구인가요?", f"{ko} 디자이너: {', '.join(members)} (검증: {src}, {asof} 기준)."))
+        else:
+            qas.append((f"{ko}의 멤버는 누구인가요?", f"{', '.join(members)} — {len(members)}명 (검증: {src}, {asof} 기준)."))
+    directors = d.get("directors") or []
+    if directors:
+        qas.append((f"{ko}의 감독은 누구인가요?", f"{ko} 감독: {', '.join(directors)} (검증: {src}, {asof} 기준)."))
+    agency = d.get("agency_en") or d.get("agency_ko")
+    if agency:
+        if ns in ("drama", "film", "show", "animation"):
+            qas.append((f"{ko}은(는) 어느 채널·플랫폼인가요?",
+                        f"{ko} — 채널·플랫폼: {agency} (검증: {src}, {asof} 기준)."))
+        elif ns == "artist":
+            qas.append((f"{ko}의 소속사는 어디인가요?", f"{ko} 소속사: {agency} (검증: {src}, {asof} 기준)."))
+        elif ns == "webtoon":
+            qas.append((f"{ko}은(는) 어느 플랫폼인가요?", f"{ko} — 플랫폼: {agency} (검증: {src}, {asof} 기준)."))
+    return qas
+
+
 def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None:
     """Korean-led answer page (/ko/artist/<slug>.html) for Naver / 국내 질의: Korean h1 + summary_ko +
     Korean headings/cite, hreflang-paired with the English page. Reuses the verified record and the
@@ -1799,8 +1859,12 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None
     content_hash = integrity.record_fingerprint(json.loads(primary.model_dump_json()))  # 검증용 행 식별자
     title = html.escape(f"{ko_raw or en_raw} ({en_raw})")
     desc = html.escape(f"{ko_raw or en_raw} ({en_raw}) — AI·검색엔진을 위한 교차검증 한국문화 프로필. {asof} 기준.")
-    jsonld = _escape_jsonld({"@context": "https://schema.org",
-                             "@graph": [{**_entity_node(primary), "inLanguage": "ko"}]})
+    qas_ko = _entity_qa_ko(primary)
+    graph_ko = [{**_entity_node(primary), "inLanguage": "ko"}] + ([_faqpage_node(qas_ko)] if qas_ko else [])
+    jsonld = _escape_jsonld({"@context": "https://schema.org", "@graph": graph_ko})
+    qa_block = ("<h2>자주 묻는 질문</h2>" + "".join(
+        f"<div class=qa><div class=q>{html.escape(q)}</div><div class=a>{html.escape(a)}</div></div>"
+        for q, a in qas_ko)) if qas_ko else ""
     n_agree = getattr(primary.provenance, "agreeing_sources", 0)
     verify_badge = (" · ✓✓✓ 3중 교차검증" if n_agree >= 3 else " · ✓✓ 교차검증" if n_agree >= 2 else "")
     cert = CERTIFIED.get(primary.entity_id)
@@ -1868,6 +1932,7 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None
 {ppl}
 {dirb}
 {sources_block}
+{qa_block}
 <div class=cite><b>이렇게 인용하세요:</b> {cite}<br><span class=rom>{ko_url}</span><br><span class=rom>SHA-256: {content_hash} · <a href="../../integrity.json">/integrity.json</a>에서 검증</span></div>
 <footer>출처(provenance): {src} · Skill Score {sc:.2f} · <a href="../../latest.json">/latest.json</a> &middot; <a href="../../llms.txt">/llms.txt</a></footer>
 </body></html>"""
@@ -2006,6 +2071,200 @@ def _write_person_html_ko(out_dir: str, name: str, credits: list[dict], *, colla
         f.write(doc)
 
 
+def _write_methodology(out_dir: str) -> None:
+    """The trust page (/methodology + /ko/methodology) — how KoreaAPI verifies, made legible. E-E-A-T
+    for answer engines AND the page an agent OPERATOR reads to decide they can trust + defend the data.
+    Reuses the hub writer (EN) + ko list writer (KO); both already emit hreflang on the same filename."""
+    en_body = (
+        "<h2>What “verified” means</h2><p>Every record is <b>cross-checked across independent sources</b> "
+        "— Wikidata, Wikipedia, MusicBrainz, OpenStreetMap, TMDB, and the Korea Tourism Organization (KTO) "
+        "— on its <b>bilingual name</b> (Korean + official English). Two or more sources agreeing clears the "
+        "single-source cap; three or more is “triple cross-verified”.</p>"
+        "<h2>Identity &amp; hallucination guards</h2><p>A strict bilingual identity check rejects a wrong "
+        "match: a mismatch fails to a <b>miss, never a wrong record</b>. For foreign-origin titles we prefer "
+        "the <b>official</b> Korean name (e.g. the drama <i>Vincenzo</i> → 빈센조, not a community "
+        "mistransliteration). We never generate Korean names with an LLM — they come from sources.</p>"
+        "<h2>Skill Score</h2><p>A transparent 0–1 score on every record. Single-source or disagreeing "
+        "sources are <b>capped at 0.70</b> (honest: uncorroborated); two agreeing sources rise toward 1.0; "
+        "three or more earn the triple-verified tier. The score + confidence are shown on every page and in "
+        "the data.</p>"
+        "<h2>Provenance</h2><p>Every record lists its <b>exact sources with timestamps</b>, and every page "
+        "carries a ready “Cite as” line, so an answer engine can quote KoreaAPI with attribution.</p>"
+        "<h2>Tamper-evident integrity</h2><p>Each record carries a SHA-256 <b>content hash</b>; the whole "
+        "dataset has a reproducible <b>dataset hash</b>; the append-only history is <b>hash-chained</b>; and "
+        "each build appends the chain head to a public, git-timestamped <b>attestation log</b>. Recompute it "
+        "yourself — see <a href=\"./integrity.json\">/integrity.json</a> and "
+        "<a href=\"./integrity-log.jsonl\">/integrity-log.jsonl</a>.</p>"
+        "<h2>Honesty about limits</h2><p>Single-source records are clearly flagged (≤0.70). The underlying "
+        "facts are derived from open sources; KoreaAPI’s added value is the verification, the Korean-official "
+        "naming, the bilingual normalization, the proprietary demand signal, and the integrity trail. Integrity "
+        "today is tamper-<i>evidence</i> (a public, committed head), not external notarization — a noted next step.</p>"
+        "<h2>For agents</h2><p>Call <code>get_verified</code> for the trust breakdown before citing; read each "
+        "record’s <code>content_hash</code> to cache and re-verify; respect the Skill Score. Wire it in via "
+        "<a href=\"./for-agents.html\">/for-agents</a>.</p>"
+    )
+    en_jsonld = _escape_jsonld({"@context": "https://schema.org", "@type": "TechArticle",
+                                "headline": "How KoreaAPI verifies Korean-culture data",
+                                "about": "data verification methodology, provenance, and integrity",
+                                "inLanguage": "en", "author": {"@type": "Organization", "name": "KoreaAPI"},
+                                "url": f"{_SITE_BASE}/methodology.html"})
+    _write_hub_html(out_dir, "methodology.html", "🛡️", "How KoreaAPI verifies",
+                    "The trust model — cross-verification, Skill Score, provenance, and tamper-evident integrity.",
+                    en_body, en_jsonld)
+    ko_body = (
+        "<h2>“검증됨”의 의미</h2><p>모든 항목은 <b>독립 출처</b>(Wikidata · Wikipedia · MusicBrainz · "
+        "OpenStreetMap · TMDB · 한국관광공사)로 <b>양국어 이름</b>(한국어 + 공식 영문)에 대해 교차검증됩니다. "
+        "두 곳 이상 일치하면 단일출처 상한을 넘고, 세 곳 이상이면 “3중 교차검증”입니다.</p>"
+        "<h2>신원·환각 가드</h2><p>엄격한 양국어 신원검증으로 잘못된 매칭을 거부합니다 — 불일치는 "
+        "<b>틀린 기록이 아니라 누락</b>으로 안전하게 처리됩니다. 외래어 제목은 <b>공식</b> 한글명을 우선합니다 "
+        "(예: 드라마 <i>Vincenzo</i> → 빈센조, 잘못된 음역 ‘빈첸초’ 아님). 한글명을 LLM이 생성하지 않습니다 — "
+        "반드시 출처에서 가져옵니다.</p>"
+        "<h2>Skill Score</h2><p>모든 기록에 붙는 투명한 0–1 점수. 단일출처·불일치는 <b>0.70으로 상한</b>"
+        "(정직하게: 미확증), 두 곳 일치 시 1.0까지, 세 곳 이상은 3중검증 등급입니다.</p>"
+        "<h2>출처(Provenance)</h2><p>모든 기록이 <b>정확한 출처와 시각</b>을 명시하고, 모든 페이지에 바로 쓸 수 있는 "
+        "“이렇게 인용하세요” 줄이 있습니다.</p>"
+        "<h2>변조 감지 무결성</h2><p>기록마다 SHA-256 <b>콘텐츠 해시</b>, 전체 데이터셋의 재계산 가능한 "
+        "<b>dataset 해시</b>, 누적 이력의 <b>해시 체인</b>, 빌드마다 git에 시각이 찍히는 <b>증명 로그</b>. "
+        "직접 재계산해 검증하세요 — <a href=\"../integrity.json\">/integrity.json</a>, "
+        "<a href=\"../integrity-log.jsonl\">/integrity-log.jsonl</a>.</p>"
+        "<h2>한계에 대한 정직함</h2><p>단일출처 기록은 명확히 표시(≤0.70)됩니다. 원 사실은 공개 출처에서 "
+        "파생되며, KoreaAPI의 부가가치는 검증·공식 한글명·양국어 정규화·자체 수요신호·무결성 이력입니다. "
+        "현재 무결성은 변조 <i>감지</i>(공개·커밋된 head)이며 외부 공증은 다음 단계입니다.</p>"
+        "<h2>에이전트를 위한 안내</h2><p>인용 전 <code>get_verified</code>로 신뢰도 확인, 각 기록의 "
+        "<code>content_hash</code>로 캐시·재검증, Skill Score 존중. 연동은 "
+        "<a href=\"./for-agents.html\">/for-agents</a> 참고.</p>"
+    )
+    ko_jsonld = _escape_jsonld({"@context": "https://schema.org", "@type": "TechArticle",
+                                "headline": "KoreaAPI 검증 방법", "inLanguage": "ko",
+                                "author": {"@type": "Organization", "name": "KoreaAPI"},
+                                "url": f"{_SITE_BASE}/ko/methodology.html"})
+    _write_ko_list_page(out_dir, "methodology.html", "KoreaAPI 검증 방법",
+                        "신뢰 모델 — 교차검증 · Skill Score · 출처 · 변조 감지 무결성.", ko_body, ko_jsonld)
+
+
+# The 8 MCP tools (mirrors server.py) — published in the agent manifest + the operator quickstart.
+_MCP_TOOLS = [
+    ("get_verified", "cross-verification status + Skill Score (check trust BEFORE citing)"),
+    ("get_artist_status", "latest verified status for a Korean artist"),
+    ("get_agency", "who is under a 소속사 / label"),
+    ("get_person", "verified credits for a person (director / actor / idol)"),
+    ("get_related", "entities sharing a 소속사 / network"),
+    ("get_kculture_calendar", "upcoming K-culture events"),
+    ("get_korea_rising", "what is rising in Korea now (premium signal)"),
+    ("get_buy_options", "where to buy a release / ticket / goods (logs buy-intent)"),
+]
+
+
+def _agents_manifest() -> dict:
+    """Machine-readable manifest an agent (or its operator) consumes to wire KoreaAPI in: how to
+    connect over MCP, the tools, the open data, the verification/integrity surface, and the x402 rail."""
+    return {
+        "name": "KoreaAPI",
+        "description": ("The verifiable data layer for Korean culture — callable by any AI agent (MCP), "
+                        "citable by any answer engine. Cross-verified, bilingual, Skill-scored, hash-verifiable."),
+        "homepage": f"{_SITE_BASE}/",
+        "repository": "https://github.com/kwangdol-star/koreaapi",
+        "languages": ["en", "ko"],
+        "mcp": {
+            "transport": "stdio",
+            "command": "python -m koreaapi.server",
+            "install": "pip install 'git+https://github.com/kwangdol-star/koreaapi'  (or clone + uv sync)",
+            "tools": [{"name": n, "description": d} for n, d in _MCP_TOOLS],
+        },
+        "data": {
+            "open_json": f"{_SITE_BASE}/latest.json",
+            "llms_txt": f"{_SITE_BASE}/llms.txt",
+            "llms_full_txt": f"{_SITE_BASE}/llms-full.txt",
+            "feed_rss": f"{_SITE_BASE}/feed.xml",
+            "feed_json": f"{_SITE_BASE}/feed.json",
+        },
+        "verification": {
+            "methodology": f"{_SITE_BASE}/methodology.html",
+            "integrity": f"{_SITE_BASE}/integrity.json",
+            "attestation_log": f"{_SITE_BASE}/integrity-log.jsonl",
+            "per_record": "content_hash (SHA-256) on every record in latest.json",
+        },
+        "premium": {
+            "protocol": "x402",
+            "endpoint": "/v1/korea-rising",
+            "asset": "USDC on Base",
+            "note": "agents pay per call autonomously; dormant until a receiving wallet is configured",
+        },
+        "cite_as": "Name — kind, as of <date> · source · Skill Score · via KoreaAPI",
+    }
+
+
+def _write_for_agents(out_dir: str) -> None:
+    """The operator quickstart (/for-agents) + the machine manifest (/agents.json). Built for the person
+    WIRING an agent: connect over MCP or plain JSON, with the trust story they can defend to their users."""
+    with open(os.path.join(out_dir, "agents.json"), "w", encoding="utf-8") as f:
+        json.dump(_agents_manifest(), f, ensure_ascii=False, indent=2)
+    tools = "".join(f"<li><code>{n}</code> — {html.escape(d)}</li>" for n, d in _MCP_TOOLS)
+    body = (
+        "<h2>Two ways to consume</h2><p>1) <b>MCP</b> — call KoreaAPI as tools from your agent. "
+        "2) <b>Plain HTTP/JSON</b> — fetch the open data directly, no setup.</p>"
+        "<h2>MCP quickstart</h2><p>Install from the repo, then run the stdio server and point your MCP "
+        "client at it:</p>"
+        "<pre>pip install \"git+https://github.com/kwangdol-star/koreaapi\"   # or: git clone … &amp;&amp; uv sync\n"
+        "python -m koreaapi.server   # stdio MCP server \"koreaapi\"</pre>"
+        f"<p>Tools:</p><ul>{tools}</ul>"
+        "<h2>No setup? Use the open data</h2><ul>"
+        "<li><a href=\"./latest.json\">/latest.json</a> — every verified record (provenance + Skill Score + content_hash)</li>"
+        "<li><a href=\"./llms-full.txt\">/llms-full.txt</a> — the full corpus, one citable block per entity</li>"
+        "<li><a href=\"./feed.xml\">/feed.xml</a> · <a href=\"./feed.json\">/feed.json</a> — recently verified</li>"
+        "<li><a href=\"./agents.json\">/agents.json</a> — machine-readable manifest of all of the above</li></ul>"
+        "<h2>Trust it — and defend it to your users</h2><p>Every record is cross-verified, Skill-scored, and "
+        "carries a SHA-256 content hash; the dataset + append-only history are hash-verifiable. See "
+        "<a href=\"./methodology.html\">/methodology</a> + <a href=\"./integrity.json\">/integrity.json</a>. "
+        "Cite a row as: &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</p>"
+        "<h2>Premium (x402)</h2><p>The proprietary demand signal (<code>/v1/korea-rising</code>) is payable "
+        "per call in USDC on Base via x402 — your agent can pay autonomously. Basic verified data stays free.</p>"
+        "<h2>Why not just scrape Wikipedia yourself?</h2><p>You'd get unverified text with no provenance, no "
+        "Skill Score, no tamper-evidence, and wrong Korean names (e.g. <i>Vincenzo</i> → 빈첸초 instead of the "
+        "official 빈센조). KoreaAPI gives you cross-verified, bilingual, official-named, citable rows your "
+        "users can trust — and your agent can verify.</p>"
+    )
+    jsonld = _escape_jsonld({"@context": "https://schema.org", "@type": "TechArticle",
+                             "headline": "Use KoreaAPI from your AI agent", "inLanguage": "en",
+                             "author": {"@type": "Organization", "name": "KoreaAPI"},
+                             "url": f"{_SITE_BASE}/for-agents.html"})
+    _write_hub_html(out_dir, "for-agents.html", "🤖", "Use KoreaAPI from your agent",
+                    "Wire the verifiable Korean-culture layer into any AI agent — MCP tools or plain JSON.",
+                    body, jsonld)
+    # Korean operator quickstart (/ko/for-agents.html) — pairs hreflang + serves Korean agent operators.
+    tools_ko = "".join(f"<li><code>{n}</code> — {html.escape(d)}</li>" for n, d in [
+        ("get_verified", "교차검증 상태 + Skill Score (인용 전 신뢰도 확인)"),
+        ("get_artist_status", "아티스트 최신 검증 상태"), ("get_agency", "소속사 소속 아티스트"),
+        ("get_person", "인물의 검증된 크레딧"), ("get_related", "같은 소속사·채널의 다른 엔티티"),
+        ("get_kculture_calendar", "다가오는 K-컬처 일정"), ("get_korea_rising", "지금 떠오르는 것(프리미엄 신호)"),
+        ("get_buy_options", "구매처(구매의도 로깅)")])
+    ko_body = (
+        "<h2>두 가지 사용법</h2><p>1) <b>MCP</b> — 에이전트에서 도구로 호출. 2) <b>일반 HTTP/JSON</b> — "
+        "공개 데이터를 바로 가져오기(설정 불필요).</p>"
+        "<h2>MCP 빠른 시작</h2><pre>pip install \"git+https://github.com/kwangdol-star/koreaapi\"\n"
+        "python -m koreaapi.server   # stdio MCP 서버 \"koreaapi\"</pre>"
+        f"<p>도구:</p><ul>{tools_ko}</ul>"
+        "<h2>설정 없이 — 공개 데이터</h2><ul>"
+        "<li><a href=\"../latest.json\">/latest.json</a> — 모든 검증 기록(출처 + Skill Score + content_hash)</li>"
+        "<li><a href=\"../llms-full.txt\">/llms-full.txt</a> — 전체 코퍼스(엔티티당 인용 블록)</li>"
+        "<li><a href=\"../feed.xml\">/feed.xml</a> · <a href=\"../agents.json\">/agents.json</a></li></ul>"
+        "<h2>신뢰 · 근거 제시</h2><p>모든 기록이 교차검증 · Skill Score · SHA-256 해시를 갖습니다. "
+        "<a href=\"./methodology.html\">/methodology</a> · <a href=\"../integrity.json\">/integrity.json</a>. "
+        "인용: &ldquo;이름 — 종류, 날짜 기준 · 출처 · Skill Score · via KoreaAPI&rdquo;.</p>"
+        "<h2>프리미엄 (x402)</h2><p><code>/v1/korea-rising</code> 신호는 Base USDC로 호출당 결제(x402). "
+        "기본 검증 데이터는 무료.</p>"
+        "<h2>왜 위키를 직접 긁지 않나</h2><p>검증·출처·해시가 없고 한글명 오류(공식 ‘빈센조’ 대신 ‘빈첸초’). "
+        "KoreaAPI는 교차검증·양국어·공식명·인용 가능한 행을 제공합니다.</p>"
+    )
+    ko_jsonld = _escape_jsonld({"@context": "https://schema.org", "@type": "TechArticle",
+                                "headline": "AI 에이전트에서 KoreaAPI 사용하기", "inLanguage": "ko",
+                                "author": {"@type": "Organization", "name": "KoreaAPI"},
+                                "url": f"{_SITE_BASE}/ko/for-agents.html"})
+    _write_ko_list_page(out_dir, "for-agents.html", "에이전트에서 KoreaAPI 사용하기",
+                        "검증 가능한 한국문화 레이어를 모든 AI 에이전트에 연동 — MCP 도구 또는 일반 JSON.",
+                        ko_body, ko_jsonld)
+
+
 async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dict:
     """Citable answer-pages — the AEO citation-surface multiplier — for BOTH entities and people.
 
@@ -2056,6 +2315,8 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
 
     # Korean landing (/ko/index.html) — the hreflang counterpart of the English home, links into /ko/.
     _write_ko_home(out_dir, len(written), sorted(ko_written, key=lambda x: x[1])[:60])
+    _write_methodology(out_dir)  # /methodology + /ko/methodology — the trust model (E-E-A-T)
+    _write_for_agents(out_dir)   # /for-agents (+ /ko) + /agents.json — the agent-operator surface
 
     # Person pages — the graph hubs. Dedup by slug (rare name->slug collisions: richest wins).
     # First index works -> the people credited on them, so each person can link their collaborators.
@@ -2171,6 +2432,8 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
     urls += [(f"{_SITE_BASE}/{fname}", "0.8") for _label, fname, _e, _c in _VERTICALS.values()]
     urls += [(f"{_SITE_BASE}/ko/{fname}", "0.7") for _label, fname, _e, _c in _VERTICALS.values()]
     urls += [(f"{_SITE_BASE}/people.html", "0.8"), (f"{_SITE_BASE}/ko/people.html", "0.7"),
+             (f"{_SITE_BASE}/methodology.html", "0.7"), (f"{_SITE_BASE}/ko/methodology.html", "0.6"),
+             (f"{_SITE_BASE}/for-agents.html", "0.7"),
              (f"{_SITE_BASE}/korea-rising.md", "0.8"), (f"{_SITE_BASE}/latest.json", "0.6")]
     by_entity = await _load_by_entity(db_path=db_path)
     seen: set[str] = set()

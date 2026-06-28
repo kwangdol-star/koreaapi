@@ -38,6 +38,7 @@ def test_korean_entity_page_and_hreflang(tmp_path):
     assert '<html lang="ko">' in ko
     assert "<h1>기생충" in ko and "검증된 사실" in ko and "이렇게 인용하세요" in ko
     assert "<b>장르:</b> Thriller" in ko                             # Genre -> 장르
+    assert "자주 묻는 질문" in ko and '"@type": "FAQPage"' in ko      # Korean FAQ + FAQPage markup
     assert 'hreflang="en"' in ko and "/artist/parasite.html" in ko
     # English page now declares its Korean alternate (the pairing search engines need)
     en = open(os.path.join(out, "artist", "parasite.html"), encoding="utf-8").read()
