@@ -452,6 +452,14 @@ _TITLES = {
     "fashion:juunj": "Juun.J",
     "fashion:liesangbong": "Lie Sang-bong",
     "fashion:kimseoryong": "Kimseoryong",
+    "festival:busaniff": "Busan International Film Festival",
+    "festival:jeonjuiff": "Jeonju International Film Festival",
+    "festival:bifan": "Bucheon International Fantastic Film Festival",
+    "festival:boryeongmud": "Boryeong Mud Festival",
+    "festival:gwangjubiennale": "Gwangju Biennale",
+    "festival:hwacheonice": "Hwacheon Sancheoneo Ice Festival",
+    "festival:lotuslantern": "Lotus Lantern Festival",
+    "festival:andongmask": "Andong Mask Dance Festival",
 }
 
 

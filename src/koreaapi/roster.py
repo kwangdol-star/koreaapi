@@ -727,10 +727,24 @@ FASHION = {
     "fashion:kimseoryong": "Kimseoryong",
 }
 
+# Festival vertical: Korean festivals & cultural events (축제) — tourist-relevant and cross-verifiable
+# (most carry Wikidata + Wikipedia). `festival:` -> location (P276) + inception (P571). Distinctive
+# names (low collision); discovery widens it via the festival / film-festival classes.
+FESTIVALS = {
+    "festival:busaniff": "Busan International Film Festival",
+    "festival:jeonjuiff": "Jeonju International Film Festival",
+    "festival:bifan": "Bucheon International Fantastic Film Festival",
+    "festival:boryeongmud": "Boryeong Mud Festival",
+    "festival:gwangjubiennale": "Gwangju Biennale",
+    "festival:hwacheonice": "Hwacheon Sancheoneo Ice Festival",
+    "festival:lotuslantern": "Lotus Lantern Festival",
+    "festival:andongmask": "Andong Mask Dance Festival",
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
-         **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION}
+         **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

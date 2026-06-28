@@ -256,6 +256,9 @@ _NS_PROPS = {
     "folklore": {"agency": None, "date": None, "members": None, "directors": None},
     # medical: hospital / institution — located-in P131 (region) + inception P571.
     "medical": {"agency": "P131", "date": "P571", "members": None, "directors": None},
+    # festival / cultural event (축제): location P276 (the host city/place) as the org edge, inception
+    # P571 (else point-in-time P585), no people edge.
+    "festival": {"agency": "P276", "date": "P571", "date2": "P585", "members": None, "directors": None},
     # region: country / administrative division — name-anchored (capital/population not modelled here).
     "region": {"agency": None, "date": None, "members": None, "directors": None},
     # game (Korean-developed video game): developer P178 as the studio edge, publication date P577.
@@ -700,6 +703,7 @@ _DISCOVER = {
     "game":    (["Q7889"], "P495", "Q884"),                            # video game, origin SK
     "animation": (["Q581714", "Q202866"], "P495", "Q884"),             # animated series/film, origin SK
     "university": (["Q3918", "Q189004"], "P17", "Q884"),               # university + college, country SK
+    "festival": (["Q132241", "Q220505"], "P17", "Q884"),               # festival + film festival, country SK
     # (history/heritage/folklore/region/show are seed-only: too heterogeneous / class-overlapping to
     #  discover cleanly — e.g. a variety "television program" class overlaps the drama vertical)
 }

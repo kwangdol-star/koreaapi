@@ -381,6 +381,17 @@ async def ingest_one(
                       + (f" 설립 {year}." if year else "")
                       + (f" 디자이너: {', '.join(designers)}." if designers else "")
                       + (f" 소유: {owner}." if owner else ""))
+    elif kind == "facts" and entity_id.startswith("festival:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        loc = chosen.get("agency_en") or chosen.get("agency_ko")  # host location (P276)
+        year = chosen.get("debut")
+        summary_en = (f"{disp}{ko_part} — verified Korean festival / cultural event."
+                      + (f" Held in {loc}." if loc else "")
+                      + (f" Since {year}." if year else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 축제 / 문화행사."
+                      + (f" 장소: {loc}." if loc else "")
+                      + (f" {year}년~." if year else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

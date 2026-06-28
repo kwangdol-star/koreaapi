@@ -1696,6 +1696,7 @@ _VERTICALS = {
     "university": ("Universities", "universities.html", _ICON["university"], "Region / location"),
     "classic": ("Classics & records", "classics.html", _ICON["classic"], "Author"),
     "fashion": ("Korean fashion", "fashion.html", _ICON["fashion"], "Designer / owner"),
+    "festival": ("Festivals", "festivals.html", _ICON["heritage"], "Location"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -2048,7 +2049,7 @@ _KO_VERTICAL = {  # ns -> Korean hub label
     "book": "한국 도서", "history": "한국사", "heritage": "문화유산·전통", "folklore": "설화·신화",
     "medical": "병원·의료", "region": "한국·지역", "game": "한국 게임", "show": "예능·방송",
     "animation": "애니메이션", "university": "대학교", "classic": "고전·기록", "fashion": "한국 패션",
-    "people": "인물",
+    "festival": "축제", "people": "인물",
 }
 
 
@@ -2651,12 +2652,13 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
         return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
 
     (arts, dramas, films, webtoons, places, foods, companies, brands, books, history, heritage,
-     folklore, medical, region, games, shows, animations, universities, classics, fashion) = (
+     folklore, medical, region, games, shows, animations, universities, classics, fashion, festivals) = (
         names("artist:"), names("drama:"), names("film:"), names("webtoon:"),
         names("place:"), names("food:"), names("company:"), names("brand:"),
         names("book:"), names("history:"), names("heritage:"), names("folklore:"),
         names("medical:"), names("region:"), names("game:"),
-        names("show:"), names("animation:"), names("university:"), names("classic:"), names("fashion:"))
+        names("show:"), names("animation:"), names("university:"), names("classic:"), names("fashion:"),
+        names("festival:"))
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
 
@@ -2666,7 +2668,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coverage = f"""
 ## Coverage (live, as of {today})
-- {len(facts)} verified entities across 19 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions, {len(games)} games, {len(shows)} variety shows, {len(animations)} animations, {len(universities)} universities, {len(classics)} classics, {len(fashion)} fashion brands.
+- {len(facts)} verified entities across 21 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions, {len(games)} games, {len(shows)} variety shows, {len(animations)} animations, {len(universities)} universities, {len(classics)} classics, {len(fashion)} fashion brands, {len(festivals)} festivals.
 - {len(linked)} verified people (directors + cross-work cast/creators), each a citable hub page linking their works.
 - K-pop artists: {sample(arts)}
 - K-dramas: {sample(dramas)}
@@ -2688,6 +2690,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Universities: {sample(universities)}
 - Classics & historical records: {sample(classics)}
 - Korean fashion brands: {sample(fashion)}
+- Festivals & cultural events: {sample(festivals)}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml
@@ -2715,7 +2718,7 @@ _CORPUS_VERTICALS = [
     ("history:", "Korean history"), ("heritage:", "Heritage & tradition"), ("folklore:", "Folklore & myth"),
     ("medical:", "Hospitals & medical"), ("region:", "Korea & regions"), ("game:", "Korean games"),
     ("show:", "Variety & TV shows"), ("animation:", "Animation"), ("university:", "Universities"),
-    ("classic:", "Classics & records"), ("fashion:", "Korean fashion"),
+    ("classic:", "Classics & records"), ("fashion:", "Korean fashion"), ("festival:", "Festivals"),
 ]
 
 
