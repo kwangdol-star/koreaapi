@@ -8,6 +8,7 @@ never break the loop. Overwrite = wrapper; append = asset.
 from __future__ import annotations
 
 import asyncio
+import re
 from collections import Counter
 from datetime import datetime, timezone
 
@@ -30,14 +31,40 @@ def _build_name(payload: dict) -> Name:
     )
 
 
+_EN_PAREN_SUFFIX = re.compile(r"\s*\([^)]*\)\s*$")  # 'Vincenzo (TV series)' -> 'Vincenzo'
+_STRUCTURED_KEYS = ("agency_en", "agency_ko", "agency_qids", "debut", "members", "directors", "attrs")
+
+
+def _en_norm(s: str | None) -> str:
+    """Normalize an English official name for matching: drop a trailing '(disambiguator)' so a
+    Wikipedia title ('Vincenzo (TV series)') still cross-verifies against the bare official title
+    ('Vincenzo') that Wikidata/TMDB carry — otherwise the suffix alone forces a false disagreement."""
+    return _EN_PAREN_SUFFIX.sub("", s or "").casefold().replace(" ", "")
+
+
 def _verify_key(payload: dict) -> str:
     """The canonical fields sources must agree on to count as cross-verified: the bilingual
-    NAME, case/space-normalized. Prose summaries are excluded, so two independent sources that
-    agree on *who this is* (e.g. Wikidata + Wikipedia) raise the Skill Score above the
-    single-source cap."""
+    NAME, case/space-normalized (English disambiguator suffix stripped). Prose summaries are
+    excluded, so two independent sources that agree on *who this is* (e.g. Wikipedia + TMDB)
+    raise the Skill Score above the single-source cap."""
     ko = (payload.get("name_ko") or "").casefold().replace(" ", "")
-    en = (payload.get("name_en_official") or "").casefold().replace(" ", "")
+    en = _en_norm(payload.get("name_en_official"))
     return f"{ko}|{en}"
+
+
+def _has_structured(payload: dict) -> bool:
+    """True if a payload carries structured facts (the Wikidata-shaped record: agency / date /
+    people / attrs) — so we build the verified record on it rather than on a name-only payload
+    (TMDB / Wikipedia / OSM), which would drop the network / cast / director / debut fields."""
+    return any(payload.get(k) for k in _STRUCTURED_KEYS)
+
+
+def _same_work(a: dict, b: dict) -> bool:
+    """Two payloads describe the same work when their English official names link — equal, or one is
+    a disambiguated form of the other ('Vincenzo' ⊂ 'Vincenzo (TV series)'). Used to carry the
+    canonical name + abstract across sources WITHOUT letting a drifted wrong-entity source contribute."""
+    x, y = _en_norm(a.get("name_en_official")), _en_norm(b.get("name_en_official"))
+    return bool(x and y) and (x == y or x in y or y in x)
 
 
 async def ingest_one(
@@ -55,6 +82,7 @@ async def ingest_one(
     payloads: list[dict] = []
     citations: list[str] = []
     used_fallback: list[bool] = []
+    srcnames: list[str] = []
     for src in sources:
         try:
             res = await src.fetch(entity_id, kind)
@@ -64,6 +92,7 @@ async def ingest_one(
         payloads.append(payload)
         citations.append(citation)
         used_fallback.append(bool(getattr(src, "is_fallback", False)))
+        srcnames.append(getattr(src, "name", "?"))  # for name-authority tie-break below
 
     if not payloads:
         return None  # nothing usable this cycle
@@ -72,17 +101,41 @@ async def ingest_one(
     # independent sources that agree on who this is count as agreement (raising Skill Score).
     keys = [_verify_key(p) for p in payloads]
     modal_key, n_agree = Counter(keys).most_common(1)[0]
-    chosen = payloads[keys.index(modal_key)]
 
-    # Merge SUPPLEMENTARY content that lives on another source into the chosen record: the chosen
-    # payload won the NAME vote (usually Wikidata) but the rich description (abstract) comes from
-    # Wikipedia. CRITICAL: only merge from payloads that AGREE on the name (same modal key) — a source
-    # that drifted to a wrong same-name entity must NOT leak its abstract/attrs into a verified record.
-    agreeing = [p for p, k in zip(payloads, keys) if k == modal_key]
+    # STRUCTURED BASE: build the verified record on the payload that carries structured facts (agency /
+    # date / people / attrs) — that's Wikidata. It MUST be the SAME WORK as the modal (name-vote) winner
+    # so a drifted wrong-entity source — even one carrying attrs — can never become the base. Copy it so
+    # the name override below can't mutate a source's shared payload.
+    modal_idx = keys.index(modal_key)  # a representative payload that won the name vote
+    work_idx = [i for i in range(len(payloads)) if _same_work(payloads[i], payloads[modal_idx])]
+    struct_idx = next((i for i in work_idx if _has_structured(payloads[i])), modal_idx)
+    chosen = dict(payloads[struct_idx])
+
+    # CANONICAL NAME: override the base's name with the most AUTHORITATIVE one. Wikidata's community ko
+    # label can be a wrong transliteration of a FOREIGN-origin title (Vincenzo: Wikidata '빈첸초' vs the
+    # official '빈센조'); the official original title (TMDB) and the Korean Wikipedia article title
+    # (langlink) are more authoritative. Only adopt a name from a payload that is the SAME WORK (shares
+    # the English name) so a drifted wrong-entity source can never rename a verified record.
+    name_cands = sorted(
+        (i for i in range(len(payloads)) if payloads[i].get("name_ko") and _same_work(payloads[i], chosen)),
+        key=lambda i: {"TMDB": 0, "Wikipedia": 1}.get(srcnames[i], 2),
+    )
+    if name_cands:
+        nm = payloads[name_cands[0]]
+        chosen["name_ko"] = nm.get("name_ko") or chosen.get("name_ko")
+        cand_en = nm.get("name_en_official")
+        if cand_en and "(" not in cand_en:  # adopt the cleaner display name (no '(disambiguator)')
+            chosen["name_en_official"] = cand_en
+
+    # Merge SUPPLEMENTARY content (the Wikipedia lead extract / per-vertical attrs) from payloads that
+    # are the SAME WORK by English name — looser than full ko|en agreement (so a legit '빈센조'/'빈첸초'
+    # label split doesn't strip the abstract) but still English-name-linked (so a drifted source can't
+    # leak content into a verified record).
+    same_work = [p for p in payloads if _same_work(p, chosen)]
     if not chosen.get("abstract_en"):
-        chosen["abstract_en"] = next((p.get("abstract_en") for p in agreeing if p.get("abstract_en")), None)
+        chosen["abstract_en"] = next((p.get("abstract_en") for p in same_work if p.get("abstract_en")), None)
     if not chosen.get("attrs"):  # per-vertical structured attrs live on the Wikidata payload
-        merged_attrs = next((p.get("attrs") for p in agreeing if p.get("attrs")), None)
+        merged_attrs = next((p.get("attrs") for p in same_work if p.get("attrs")), None)
         if merged_attrs:
             chosen["attrs"] = merged_attrs
 

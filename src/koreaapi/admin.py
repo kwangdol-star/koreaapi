@@ -788,7 +788,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  .pchip:hover{{border-color:var(--accent);color:var(--accent);text-decoration:none;transform:translateY(-1px)}}
  footer{{color:var(--dim);margin-top:24px;font-size:12px;line-height:1.7}}
 </style></head><body><div class="wrap">
-<div class="brand"><span class="dot"></span><h1>KoreaAPI</h1></div>
+<div class="brand"><span class="dot"></span><h1>KoreaAPI <span class="flag" aria-label="South Korea" role="img">🇰🇷</span></h1></div>
 <div class="tag">The verifiable data layer for Korean culture — callable by any AI agent (MCP), citable by any answer engine.</div>
 <div class="pills">
  <a class="pill" href="./artists.html">{_ICON['artist']} Artists</a>
@@ -1456,7 +1456,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 </script>
 {_ENTITY_STYLE}
 </head><body>
-<p class=back><a href="../index.html">← KoreaAPI · verifiable K-culture data</a></p>
+<p class=back><a href="../index.html">← KoreaAPI 🇰🇷 · verifiable K-culture data</a></p>
 <h1>{en} <span class=ko>{ko}</span></h1>
 <div class=rom>{rom}</div>
 <div class=sub>Verified Korean-culture entity · as of {asof} · cross-checked + Skill-scored · via KoreaAPI{cert_badge}{verify_badge}</div>
@@ -1523,7 +1523,7 @@ def _write_person_html(out_dir: str, name: str, credits: list[dict],
 </script>
 {_ENTITY_STYLE}
 </head><body>
-<p class=back><a href="../index.html">← KoreaAPI · verifiable K-culture data</a></p>
+<p class=back><a href="../index.html">← KoreaAPI 🇰🇷 · verifiable K-culture data</a></p>
 <h1>{nm}</h1>
 <div class=sub>Verified Korean-culture credits · {len(credits)} works · cross-checked · via KoreaAPI</div>
 <h2>Verified credits</h2><ul class=people>{items}</ul>
@@ -1623,7 +1623,7 @@ def _write_hub_html(out_dir: str, filename: str, icon: str, label: str, sub: str
 </script>
 {_HUB_STYLE}
 </head><body>
-<p class=back><a href="index.html">← KoreaAPI · verifiable K-culture data</a></p>
+<p class=back><a href="index.html">← KoreaAPI 🇰🇷 · verifiable K-culture data</a></p>
 <h1>{icon} {html.escape(label)}</h1>
 <div class=sub>{html.escape(sub)}</div>
 {body}
@@ -1681,7 +1681,7 @@ def _write_label_html(out_dir: str, name: str, items: list, jsonld: str) -> None
 </script>
 {_HUB_STYLE}
 </head><body>
-<p class=back><a href="../index.html">← KoreaAPI · verifiable K-culture data</a></p>
+<p class=back><a href="../index.html">← KoreaAPI 🇰🇷 · verifiable K-culture data</a></p>
 <h1>{_ICON['label']} {nm}</h1>
 <div class=sub>{len(items)} verified entities under this label / network · cross-checked · via KoreaAPI</div>
 <div class=pchips>{chips}</div>
