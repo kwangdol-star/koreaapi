@@ -22,6 +22,7 @@ CLI:
   python -m koreaapi.admin llms     # regenerate llms.txt (agent index) from the live store
   python -m koreaapi.admin llmsfull # regenerate llms-full.txt (full LLM-ingestible corpus)
   python -m koreaapi.admin feed     # regenerate feed.xml (RSS) + feed.json (JSON Feed)
+  python -m koreaapi.admin reconcile # regenerate reconcile.json (name/external-ID -> canonical entity)
   python -m koreaapi.admin entitypages  # write per-entity + per-person citable pages (site/)
   python -m koreaapi.admin sitemap  # write sitemap.xml (every entity + person page)
   python -m koreaapi.admin monitor  # write monitor.html (human data-quality cockpit)
@@ -880,6 +881,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./integrity.json">/integrity.json · verify</a>
  <a class="pill" href="./methodology.html">/methodology · how we verify</a>
  <a class="pill" href="./for-agents.html">/for-agents · integrate</a>
+ <a class="pill" href="./reconcile.json">/reconcile.json · resolve</a>
  <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
 <div class="chips">
@@ -2177,6 +2179,7 @@ def _agents_manifest() -> dict:
             "llms_full_txt": f"{_SITE_BASE}/llms-full.txt",
             "feed_rss": f"{_SITE_BASE}/feed.xml",
             "feed_json": f"{_SITE_BASE}/feed.json",
+            "reconcile": f"{_SITE_BASE}/reconcile.json",
         },
         "verification": {
             "methodology": f"{_SITE_BASE}/methodology.html",
@@ -2212,6 +2215,7 @@ def _write_for_agents(out_dir: str) -> None:
         "<li><a href=\"./latest.json\">/latest.json</a> — every verified record (provenance + Skill Score + content_hash)</li>"
         "<li><a href=\"./llms-full.txt\">/llms-full.txt</a> — the full corpus, one citable block per entity</li>"
         "<li><a href=\"./feed.xml\">/feed.xml</a> · <a href=\"./feed.json\">/feed.json</a> — recently verified</li>"
+        "<li><a href=\"./reconcile.json\">/reconcile.json</a> — resolve a name or external ID to the canonical entity (the ID spine)</li>"
         "<li><a href=\"./agents.json\">/agents.json</a> — machine-readable manifest of all of the above</li></ul>"
         "<h2>Trust it — and defend it to your users</h2><p>Every record is cross-verified, Skill-scored, and "
         "carries a SHA-256 content hash; the dataset + append-only history are hash-verifiable. See "
@@ -2247,7 +2251,7 @@ def _write_for_agents(out_dir: str) -> None:
         "<h2>설정 없이 — 공개 데이터</h2><ul>"
         "<li><a href=\"../latest.json\">/latest.json</a> — 모든 검증 기록(출처 + Skill Score + content_hash)</li>"
         "<li><a href=\"../llms-full.txt\">/llms-full.txt</a> — 전체 코퍼스(엔티티당 인용 블록)</li>"
-        "<li><a href=\"../feed.xml\">/feed.xml</a> · <a href=\"../agents.json\">/agents.json</a></li></ul>"
+        "<li><a href=\"../feed.xml\">/feed.xml</a> · <a href=\"../reconcile.json\">/reconcile.json</a> · <a href=\"../agents.json\">/agents.json</a></li></ul>"
         "<h2>신뢰 · 근거 제시</h2><p>모든 기록이 교차검증 · Skill Score · SHA-256 해시를 갖습니다. "
         "<a href=\"./methodology.html\">/methodology</a> · <a href=\"../integrity.json\">/integrity.json</a>. "
         "인용: &ldquo;이름 — 종류, 날짜 기준 · 출처 · Skill Score · via KoreaAPI&rdquo;.</p>"
@@ -2578,6 +2582,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
   {_SITE_BASE}/latest.json  — fetch it directly, no MCP setup.
 - Full LLM-ingestible corpus (every verified entity, one citable block each): {_SITE_BASE}/llms-full.txt
 - Integrity (tamper-evident): per-record content_hash + dataset_hash + append-only chain head — {_SITE_BASE}/integrity.json
+- Reconciliation (name / external-ID -> canonical entity, with sameAs): {_SITE_BASE}/reconcile.json
 - Agent (MCP) + crawlable digest: /llms.txt · /llms-full.txt · /korea-rising.md · /sitemap.xml
 """
     with open(out_path, "w", encoding="utf-8") as f:
@@ -2732,6 +2737,71 @@ async def feed_json(db_path: str | None = None, out_path: str = "feed.json", lim
     }
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(feed, f, ensure_ascii=False, indent=2)
+    return out_path
+
+
+_RE_WD = re.compile(r"Wikidata (Q\d+)")
+_RE_TMDB = re.compile(r"TMDB (\d+)")
+_RE_MB = re.compile(r"MusicBrainz ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
+_RE_WP = re.compile(r"Wikipedia (.+?) \d{4}-\d{2}-\d{2}")
+
+
+def _external_ids(sources: list[str]) -> dict:
+    """Best-effort external IDs parsed from the provenance citations — the cross-source ID spine."""
+    ids: dict[str, str] = {}
+    for s in sources:
+        for key, rx in (("wikidata", _RE_WD), ("tmdb", _RE_TMDB),
+                        ("musicbrainz", _RE_MB), ("wikipedia", _RE_WP)):
+            if key not in ids:
+                m = rx.search(s)
+                if m:
+                    ids[key] = m.group(1)
+    return ids
+
+
+async def reconcile_json(db_path: str | None = None, out_path: str = "reconcile.json") -> str:
+    """Generate /reconcile.json — the RECONCILIATION index that makes KoreaAPI the ID spine for Korean
+    culture: resolve a fuzzy NAME or an EXTERNAL ID to THE canonical KoreaAPI entity, with its bilingual
+    name, every external ID + sameAs, the Skill Score + content_hash, and its page. An agent fetches it
+    once and resolves entities locally (a static reconciliation service today; a live endpoint on deploy).
+    Empty store -> the committed static file is left untouched."""
+    by_entity = await _load_by_entity(db_path)
+    facts = {eid: bk["facts"] for eid, bk in by_entity.items() if "facts" in bk}
+    if not facts:
+        return out_path
+    entities = []
+    by_wikidata: dict[str, str] = {}
+    for eid, r in sorted(facts.items()):
+        ids = _external_ids(r.provenance.sources)
+        aliases = sorted({a.casefold().replace(" ", "")
+                          for a in (r.name.ko, r.name.en_official, r.name.romanized) if a})
+        entities.append({
+            "id": eid,
+            "kind": _entity_kind(eid),
+            "ko": r.name.ko,
+            "en": r.name.en_official,
+            "romanized": r.name.romanized,
+            "aliases": aliases,                                    # match on these (casefolded, spaceless)
+            "skill": round(r.provenance.skill_score, 2),
+            "content_hash": integrity.record_fingerprint(json.loads(r.model_dump_json())),
+            "url": f"{_SITE_BASE}/artist/{_slug(eid)}.html",
+            "ids": ids,                                            # external IDs (wikidata/tmdb/…)
+            "sameAs": _source_urls(r.provenance.sources),          # cross-source authority links
+        })
+        if ids.get("wikidata"):
+            by_wikidata[ids["wikidata"]] = eid
+    doc = {
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "description": ("Reconciliation index for Korean culture: resolve a name or external ID to the "
+                        "canonical KoreaAPI entity (bilingual name, every external ID + sameAs, Skill "
+                        "Score, content_hash). Match on `aliases` (casefolded, spaceless), or look up "
+                        "`by_wikidata` to map a Wikidata Q-id to our entity."),
+        "count": len(entities),
+        "by_wikidata": by_wikidata,
+        "entities": entities,
+    }
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
     return out_path
 
 
@@ -2985,6 +3055,8 @@ def _main(argv: list[str]) -> int:
         print("wrote", asyncio.run(llms_full_txt()))
     elif cmd == "feed":
         print("wrote", asyncio.run(feed_xml()), "+", asyncio.run(feed_json()))
+    elif cmd == "reconcile":
+        print("wrote", asyncio.run(reconcile_json()))
     elif cmd == "monitor":
         print("wrote", asyncio.run(monitor_html()))
     elif cmd == "pull":
