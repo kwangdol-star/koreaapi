@@ -27,6 +27,7 @@ EXPECTED_TOOLS = {
     "get_person",
     "get_related",
     "get_verified",
+    "get_resolve",
     "get_buy_options",
 }
 

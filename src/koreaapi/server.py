@@ -69,6 +69,15 @@ async def get_verified(entity_id: str) -> dict:
 
 
 @mcp.tool
+async def get_resolve(query: str) -> dict:
+    """Resolve a fuzzy Korean-culture NAME, an external ID (e.g. a Wikidata Q-id), or a canonical
+    entity_id to THE verified KoreaAPI entity — with its bilingual name, cross-verification status +
+    Skill Score, content hash, and every external ID. The reconciliation / ID-spine tool: map whatever
+    you hold onto a trusted entity before citing. query e.g. '빈센조', 'Vincenzo', 'Q16741113'."""
+    return await service.resolve(query)
+
+
+@mcp.tool
 async def get_buy_options(item: str) -> dict:
     """Where to buy a release/ticket/goods (Phase 1: commerce rail pending; logs buy-intent)."""
     return await service.buy_options(item)

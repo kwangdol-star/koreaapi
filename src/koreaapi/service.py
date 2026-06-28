@@ -11,7 +11,12 @@ reconstruct. Logging is best-effort and never breaks a read.
 
 from __future__ import annotations
 
+import json
+import re
+
+from . import integrity
 from .pipeline import store
+from .reconcile import external_ids
 from .roster import CERTIFIED
 
 _CALENDAR_KINDS = ("comeback", "release", "concert")
@@ -290,6 +295,65 @@ async def verified(entity_id: str, *, db_path: str | None = None) -> dict:
                  else "cross-verified — ≥2 independent sources agreed" if n >= 2
                  else "single-source / uncorroborated — Skill Score capped at 0.7"),
     }
+
+
+def _resolved(entity_id: str, rec, matched_by: str) -> dict:
+    """Shape a resolved entity for the `resolve` tool — canonical id + verification + external IDs."""
+    p = rec.provenance
+    n = getattr(p, "agreeing_sources", 0)
+    return {
+        "found": True,
+        "matched_by": matched_by,
+        "id": entity_id,
+        "kind": entity_id.split(":", 1)[0],
+        "name": {"ko": rec.name.ko, "en_official": rec.name.en_official, "romanized": rec.name.romanized},
+        "skill_score": p.skill_score,
+        "confidence": p.confidence,
+        "agreeing_sources": n,
+        "cross_verified": n >= 2,
+        "triple_verified": n >= 3,
+        "content_hash": integrity.record_fingerprint(json.loads(rec.model_dump_json())),
+        "ids": external_ids(p.sources),
+        "sources": p.sources,
+        "as_of": rec.snapshot_at.date().isoformat(),
+        "citation": _citation(rec),
+    }
+
+
+async def resolve(query: str, *, db_path: str | None = None) -> dict:
+    """Resolve a fuzzy NAME, an EXTERNAL ID (e.g. a Wikidata Q-id), or a canonical entity_id to THE
+    verified KoreaAPI entity — the reconciliation / ID-spine tool. Returns the canonical id, bilingual
+    name, cross-verification status + Skill Score, content_hash, and every parsed external ID, so an
+    agent can map whatever it holds onto a trusted entity BEFORE it cites. `query` e.g. '빈센조',
+    'Vincenzo', 'Q16741113', or 'drama:vincenzo'."""
+    await _log("query", f"resolve:{query}", db_path)
+    q = (query or "").strip()
+    if not q:
+        return {"query": query, "found": False, "note": "empty query"}
+    qn = _norm_name(q)
+    is_qid = bool(re.fullmatch(r"[Qq]\d+", q))
+    if ":" in q:  # canonical entity_id fast path
+        rec = await store.latest(q, "facts", db_path=db_path)
+        if rec is not None:
+            return {"query": query, **_resolved(q, rec, "entity_id")}
+    fuzzy: tuple[str, object] | None = None
+    for e in await store.entities(db_path=db_path):
+        if e["kind"] != "facts":
+            continue
+        rec = await store.latest(e["entity_id"], "facts", db_path=db_path)
+        if rec is None:
+            continue
+        if is_qid and external_ids(rec.provenance.sources).get("wikidata", "").lower() == q.lower():
+            return {"query": query, **_resolved(e["entity_id"], rec, "wikidata")}
+        names = {_norm_name(rec.name.ko), _norm_name(rec.name.en_official), _norm_name(rec.name.romanized)}
+        names.discard("")
+        if qn in names:
+            return {"query": query, **_resolved(e["entity_id"], rec, "name")}
+        if fuzzy is None and qn and any(qn in nm or nm in qn for nm in names):
+            fuzzy = (e["entity_id"], rec)
+    if fuzzy is not None:
+        return {"query": query, **_resolved(fuzzy[0], fuzzy[1], "name~")}
+    return {"query": query, "found": False, "note": "no verified entity matches this name/ID yet"}
 
 
 async def buy_options(item: str, *, db_path: str | None = None) -> dict:

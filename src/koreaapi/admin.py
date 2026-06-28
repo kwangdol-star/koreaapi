@@ -43,6 +43,7 @@ from datetime import datetime, timezone
 from . import integrity
 from .models import Record
 from .pipeline import store
+from .reconcile import external_ids
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS, CERTIFIED, NAMES
@@ -890,7 +891,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <span class="chip"><b>Hallucination-guarded</b></span>
  <span class="chip"><b>Bilingual</b> · KO / EN / romanized</span>
 </div>
-<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 8 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_verified</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;. <b>Integrity:</b> every record carries a SHA-256 content hash; the full dataset + append-only history are hash-verifiable — see <a href="./integrity.json">/integrity.json</a>.</div>
+<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 9 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_verified</code>, <code>get_resolve</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;. <b>Integrity:</b> every record carries a SHA-256 content hash; the full dataset + append-only history are hash-verifiable — see <a href="./integrity.json">/integrity.json</a>.</div>
 <div class="cards">{cards_html}</div>
 {sections}
 <footer>Generated {generated} · KoreaAPI Phase 1 (cold-start) · verifiable Korean-culture data for AI agents · <a href="./latest.json">/latest.json</a> · <a href="./llms.txt">/llms.txt</a> · <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
@@ -2164,6 +2165,7 @@ def _write_methodology(out_dir: str) -> None:
 # The 8 MCP tools (mirrors server.py) — published in the agent manifest + the operator quickstart.
 _MCP_TOOLS = [
     ("get_verified", "cross-verification status + Skill Score (check trust BEFORE citing)"),
+    ("get_resolve", "resolve a fuzzy name / external ID / canonical id -> the verified entity (+ external IDs)"),
     ("get_artist_status", "latest verified status for a Korean artist"),
     ("get_agency", "who is under a 소속사 / label"),
     ("get_person", "verified credits for a person (director / actor / idol)"),
@@ -2757,25 +2759,6 @@ async def feed_json(db_path: str | None = None, out_path: str = "feed.json", lim
     return out_path
 
 
-_RE_WD = re.compile(r"Wikidata (Q\d+)")
-_RE_TMDB = re.compile(r"TMDB (\d+)")
-_RE_MB = re.compile(r"MusicBrainz ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
-_RE_WP = re.compile(r"Wikipedia (.+?) \d{4}-\d{2}-\d{2}")
-
-
-def _external_ids(sources: list[str]) -> dict:
-    """Best-effort external IDs parsed from the provenance citations — the cross-source ID spine."""
-    ids: dict[str, str] = {}
-    for s in sources:
-        for key, rx in (("wikidata", _RE_WD), ("tmdb", _RE_TMDB),
-                        ("musicbrainz", _RE_MB), ("wikipedia", _RE_WP)):
-            if key not in ids:
-                m = rx.search(s)
-                if m:
-                    ids[key] = m.group(1)
-    return ids
-
-
 async def reconcile_json(db_path: str | None = None, out_path: str = "reconcile.json") -> str:
     """Generate /reconcile.json — the RECONCILIATION index that makes KoreaAPI the ID spine for Korean
     culture: resolve a fuzzy NAME or an EXTERNAL ID to THE canonical KoreaAPI entity, with its bilingual
@@ -2789,7 +2772,7 @@ async def reconcile_json(db_path: str | None = None, out_path: str = "reconcile.
     entities = []
     by_wikidata: dict[str, str] = {}
     for eid, r in sorted(facts.items()):
-        ids = _external_ids(r.provenance.sources)
+        ids = external_ids(r.provenance.sources)
         aliases = sorted({a.casefold().replace(" ", "")
                           for a in (r.name.ko, r.name.en_official, r.name.romanized) if a})
         entities.append({
