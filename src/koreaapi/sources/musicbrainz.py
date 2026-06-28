@@ -18,7 +18,7 @@ import urllib.parse
 from datetime import datetime, timezone
 
 from ..roster import NAMES
-from .wikidata import _http_get_json, _norm
+from .wikidata import _http_get_json, _name_match, _norm
 
 MB_API = "https://musicbrainz.org/ws/2/artist"
 _UA = {
@@ -29,7 +29,7 @@ _UA = {
 def _ko_alias(hit: dict) -> str | None:
     """The Korean-locale alias of a MusicBrainz artist hit, if any (e.g. BTS -> 방탄소년단)."""
     for a in hit.get("aliases") or []:
-        if (a.get("locale") or "").startswith("ko") and a.get("name"):
+        if isinstance(a, dict) and (a.get("locale") or "").startswith("ko") and a.get("name"):
             return a["name"]
     return None
 
@@ -37,7 +37,7 @@ def _ko_alias(hit: dict) -> str | None:
 def _name_set(hit: dict) -> set[str]:
     """Every normalized name MusicBrainz knows for a hit (name + sort-name + all aliases)."""
     names = {hit.get("name"), hit.get("sort-name")}
-    names.update(a.get("name") for a in hit.get("aliases") or [])
+    names.update(a.get("name") for a in hit.get("aliases") or [] if isinstance(a, dict))
     return {_norm(n) for n in names if n}
 
 
@@ -52,8 +52,7 @@ def parse_mb_artist(raw: dict, expected_en: str) -> dict:
     if not hits:
         raise ValueError("no MusicBrainz artist in response")
     want = _norm(expected_en)
-    matches = [h for h in hits if want and (want in _name_set(h)
-               or any(want in n or n in want for n in _name_set(h) if n))]
+    matches = [h for h in hits if isinstance(h, dict) and _name_match(want, _name_set(h))]
     if not matches:
         raise ValueError(f"MusicBrainz identity mismatch: no hit matches {expected_en!r}")
     # prefer a Korean act, then MusicBrainz's own relevance order

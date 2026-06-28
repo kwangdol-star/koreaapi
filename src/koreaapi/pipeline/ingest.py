@@ -74,13 +74,15 @@ async def ingest_one(
     modal_key, n_agree = Counter(keys).most_common(1)[0]
     chosen = payloads[keys.index(modal_key)]
 
-    # Merge SUPPLEMENTARY content that lives on a non-chosen source into the chosen record: the
-    # chosen payload is the one that won the NAME vote (usually Wikidata), but the rich description
-    # (abstract) comes from Wikipedia. Pull it across so the verified record carries real substance.
+    # Merge SUPPLEMENTARY content that lives on another source into the chosen record: the chosen
+    # payload won the NAME vote (usually Wikidata) but the rich description (abstract) comes from
+    # Wikipedia. CRITICAL: only merge from payloads that AGREE on the name (same modal key) — a source
+    # that drifted to a wrong same-name entity must NOT leak its abstract/attrs into a verified record.
+    agreeing = [p for p, k in zip(payloads, keys) if k == modal_key]
     if not chosen.get("abstract_en"):
-        chosen["abstract_en"] = next((p.get("abstract_en") for p in payloads if p.get("abstract_en")), None)
+        chosen["abstract_en"] = next((p.get("abstract_en") for p in agreeing if p.get("abstract_en")), None)
     if not chosen.get("attrs"):  # per-vertical structured attrs live on the Wikidata payload
-        merged_attrs = next((p.get("attrs") for p in payloads if p.get("attrs")), None)
+        merged_attrs = next((p.get("attrs") for p in agreeing if p.get("attrs")), None)
         if merged_attrs:
             chosen["attrs"] = merged_attrs
 
@@ -332,7 +334,10 @@ async def ingest_one(
             + (f" 멤버 {len(members)}명." if members else "")
         )
     # Drop the now-redundant prose from the stored payload (it duplicates summary_* + names above).
-    data = {k: v for k, v in chosen.items() if k not in ("summary_en", "summary_ko")}
+    # Drop redundant prose + transient per-source IDs (mbid/osm_id/tmdb_id are already in the citation;
+    # only Wikidata pops its own *_qids, so strip the 3rd-source IDs here when a non-Wikidata payload won).
+    data = {k: v for k, v in chosen.items()
+            if k not in ("summary_en", "summary_ko", "mbid", "osm_id", "tmdb_id")}
 
     record = Record(
         entity_id=entity_id,

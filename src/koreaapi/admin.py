@@ -152,8 +152,9 @@ async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
     """
     recs = await store.recent(2000, db_path=db_path)
     have = {r.entity_id for r in recs}
-    have_qids = {
-        m2.group(0) for r in recs for s in r.provenance.sources if (m2 := re.search(r"\bQ\d+\b", s))
+    have_qids = {  # mine Q-ids ONLY from Wikidata citations — a 'Q123' in a Wikipedia/YouTube title
+        m2.group(0) for r in recs for s in r.provenance.sources    # would falsely dedup a real candidate
+        if "wikidata" in s.lower() and (m2 := re.search(r"\bQ\d+\b", s))
     }
     agencies = _agency_qids_from_store(recs)
     candidates: list[dict] = []
@@ -198,8 +199,9 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
     verticals = verticals or list(_DISCOVER)
     recs = await store.recent(20000, db_path=db_path)
     have = {r.entity_id for r in recs}
-    have_qids = {
-        m.group(0) for r in recs for s in r.provenance.sources if (m := re.search(r"\bQ\d+\b", s))
+    have_qids = {  # mine Q-ids ONLY from Wikidata citations — a 'Q123' in a Wikipedia/YouTube title
+        m.group(0) for r in recs for s in r.provenance.sources     # would falsely dedup a real candidate
+        if "wikidata" in s.lower() and (m := re.search(r"\bQ\d+\b", s))
     }
     out: dict[str, dict] = {}
     for v in verticals:
@@ -349,8 +351,8 @@ def _entity_node(r) -> dict:
         region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
         if region:  # citable "where is X?"
             node["containedInPlace"] = {"@type": "Place", "name": region}
-        geo = r.data.get("geo")
-        if geo:  # P625 -> map + schema.org GeoCoordinates
+        geo = r.data.get("geo") or {}
+        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
             node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
         return node
     if r.entity_id.startswith("food:"):
@@ -422,8 +424,8 @@ def _entity_node(r) -> dict:
                                "addressCountry": "KR"}
         if r.data.get("debut"):  # founded -> citable "when was X founded?"
             node["foundingDate"] = r.data["debut"]
-        geo = r.data.get("geo")
-        if geo:  # P625 -> map + schema.org GeoCoordinates
+        geo = r.data.get("geo") or {}
+        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
             node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
         return node
     if r.entity_id.startswith("region:"):
@@ -491,8 +493,8 @@ def _entity_node(r) -> dict:
                                "addressCountry": "KR"}
         if r.data.get("debut"):  # founded -> citable "when was X founded?"
             node["foundingDate"] = r.data["debut"]
-        geo = r.data.get("geo")
-        if geo:  # P625 -> map + schema.org GeoCoordinates
+        geo = r.data.get("geo") or {}
+        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
             node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
         return node
     if r.entity_id.startswith(("drama:", "film:")):
@@ -1212,7 +1214,7 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
             qas.append((f"What agency (소속사) is {name} under?",
                         f"{name} is under {ag} (verified via {src}, as of {asof})."))
     geo = d.get("geo") or {}
-    if geo.get("lat") is not None:  # verified coordinates (P625)
+    if geo.get("lat") is not None and geo.get("lon") is not None:  # verified coordinates (P625)
         qas.append((f"What are the coordinates of {name}?",
                     f"{name} is located at {geo['lat']}, {geo['lon']} (verified via {src}, as of {asof})."))
     if d.get("spice_level"):  # editorial spice rating (clearly attributed)
@@ -1314,10 +1316,13 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     # Coordinates (verified P625) -> a real map link + the citable lat/lon. Numbers, so URL is safe.
     geo = primary.data.get("geo") or {}
     geo_block = ""
-    if geo.get("lat") is not None:
-        lat, lon = geo["lat"], geo["lon"]
-        maps = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
-        geo_block = (f'<h2>Location</h2><p>{lat}, {lon} · '
+    try:  # coerce to float (defense-in-depth: data dict is unvalidated / re-loadable from a file)
+        glat, glon = float(geo["lat"]), float(geo["lon"])
+    except (KeyError, TypeError, ValueError):
+        glat = glon = None
+    if glat is not None:
+        maps = f"https://www.google.com/maps/search/?api=1&query={glat},{glon}"
+        geo_block = (f'<h2>Location</h2><p>{glat}, {glon} · '
                      f'<a href="{maps}" rel="nofollow noopener" target="_blank">View on map →</a></p>')
     # Spice level (editorial, clearly labeled — Wikidata has no spiciness property; the NAME is verified).
     spice = primary.data.get("spice_level")

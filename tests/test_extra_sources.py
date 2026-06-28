@@ -12,6 +12,17 @@ import pytest
 
 from koreaapi.sources.nominatim import NominatimSource, parse_nominatim
 from koreaapi.sources.tmdb import TMDBSource, parse_tmdb
+from koreaapi.sources.wikidata import _name_match
+
+
+def test_name_match_rejects_loose_substrings():
+    # QA regression: the bilingual-guard-less sources use _name_match — exact, or long-contain only.
+    assert _name_match("hanriver", {"hanriver"})                 # exact
+    assert _name_match("gyeongbokgung", {"gyeongbokgungpalace"})  # expected ⊂ candidate (long) OK
+    assert not _name_match("han", {"hanriver"})    # candidate ⊃ expected but expected too short -> NO
+    assert not _name_match("iu", {"iusportsclub"})  # short want, not exact -> NO (was the loose bug)
+    assert _name_match("iu", {"iu"})               # exact short still OK
+    assert not _name_match("", {"anything"})        # empty expected -> never matches
 
 
 def test_nominatim_parses_bilingual_place():

@@ -18,7 +18,7 @@ import urllib.parse
 from datetime import datetime, timezone
 
 from ..roster import NAMES
-from .wikidata import _http_get_json, _norm
+from .wikidata import _http_get_json, _name_match, _norm
 
 TMDB_API = "https://api.themoviedb.org/3/search/multi"
 _UA = {"User-Agent": "KoreaAPI/0.1 (https://github.com/kwangdol-star/koreaapi)"}
@@ -35,8 +35,7 @@ def parse_tmdb(raw: dict, expected_en: str) -> dict:
     (original_language='ko') hit matching the expected title; raises if none match (miss, never wrong)."""
     results = raw.get("results") or []
     want = _norm(expected_en)
-    matches = [r for r in results
-               if want and any(want in n or n in want for n in _hit_names(r) if n)]
+    matches = [r for r in results if isinstance(r, dict) and _name_match(want, _hit_names(r))]
     if not matches:
         raise ValueError(f"TMDB identity mismatch: no title matches {expected_en!r}")
     # prefer a Korean-origin title, then TMDB's own relevance order

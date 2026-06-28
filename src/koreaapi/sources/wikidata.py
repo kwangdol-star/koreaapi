@@ -395,6 +395,19 @@ def _norm(s: str | None) -> str:
     return (s or "").casefold().replace(" ", "")
 
 
+def _name_match(want: str, names: set[str]) -> bool:
+    """Identity match for the sources WITHOUT the curated bilingual guard (MusicBrainz/OSM/TMDB):
+    EXACT normalized equality to one of the candidate's names, OR — only when the expected name is
+    long enough — a candidate name that CONTAINS it (e.g. 'Gyeongbokgung' vs 'Gyeongbokgung Palace').
+    The reverse direction (a candidate name being a substring of `want`) is intentionally rejected:
+    it let a short/junk name ('Han' for 'Han River', a 1-char alias) match almost anything."""
+    if not want:
+        return False
+    if want in names:
+        return True
+    return len(want) >= 4 and any(want in n for n in names if len(n) >= len(want))
+
+
 def _verify_identity(payload: dict, expected: dict) -> None:
     """Reject a fetched record whose label contradicts the entity's known identity.
 

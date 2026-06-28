@@ -12,6 +12,9 @@ on:
     branches: [main]
   schedule:
     - cron: "37 1 * * *" # daily, after the collect job
+  workflow_run: # rebuild right after collect finishes, so the site reflects the freshly-accumulated DB
+    workflows: ["collect"]
+    types: [completed]
 
 permissions:
   contents: read

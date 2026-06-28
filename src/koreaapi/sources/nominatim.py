@@ -14,7 +14,7 @@ import urllib.parse
 from datetime import datetime, timezone
 
 from ..roster import NAMES
-from .wikidata import _http_get_json, _norm
+from .wikidata import _http_get_json, _name_match, _norm
 
 NOMINATIM_API = "https://nominatim.openstreetmap.org/search"
 _UA = {
@@ -23,7 +23,8 @@ _UA = {
 
 
 def _hit_names(r: dict) -> set[str]:
-    nd = r.get("namedetails") or {}
+    nd = r.get("namedetails")
+    nd = nd if isinstance(nd, dict) else {}
     raw = {nd.get("name"), nd.get("name:en"), nd.get("name:ko"),
            (r.get("display_name") or "").split(",")[0]}
     return {_norm(n) for n in raw if n}
@@ -33,8 +34,7 @@ def parse_nominatim(results: list, expected_en: str) -> dict:
     """Pure: an OSM Nominatim search response -> our payload shape, identity-guarded. Picks the hit
     whose name (ko/en/display) matches the expected name; raises if none do (miss, never wrong)."""
     want = _norm(expected_en)
-    matches = [r for r in (results or [])
-               if want and any(want in n or n in want for n in _hit_names(r) if n)]
+    matches = [r for r in (results or []) if isinstance(r, dict) and _name_match(want, _hit_names(r))]
     if not matches:
         raise ValueError(f"Nominatim identity mismatch: no Korean place matches {expected_en!r}")
     hit = matches[0]
