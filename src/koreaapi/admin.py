@@ -45,7 +45,7 @@ from . import integrity
 from .models import Record
 from .payments.stripe import PLANS as _PRICING_PLANS
 from .pipeline import store
-from .reconcile import external_ids
+from .reconcile import external_ids, name_keys
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS, CERTIFIED, NAMES
@@ -2862,8 +2862,7 @@ async def reconcile_json(db_path: str | None = None, out_path: str = "reconcile.
     by_wikidata: dict[str, str] = {}
     for eid, r in sorted(facts.items()):
         ids = external_ids(r.provenance.sources)
-        aliases = sorted({a.casefold().replace(" ", "")
-                          for a in (r.name.ko, r.name.en_official, r.name.romanized) if a})
+        aliases = sorted(name_keys(r.name.ko, r.name.en_official, r.name.romanized))
         entities.append({
             "id": eid,
             "kind": _entity_kind(eid),

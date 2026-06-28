@@ -47,6 +47,19 @@ def test_reconcile_resolves_name_and_external_id(tmp_path):
     assert doc["by_wikidata"]["Q13580495"] == "artist:bts"          # reverse: Wikidata Q-id -> our entity
 
 
+def test_name_keys_strips_disambiguator():
+    from koreaapi import reconcile
+    k = reconcile.name_keys("Vincenzo (TV series)", "빈센조", None)
+    assert "vincenzo" in k and "vincenzo(tvseries)" in k and "빈센조" in k
+
+
+def test_match_score_ranks_overlap():
+    from koreaapi import reconcile
+    assert reconcile.match_score("vincenzo", {"vincenzo"}) == 100        # exact
+    assert 0 < reconcile.match_score("vince", {"vincenzo"}) < 100        # partial
+    assert reconcile.match_score("zzz", {"vincenzo"}) == 0               # no overlap
+
+
 def test_reconcile_empty_store_keeps_static_file():
     sentinel = tempfile.mktemp(suffix=".json")
     with open(sentinel, "w", encoding="utf-8") as f:

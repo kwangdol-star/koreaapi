@@ -50,6 +50,24 @@ def test_resolve_by_canonical_id():
     assert out["found"] and out["matched_by"] == "entity_id"
 
 
+def test_resolve_disambiguator_insensitive():
+    # a stored title with a '(TV series)' suffix still resolves EXACTLY from the bare name
+    db = tempfile.mktemp(suffix=".db")
+    p = {"name_ko": "오징어 게임", "name_en_official": "Squid Game (TV series)", "name_en_source": "official"}
+    asyncio.run(ingest_one("facts", "drama:squidgame", [
+        _Src("Wikidata", "Wikidata Q31188630 2026-06-28 11:00 UTC", p),
+        _Src("Wikipedia", "Wikipedia Squid Game 2026-06-28 11:00 UTC", p)], db_path=db))
+    out = asyncio.run(service.resolve("Squid Game", db_path=db))
+    assert out["found"] and out["matched_by"] == "name" and out["id"] == "drama:squidgame"
+
+
+def test_resolve_fuzzy_returns_ranked_candidates():
+    out = asyncio.run(service.resolve("Vince", db_path=_seed()))   # partial of 'Vincenzo'
+    assert out["found"] and out["matched_by"] == "fuzzy"
+    assert out["id"] == "drama:vincenzo"
+    assert out["candidates"] and out["candidates"][0]["id"] == "drama:vincenzo"
+
+
 def test_resolve_miss_returns_not_found():
     out = asyncio.run(service.resolve("nonexistent xyz", db_path=_seed()))
     assert out["found"] is False

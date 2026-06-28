@@ -16,7 +16,7 @@ import re
 
 from . import integrity
 from .pipeline import store
-from .reconcile import external_ids
+from .reconcile import external_ids, match_score, name_keys
 from .roster import CERTIFIED
 
 _CALENDAR_KINDS = ("comeback", "release", "concert")
@@ -336,7 +336,7 @@ async def resolve(query: str, *, db_path: str | None = None) -> dict:
         rec = await store.latest(q, "facts", db_path=db_path)
         if rec is not None:
             return {"query": query, **_resolved(q, rec, "entity_id")}
-    fuzzy: tuple[str, object] | None = None
+    candidates: list[tuple[int, float, str, object]] = []  # (fuzzy score, skill, entity_id, rec)
     for e in await store.entities(db_path=db_path):
         if e["kind"] != "facts":
             continue
@@ -345,14 +345,22 @@ async def resolve(query: str, *, db_path: str | None = None) -> dict:
             continue
         if is_qid and external_ids(rec.provenance.sources).get("wikidata", "").lower() == q.lower():
             return {"query": query, **_resolved(e["entity_id"], rec, "wikidata")}
-        names = {_norm_name(rec.name.ko), _norm_name(rec.name.en_official), _norm_name(rec.name.romanized)}
-        names.discard("")
-        if qn in names:
+        keys = name_keys(rec.name.ko, rec.name.en_official, rec.name.romanized)
+        if qn in keys:  # exact (disambiguator-insensitive: 'Vincenzo (TV series)' == 'Vincenzo')
             return {"query": query, **_resolved(e["entity_id"], rec, "name")}
-        if fuzzy is None and qn and any(qn in nm or nm in qn for nm in names):
-            fuzzy = (e["entity_id"], rec)
-    if fuzzy is not None:
-        return {"query": query, **_resolved(fuzzy[0], fuzzy[1], "name~")}
+        sc = match_score(qn, keys)
+        if sc:
+            candidates.append((sc, rec.provenance.skill_score, e["entity_id"], rec))
+    if candidates:
+        candidates.sort(key=lambda c: (c[0], c[1]), reverse=True)
+        _, _, eid, rec = candidates[0]
+        out = {"query": query, **_resolved(eid, rec, "fuzzy")}
+        out["candidates"] = [  # ranked alternates so the agent can disambiguate a fuzzy hit
+            {"id": c[2], "name": {"ko": c[3].name.ko, "en_official": c[3].name.en_official},
+             "skill_score": c[1], "match": c[0]}
+            for c in candidates[:5]
+        ]
+        return out
     return {"query": query, "found": False, "note": "no verified entity matches this name/ID yet"}
 
 
