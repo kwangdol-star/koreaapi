@@ -323,6 +323,18 @@ PLACES = {
     "place:hwaseong": "Hwaseong Fortress",
     "place:hahoe": "Hahoe Folk Village",
     "place:jagalchi": "Jagalchi Market",
+    # KTO-data-lab pass: famous, coordinate-bearing landmarks that genuinely CROSS-VERIFY
+    # (Wikidata + Wikipedia + OSM, plus the KTO badge once TOURAPI_KEY is set). Surfaced by the
+    # 관광공사 destination list + 을지로 guide; the hyperlocal restaurants/cafés/travel-articles there
+    # are single-source editorial (off-model) and deliberately NOT imported.
+    "place:sungnyemun": "Sungnyemun",                 # 남대문 · National Treasure No. 1
+    "place:namdaemunmarket": "Namdaemun Market",      # 남대문시장
+    "place:cheomseongdae": "Cheomseongdae",           # 첨성대 · Gyeongju observatory
+    "place:donggungwolji": "Donggung and Wolji",      # 동궁과 월지 (안압지)
+    "place:gwangalli": "Gwangalli Beach",             # 광안리해수욕장
+    "place:sewoonsangga": "Sewoon Sangga",            # 세운상가 · 김수근 landmark (을지로)
+    "place:euljiro": "Euljiro",                       # 을지로 · the district itself
+    "place:hwaseonghaenggung": "Hwaseong Haenggung",  # 화성행궁 (the palace, distinct from the fortress)
 }
 
 # Food vertical: Korean dishes/cuisine (Wikidata-verifiable). `food:` is cross-verified by NAME only
