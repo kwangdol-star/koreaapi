@@ -15,7 +15,7 @@ import tempfile
 from datetime import datetime, timezone
 
 from koreaapi import admin, service
-from koreaapi.admin import _wikidata_url, seed
+from koreaapi.admin import _source_urls, seed
 from koreaapi.models import Name, Provenance, Record
 from koreaapi.pipeline import store
 
@@ -28,12 +28,15 @@ def _seeded_db() -> str:
     return path
 
 
-def test_wikidata_url_extracted_from_citation():
-    assert (
-        _wikidata_url(["Wikidata Q13580495 2026-06-02 00:00 UTC"])
-        == "https://www.wikidata.org/entity/Q13580495"
-    )
-    assert _wikidata_url(["Circle Chart 2026-06-01 KST"]) is None
+def test_source_urls_extracted_from_citations():
+    # multi-source sameAs: Wikidata + Wikipedia + MusicBrainz URLs reconstructed from the citations
+    urls = _source_urls(["Wikidata Q13580495 2026-06-02 00:00 UTC",
+                         "Wikipedia BTS 2026-06-02 00:00 UTC",
+                         "MusicBrainz ac865b2e-bba8-4f5a-8756-dd40d5e39f46 2026-06-02 00:00 UTC"])
+    assert urls == ["https://www.wikidata.org/entity/Q13580495",
+                    "https://en.wikipedia.org/wiki/BTS",
+                    "https://musicbrainz.org/artist/ac865b2e-bba8-4f5a-8756-dd40d5e39f46"]
+    assert _source_urls(["Circle Chart 2026-06-01 KST"]) == []  # no reconstructable source -> empty
 
 
 def test_report_emits_jsonld_structured_data(tmp_path):

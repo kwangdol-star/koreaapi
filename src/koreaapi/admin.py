@@ -310,14 +310,27 @@ async def stats(db_path: str | None = None) -> dict:
     }
 
 
-def _wikidata_url(sources: list[str]) -> str | None:
-    """Pull a Wikidata entity URL out of a provenance citation like 'Wikidata Q13580495 ...'."""
+def _source_urls(sources: list[str]) -> list[str]:
+    """Every verifying source's canonical URL, parsed from the provenance citations — Wikidata,
+    Wikipedia, and MusicBrainz (the IDs that reconstruct cleanly). Emitted as Schema.org sameAs so
+    each entity is a CROSS-SOURCE authority hub (reconciling multiple independent databases IS the
+    value — vs a single-source echo). Deduped, order-preserved. OSM/TMDB omitted (their citation id
+    lacks the element-type/media-type needed for a canonical URL)."""
+    out: list[str] = []
     for s in sources:
-        if "wikidata" in s.lower():
-            m = re.search(r"\bQ\d+\b", s)
-            if m:
-                return f"https://www.wikidata.org/entity/{m.group(0)}"
-    return None
+        sl = s.lower()
+        url = None
+        if "wikidata" in sl and (m := re.search(r"\bQ\d+\b", s)):
+            url = f"https://www.wikidata.org/entity/{m.group(0)}"
+        elif sl.startswith("wikipedia ") and (title := re.sub(
+                r"\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$", "", s[len("Wikipedia "):]).strip()):
+            url = "https://en.wikipedia.org/wiki/" + title.replace(" ", "_")
+        elif "musicbrainz" in sl and (m := re.search(
+                r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", s)):
+            url = f"https://musicbrainz.org/artist/{m.group(0)}"
+        if url and url not in out:
+            out.append(url)
+    return out
 
 
 def _entity_node(r) -> dict:
@@ -325,7 +338,7 @@ def _entity_node(r) -> dict:
     TVSeries, otherwise an artist -> MusicGroup (carrying the verified 소속사 edge)."""
     name = r.name.en_official or r.name.ko
     alt = [x for x in (r.name.ko, r.name.romanized) if x]
-    wd = _wikidata_url(r.provenance.sources)
+    wd = _source_urls(r.provenance.sources)  # list of all verifying-source URLs -> Schema.org sameAs
     # Schema.org description: prefer the rich Wikipedia-sourced abstract (real substance an answer
     # engine can lift) over our terse facts line; fall back to the facts line when there's no abstract.
     desc = r.data.get("abstract_en") or r.summary_en
