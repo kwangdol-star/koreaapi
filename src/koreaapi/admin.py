@@ -312,9 +312,12 @@ def _entity_node(r) -> dict:
     name = r.name.en_official or r.name.ko
     alt = [x for x in (r.name.ko, r.name.romanized) if x]
     wd = _wikidata_url(r.provenance.sources)
+    # Schema.org description: prefer the rich Wikipedia-sourced abstract (real substance an answer
+    # engine can lift) over our terse facts line; fall back to the facts line when there's no abstract.
+    desc = r.data.get("abstract_en") or r.summary_en
     if r.entity_id.startswith("webtoon:"):
         node = {"@type": "ComicSeries", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         if r.data.get("debut"):  # publication date -> citable "when did X start?"
@@ -328,7 +331,7 @@ def _entity_node(r) -> dict:
         return node
     if r.entity_id.startswith("place:"):
         node = {"@type": "TouristAttraction", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
@@ -338,13 +341,13 @@ def _entity_node(r) -> dict:
     if r.entity_id.startswith("food:"):
         # a Korean dish: verified bilingual name + Wikidata sameAs is the asset (no agency/people edge)
         node = {"@type": "Thing", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         return node
     if r.entity_id.startswith("company:"):
         node = {"@type": "Organization", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         if r.data.get("debut"):  # founded -> citable "when was X founded?"
@@ -352,7 +355,7 @@ def _entity_node(r) -> dict:
         return node
     if r.entity_id.startswith("brand:"):
         node = {"@type": "Brand", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         owner = r.data.get("agency_en") or r.data.get("agency_ko")  # owned-by P127 (parent group)
@@ -361,7 +364,7 @@ def _entity_node(r) -> dict:
         return node
     if r.entity_id.startswith("book:"):
         node = {"@type": "Book", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         if r.data.get("debut"):
@@ -377,25 +380,25 @@ def _entity_node(r) -> dict:
         # a dynasty/period/event: verified bilingual name + sameAs + start date (no schema.org period
         # type fits cleanly, so Thing — still carries name/description/sameAs for AEO citation)
         node = {"@type": "Thing", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         return node
     if r.entity_id.startswith("heritage:"):
         node = {"@type": "CreativeWork", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         return node
     if r.entity_id.startswith("folklore:"):
         node = {"@type": "Thing", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         return node
     if r.entity_id.startswith("medical:"):
         node = {"@type": "Hospital", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
@@ -411,7 +414,7 @@ def _entity_node(r) -> dict:
         # as additionalProperty — citable, machine-readable. (Volatile stats stay off-model.)
         is_country = r.entity_id == "region:southkorea"
         node = {"@type": "Country" if is_country else "AdministrativeArea", "name": name,
-                "alternateName": alt, "description": r.summary_en,
+                "alternateName": alt, "description": desc,
                 "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
@@ -428,7 +431,7 @@ def _entity_node(r) -> dict:
         return node
     if r.entity_id.startswith("game:"):
         node = {"@type": "VideoGame", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         if r.data.get("debut"):  # release date -> citable "when did X come out?"
@@ -439,7 +442,7 @@ def _entity_node(r) -> dict:
         return node
     if r.entity_id.startswith("show:"):
         node = {"@type": "TVSeries", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         if r.data.get("debut"):  # first-aired -> citable "when did X start?"
@@ -450,7 +453,7 @@ def _entity_node(r) -> dict:
         return node
     if r.entity_id.startswith("animation:"):
         node = {"@type": "TVSeries", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         if r.data.get("debut"):  # release date -> citable "when did X come out?"
@@ -461,7 +464,7 @@ def _entity_node(r) -> dict:
         return node
     if r.entity_id.startswith("university:"):
         node = {"@type": "CollegeOrUniversity", "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
@@ -474,7 +477,7 @@ def _entity_node(r) -> dict:
     if r.entity_id.startswith(("drama:", "film:")):
         node = {"@type": "Movie" if r.entity_id.startswith("film:") else "TVSeries",
                 "name": name, "alternateName": alt,
-                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
         if r.data.get("debut"):  # air/release date -> citable "when did X come out?"
@@ -490,7 +493,7 @@ def _entity_node(r) -> dict:
         "@type": "MusicGroup",
         "name": name,
         "alternateName": alt,
-        "description": r.summary_en,
+        "description": desc,
         "dateModified": r.snapshot_at.isoformat(),
     }
     if wd:
@@ -1232,6 +1235,12 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
                        f"{'; '.join(primary.provenance.sources)} · Skill {sc:.2f} · via KoreaAPI")
     current_block = f"<h2>Current state (as of {asof})</h2><ul>{current}</ul>" if current else ""
     qa_block = f"<h2>Q&amp;A — what agents ask</h2>{qa_html}" if qa_html else ""
+    # The substance: a real description (what the entity IS), Wikipedia-sourced + attributed. This is
+    # what makes a VERIFIED record worth USING — the page leads with it, above our terse facts line.
+    abstract = primary.data.get("abstract_en") or ""
+    about_block = (f"<h2>About</h2><p>{html.escape(abstract)}</p>"
+                   "<p class=rom>Description via Wikipedia (lead extract) · name cross-verified "
+                   "Wikidata + Wikipedia.</p>") if abstract else ""
 
     # The verified people + hub edges, rendered as an internal-link GRAPH (cross-links to person /
     # entity pages) — the connective tissue answer engines and crawlers traverse.
@@ -1275,6 +1284,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 <div class=rom>{rom}</div>
 <div class=sub>Verified Korean-culture entity · as of {asof} · cross-checked + Skill-scored · via KoreaAPI</div>
 {current_block}
+{about_block}
 <h2>Verified facts</h2><p>{html.escape(primary.summary_en)}</p>
 {people_block}
 {dir_block}

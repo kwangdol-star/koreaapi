@@ -335,6 +335,14 @@ BRANDS = {
     "brand:innisfree": "Innisfree",        # bilingual in _CURATED (vs the Yeats poem / place)
     "brand:naturerepublic": "Nature Republic",  # bilingual in _CURATED (generic phrase)
     "brand:thefaceshop": "The Face Shop",  # bilingual in _CURATED (generic phrase)
+    # "Korea gone global" — Korean F&B brands/franchises that expanded overseas (the foreigner-facing
+    # angle): bakeries, fried chicken, frozen/instant exports. Owned-by P127 -> the parent group.
+    "brand:parisbaguette": "Paris Baguette",
+    "brand:touslesjours": "Tous les Jours",
+    "brand:genesisbbq": "Genesis BBQ",
+    "brand:bibigo": "Bibigo",
+    "brand:shinramyun": "Shin Ramyun",
+    "brand:buldakramen": "Buldak-bokkeum-myeon",
 }
 
 # Book vertical: Korean literature (Wikidata-verifiable). `book:` maps to publisher (P123) +

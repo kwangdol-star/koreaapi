@@ -213,6 +213,12 @@ _TITLES = {
     "brand:innisfree": "Innisfree",
     "brand:naturerepublic": "Nature Republic",
     "brand:thefaceshop": "The Face Shop",
+    "brand:parisbaguette": "Paris Baguette",
+    "brand:touslesjours": "Tous les Jours",
+    "brand:genesisbbq": "Genesis BBQ",
+    "brand:bibigo": "Bibigo",
+    "brand:shinramyun": "Shin Ramyun",
+    "brand:buldakramen": "Buldak-bokkeum-myeon",
     "book:kimjiyoung": "Kim Ji-young, Born 1982",
     "book:ihavetheright": "I Have the Right to Destroy Myself",
     "book:thehenwhodreamed": "The Hen Who Dreamed She Could Fly",
@@ -330,8 +336,23 @@ _TITLES = {
 }
 
 
+def _clean_extract(text: str | None, *, cap: int = 600) -> str | None:
+    """Pure: tidy a MediaWiki plain-text extract — collapse whitespace, drop a trailing partial
+    sentence if capped. None/blank -> None (the abstract is supplementary; a missing one is fine)."""
+    if not text:
+        return None
+    t = " ".join(text.split()).strip()
+    if not t:
+        return None
+    if len(t) > cap:
+        t = t[:cap].rsplit(". ", 1)[0].rstrip() or t[:cap].rstrip()
+        if not t.endswith("."):
+            t += " …"
+    return t
+
+
 def parse_page(raw: dict, entity_id: str, kind: str) -> dict:
-    """Pure: turn a MediaWiki `query` response (title + ko langlink) into our payload shape."""
+    """Pure: turn a MediaWiki `query` response (title + ko langlink + lead extract) into our payload."""
     pages = raw.get("query", {}).get("pages", [])
     if not pages:
         raise ValueError("no page in Wikipedia response")
@@ -352,6 +373,10 @@ def parse_page(raw: dict, entity_id: str, kind: str) -> dict:
         "name_romanized": None,
         "name_en_source": "official" if en else "llm",
         "name_en_confidence": "high" if en else "low",
+        # the lead-paragraph description — real substance (what the entity IS), attributed to Wikipedia.
+        # Supplementary: it does NOT enter name cross-verification (that's still ko+en), so it can't
+        # change the Skill Score; it just makes the verified record worth USING.
+        "abstract_en": _clean_extract(page.get("extract")),
         "summary_en": f"{en or ko} - {kind} (Wikipedia).",
         "summary_ko": f"{ko or en} - {kind} (위키백과).",
     }
@@ -373,9 +398,12 @@ class WikipediaSource:
             {
                 "action": "query",
                 "titles": title,
-                "prop": "langlinks",
+                "prop": "langlinks|extracts",  # +extracts: the lead-paragraph description (substance)
                 "lllang": "ko",
                 "lllimit": "1",
+                "exintro": "1",        # only the article's intro section
+                "explaintext": "1",    # plain text, not HTML
+                "exsentences": "4",    # ~4 sentences — substantive but tidy
                 "redirects": "1",
                 "format": "json",
                 "formatversion": "2",

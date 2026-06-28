@@ -73,6 +73,12 @@ async def ingest_one(
     modal_key, n_agree = Counter(keys).most_common(1)[0]
     chosen = payloads[keys.index(modal_key)]
 
+    # Merge SUPPLEMENTARY content that lives on a non-chosen source into the chosen record: the
+    # chosen payload is the one that won the NAME vote (usually Wikidata), but the rich description
+    # (abstract) comes from Wikipedia. Pull it across so the verified record carries real substance.
+    if not chosen.get("abstract_en"):
+        chosen["abstract_en"] = next((p.get("abstract_en") for p in payloads if p.get("abstract_en")), None)
+
     if not chosen.get("name_romanized") and chosen.get("name_ko"):
         rom = await asyncio.to_thread(romanize, chosen["name_ko"])  # cheap LLM; best-effort
         if rom:
