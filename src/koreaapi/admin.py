@@ -307,6 +307,17 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
                    "joined. Recompute from latest.json to verify."),
         "note": "Tamper-evidence via a published, git-committed head — not external notarization (a future step).",
     }
+    # External anchoring (modest + honest): append the head to a PUBLIC, append-only log that is
+    # git-committed each build, so GitHub timestamps every head. Altering a past head means rewriting
+    # public git history. (Cryptographic notarization, e.g. OpenTimestamps, is an optional further step.)
+    attestation = {"generated": manifest["generated"], "entities": len(latest_list),
+                   "snapshots": n_chain, "dataset_hash": dh, "chain_head": head}
+    with open(os.path.join(out_dir, "integrity-log.jsonl"), "a", encoding="utf-8") as f:
+        f.write(json.dumps(attestation, ensure_ascii=False) + "\n")
+    manifest["log"] = f"{_SITE_BASE}/integrity-log.jsonl"
+    manifest["anchor"] = ("each build appends this head to a public, append-only, git-committed log "
+                          "(GitHub-timestamped); altering a past head requires rewriting public git "
+                          "history. External notarization (e.g. OpenTimestamps) is an optional next step.")
     with open(os.path.join(out_dir, "integrity.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
     return {"appended": len(recs), "entities": len(latest_list),

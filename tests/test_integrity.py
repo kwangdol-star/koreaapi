@@ -76,6 +76,12 @@ def test_export_writes_manifest_and_reproducible_dataset_hash(tmp_path):
     assert integrity.dataset_hash(latest) == man["dataset_hash"] == res["dataset_hash"]
     # each record's published content_hash matches a fresh recomputation
     assert all(r["content_hash"] == integrity.record_fingerprint(r) for r in latest)
+    # external anchoring: the head is appended to a public, append-only, git-committed log
+    assert man["log"].endswith("/integrity-log.jsonl") and man["anchor"]
+    log_lines = open(os.path.join(out, "integrity-log.jsonl"), encoding="utf-8").read().strip().splitlines()
+    assert len(log_lines) == 1 and json.loads(log_lines[0])["chain_head"] == man["chain_head"]
+    asyncio.run(admin.export(db_path=db, out_dir=out))  # a 2nd build APPENDS another attestation
+    assert len(open(os.path.join(out, "integrity-log.jsonl"), encoding="utf-8").read().strip().splitlines()) == 2
 
 
 if __name__ == "__main__":
