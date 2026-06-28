@@ -656,6 +656,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
                         f"<div class=pchips>{lchips}</div>")
 
     n_total = sum(len(g) for g in groups.values())  # all verified entities across verticals
+    triple = sum(1 for r in recs if getattr(r.provenance, "agreeing_sources", 0) >= 3)  # 3+ sources agreed
     # one catalogue section per vertical (data-driven from _VERTICALS — adding a vertical needs no
     # edit here); the per-vertical count rides in each section header.
     sections = "".join(
@@ -670,6 +671,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
         _card(n_total, "verified entities")
         + "".join(_card(len(groups[ns]), label) for ns, (label, *_r) in _VERTICALS.items())
         + _card(len(ppl), "verified people")
+        + _card(triple, "triple cross-verified")
         + _card(s.get("avg_skill_score", "-"), "avg Skill Score")
         + _card(s.get("fresh_entities", "-"), "fresh")
     )
@@ -773,12 +775,12 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
 <div class="chips">
- <span class="chip"><b>Cross-verified</b> · Wikidata + Wikipedia agree</span>
+ <span class="chip"><b>Cross-verified</b> · up to 3 independent sources agree</span>
  <span class="chip"><b>Provenance</b> + <b>Skill Score</b> on every record</span>
  <span class="chip"><b>Hallucination-guarded</b></span>
  <span class="chip"><b>Bilingual</b> · KO / EN / romanized</span>
 </div>
-<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata + Wikipedia), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 7 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
+<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 7 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
 <div class="cards">{cards_html}</div>
 {sections}
 <footer>Generated {generated} · KoreaAPI Phase 1 (cold-start) · verifiable Korean-culture data for AI agents · <a href="./latest.json">/latest.json</a> · <a href="./llms.txt">/llms.txt</a> · <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
@@ -1801,8 +1803,10 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
 - get_buy_options(item): where to buy + availability + affiliate link (Phase 1: rail pending).
 
 ## Verification (why cite us)
-- Cross-verified: a fact clears the single-source cap only when ≥2 independent sources (e.g.
-  Wikidata + Wikipedia) agree on the canonical bilingual name — so a high Skill Score means concurrence.
+- Cross-verified: a fact clears the single-source cap only when ≥2 independent sources agree on the
+  canonical bilingual name — drawn from SEPARATE databases (Wikidata · Wikipedia · MusicBrainz for
+  artists · OpenStreetMap for places · TMDB for drama/film/animation), so a high Skill Score means
+  genuine concurrence. ≥3 agreeing = "triple cross-verified".
 - Identity- and hallucination-guarded: contradictory labels are rejected (incl. a strict Korean-name
   check so a same-English-name impostor can't slip in), and LLM-extracted data must appear verbatim
   in its source or it is dropped (never ship rumor or invention as fact).
