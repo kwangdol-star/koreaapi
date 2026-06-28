@@ -21,6 +21,7 @@ CLI:
   python -m koreaapi.admin digest   # write data/korea-rising.md (shareable verified digest)
   python -m koreaapi.admin llms     # regenerate llms.txt (agent index) from the live store
   python -m koreaapi.admin llmsfull # regenerate llms-full.txt (full LLM-ingestible corpus)
+  python -m koreaapi.admin feed     # regenerate feed.xml (RSS) + feed.json (JSON Feed)
   python -m koreaapi.admin entitypages  # write per-entity + per-person citable pages (site/)
   python -m koreaapi.admin sitemap  # write sitemap.xml (every entity + person page)
   python -m koreaapi.admin monitor  # write monitor.html (human data-quality cockpit)
@@ -729,6 +730,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 <meta name="robots" content="index,follow">
 <meta name="google-site-verification" content="rlCsGCeBa_AkOV4prHXu-OBEHu1HYcOwmJcpGPyWXFk">
 <link rel="canonical" href="{_SITE_BASE}/">
+<link rel="alternate" type="application/rss+xml" title="KoreaAPI — recently verified" href="./feed.xml">
+<link rel="alternate" type="application/feed+json" title="KoreaAPI — recently verified" href="./feed.json">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="KoreaAPI">
 <meta property="og:title" content="KoreaAPI — verifiable Korean-culture data for AI agents">
@@ -817,6 +820,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
  <a class="pill" href="./llms-full.txt">/llms-full.txt · full corpus</a>
  <a class="pill" href="./korea-rising.md">/korea-rising.md · digest</a>
+ <a class="pill" href="./feed.xml">/feed.xml · RSS</a>
  <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
 <div class="chips">
@@ -2064,6 +2068,81 @@ async def llms_full_txt(db_path: str | None = None, out_path: str = "llms-full.t
     return out_path
 
 
+def _rfc822(dt) -> str:
+    """RSS pubDate (RFC 822). snapshot_at is tz-aware UTC, so the offset is always +0000."""
+    return dt.strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+
+async def _recent_facts(db_path: str | None, limit: int = 50) -> list[tuple[str, object]]:
+    """The most recently verified entities (latest 'facts' snapshot per entity, newest first)."""
+    by_entity = await _load_by_entity(db_path)
+    facts = [(eid, bk["facts"]) for eid, bk in by_entity.items() if "facts" in bk]
+    facts.sort(key=lambda er: er[1].snapshot_at, reverse=True)
+    return facts[:limit]
+
+
+async def feed_xml(db_path: str | None = None, out_path: str = "feed.xml", limit: int = 50) -> str:
+    """RSS 2.0 feed of the most recently verified entities — a FRESHNESS signal for answer engines /
+    crawlers (an actively-maintained source) + a subscribe surface. Empty store -> file untouched."""
+    items = await _recent_facts(db_path, limit)
+    if not items:
+        return out_path
+    now = _rfc822(datetime.now(timezone.utc))
+    rows = ""
+    for eid, r in items:
+        en = r.name.en_official or r.name.ko
+        title = html.escape(f"{en} ({r.name.ko})" if r.name.ko and r.name.ko != en else en)
+        link = f"{_SITE_BASE}/artist/{_slug(eid)}.html"
+        desc = html.escape(((r.data.get("abstract_en") or r.summary_en or "").strip()
+                            + f" · Skill {r.provenance.skill_score:.2f} · via KoreaAPI").strip(" ·"))
+        rows += (f"<item><title>{title}</title><link>{link}</link>"
+                 f'<guid isPermaLink="true">{link}</guid>'
+                 f"<pubDate>{_rfc822(r.snapshot_at)}</pubDate>"
+                 f"<description>{desc}</description></item>")
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+           '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel>'
+           "<title>KoreaAPI — recently verified</title>"
+           f"<link>{_SITE_BASE}/</link>"
+           "<description>The newest cross-verified Korean-culture entities — bilingual, "
+           "Skill-scored, citable.</description><language>en</language>"
+           f"<lastBuildDate>{now}</lastBuildDate>"
+           f'<atom:link href="{_SITE_BASE}/feed.xml" rel="self" type="application/rss+xml"/>'
+           f"{rows}</channel></rss>\n")
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(xml)
+    return out_path
+
+
+async def feed_json(db_path: str | None = None, out_path: str = "feed.json", limit: int = 50) -> str:
+    """JSON Feed 1.1 of the most recently verified entities — the agent-friendly companion to feed.xml
+    (carries the Skill Score + sources per item). Empty store -> file untouched."""
+    items = await _recent_facts(db_path, limit)
+    if not items:
+        return out_path
+    feed = {
+        "version": "https://jsonfeed.org/version/1.1",
+        "title": "KoreaAPI — recently verified",
+        "home_page_url": f"{_SITE_BASE}/",
+        "feed_url": f"{_SITE_BASE}/feed.json",
+        "description": "The newest cross-verified Korean-culture entities — bilingual, Skill-scored, citable.",
+        "items": [{
+            "id": f"{_SITE_BASE}/artist/{_slug(eid)}.html",
+            "url": f"{_SITE_BASE}/artist/{_slug(eid)}.html",
+            "title": (f"{r.name.en_official or r.name.ko} ({r.name.ko})"
+                      if r.name.ko and r.name.ko != (r.name.en_official or r.name.ko)
+                      else (r.name.en_official or r.name.ko)),
+            "content_text": (r.data.get("abstract_en") or r.summary_en or "").strip(),
+            "date_published": r.snapshot_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "_koreaapi": {"skill_score": round(r.provenance.skill_score, 2),
+                          "agreeing_sources": getattr(r.provenance, "agreeing_sources", 0),
+                          "sources": list(r.provenance.sources)},
+        } for eid, r in items],
+    }
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(feed, f, ensure_ascii=False, indent=2)
+    return out_path
+
+
 async def markdown_digest(db_path: str | None = None, out_path: str = "data/korea-rising.md") -> str:
     """A shareable 'Korea Rising' digest from the verified store: the current Circle #1, latest
     official releases, and the verified roster by agency - every line cross-verified + citable.
@@ -2312,6 +2391,8 @@ def _main(argv: list[str]) -> int:
         print("wrote", asyncio.run(llms_txt()))
     elif cmd == "llmsfull":
         print("wrote", asyncio.run(llms_full_txt()))
+    elif cmd == "feed":
+        print("wrote", asyncio.run(feed_xml()), "+", asyncio.run(feed_json()))
     elif cmd == "monitor":
         print("wrote", asyncio.run(monitor_html()))
     elif cmd == "pull":

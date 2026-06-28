@@ -66,6 +66,7 @@ jobs:
           uv run python -m koreaapi.admin digest
           uv run python -m koreaapi.admin llms   # regenerate /llms.txt from live data (roster + people)
           uv run python -m koreaapi.admin llmsfull   # full LLM-ingestible corpus at /llms-full.txt
+          uv run python -m koreaapi.admin feed   # RSS + JSON freshness feeds (recently verified)
           uv run python -m koreaapi.admin monitor
           uv run python -m koreaapi.admin export
           mkdir -p _site
@@ -73,6 +74,8 @@ jobs:
           cp monitor.html _site/monitor.html   # human data-quality cockpit at /monitor.html
           cp llms.txt _site/llms.txt   # agent-discoverable at /llms.txt (AEO/GEO)
           cp llms-full.txt _site/llms-full.txt   # full LLM-ingestible corpus at /llms-full.txt
+          cp feed.xml _site/feed.xml   # RSS freshness feed at /feed.xml
+          cp feed.json _site/feed.json   # JSON Feed at /feed.json
           cp data/korea-rising.md _site/korea-rising.md   # shareable verified digest
           cp data/latest.json _site/latest.json   # open machine-readable verified data
           cp robots.txt _site/robots.txt   # explicitly welcome answer-engine crawlers (AEO)
