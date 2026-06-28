@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from ..models import Name, Provenance, Record, TranslationProvenance
 from ..romanize import romanize
-from ..roster import FOOD_SPICE
+from ..roster import FOOD_SPICE, FOOD_VEG
 from ..skill_score import compute_skill_score, to_confidence
 from . import store
 from .scheduler import CADENCE
@@ -164,6 +164,9 @@ async def ingest_one(
         spice = FOOD_SPICE.get(entity_id)  # editorial spice rating (kept out of the verified summary)
         if spice:
             chosen["spice_level"] = spice
+        veg = FOOD_VEG.get(entity_id)  # editorial dietary tag (vegan / vegetarian / contains meat …)
+        if veg:
+            chosen["diet"] = veg
     elif kind == "facts" and entity_id.startswith("company:"):
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
@@ -298,6 +301,17 @@ async def ingest_one(
         summary_ko = (f"{name.ko} — 검증된 한국 대학교."
                       + (f" 위치: {region}." if region else "")
                       + (f" 설립 {year}." if year else ""))
+    elif kind == "facts" and entity_id.startswith("classic:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        year = chosen.get("debut")
+        authors = chosen.get("members") or []  # author(s) P50
+        summary_en = (f"{disp}{ko_part} — verified Korean classic / historical text."
+                      + (f" Compiled {year}." if year else "")
+                      + (f" By {', '.join(authors)}." if authors else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 고전 / 사료."
+                      + (f" 편찬 {year}." if year else "")
+                      + (f" 저자: {', '.join(authors)}." if authors else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

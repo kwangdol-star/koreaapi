@@ -260,6 +260,13 @@ WEBTOONS = {
     "webtoon:yumiscells": "Yumi's Cells",
     "webtoon:cheeseinthetrap": "Cheese in the Trap",
     "webtoon:lookism": "Lookism",  # bilingual identity in wikidata._CURATED (vs the concept "lookism")
+    # seed expansion (#2). Common-phrase titles pinned bilingually in wikidata._CURATED.
+    "webtoon:eleceed": "Eleceed",
+    "webtoon:killingstalking": "Killing Stalking",
+    "webtoon:annarasumanara": "Annarasumanara",
+    "webtoon:truebeauty": "True Beauty",     # bilingual in _CURATED
+    "webtoon:sweethome": "Sweet Home",       # bilingual in _CURATED
+    "webtoon:windbreaker": "Wind Breaker",   # bilingual in _CURATED
 }
 
 # Travel vertical: Korean destinations / attractions (Wikidata-verifiable). `place:` namespace maps
@@ -356,6 +363,24 @@ FOOD_SPICE = {
     "food:yukhoe": "mild", "food:dakbokkeumtang": "hot", "food:songpyeon": "none",
 }
 
+# Curated EDITORIAL dietary tag (#3) — like spice, Wikidata has no clean property, so this is a KoreaAPI
+# editorial note (clearly labeled, NOT cross-verified). Foreigner-relevant ("can I eat this?"). Short
+# tags: vegan / vegetarian / vegetarian option / contains meat / contains seafood / varies.
+FOOD_VEG = {
+    "food:bibimbap": "vegetarian (ask, often has egg/beef)", "food:japchae": "vegetarian",
+    "food:kimchi": "vegan (some use fish sauce)", "food:tteokbokki": "vegetarian (often)",
+    "food:naengmyeon": "contains meat (beef broth)", "food:bulgogi": "contains meat (beef)",
+    "food:samgyeopsal": "contains meat (pork)", "food:galbi": "contains meat",
+    "food:dakgalbi": "contains meat (chicken)", "food:samgyetang": "contains meat (chicken)",
+    "food:seolleongtang": "contains meat (beef)", "food:gamjatang": "contains meat (pork)",
+    "food:jjajangmyeon": "contains meat (pork)", "food:jjamppong": "contains seafood",
+    "food:yukhoe": "contains meat (raw beef)", "food:mandu": "varies (meat or veggie)",
+    "food:pajeon": "varies (seafood common)", "food:hotteok": "vegetarian",
+    "food:bingsu": "vegetarian", "food:songpyeon": "vegetarian", "food:soju": "vegan",
+    "food:makgeolli": "vegan", "food:gimbap": "varies", "food:sundubujjigae": "vegetarian option",
+    "food:doenjangjjigae": "vegetarian option", "food:kimchijjigae": "contains meat (often pork)",
+}
+
 # Company vertical: major Korean companies/brands (Wikidata-verifiable). `company:` maps to industry
 # (P452) + founded (P571). Distinctive brand names (low collision); these connect to label hubs.
 COMPANIES = {
@@ -409,6 +434,13 @@ BOOKS = {
     "book:humanacts": "Human Acts",                # bilingual in _CURATED
     "book:almond": "Almond",                       # bilingual in _CURATED (vs the nut)
     "book:pleaselookaftermom": "Please Look After Mom",  # bilingual in _CURATED
+    # seed expansion (#2). Common-phrase titles pinned bilingually in wikidata._CURATED.
+    "book:pachinko": "Pachinko",                    # bilingual in _CURATED
+    "book:cursedbunny": "Cursed Bunny",
+    "book:greeklessons": "Greek Lessons",           # bilingual in _CURATED
+    "book:whitebook": "The White Book",             # bilingual in _CURATED
+    "book:loveinthebigcity": "Love in the Big City",  # bilingual in _CURATED
+    "book:diaryofamurderer": "Diary of a Murderer",
 }
 
 # History vertical: Korean dynasties / periods / events (canonical, Wikidata-verifiable). `history:`
@@ -553,6 +585,12 @@ ANIMATIONS = {
     "animation:pucca": "Pucca",
     "animation:hellojadoo": "Hello Jadoo",
     "animation:dooly": "Dooly the Little Dinosaur",
+    # seed expansion (#2) — acclaimed Korean animated films. Seoul Station pinned (vs the station).
+    "animation:leafie": "Leafie, a Hen into the Wild",
+    "animation:thekingofpigs": "The King of Pigs",
+    "animation:yobi": "Yobi, the Five Tailed Fox",
+    "animation:satellitegirl": "The Satellite Girl and Milk Cow",
+    "animation:seoulstation": "Seoul Station",   # bilingual in _CURATED (vs the railway station)
 }
 
 # University vertical: major Korean universities (교육) — Wikidata-verifiable, foreigner-searched.
@@ -571,7 +609,25 @@ UNIVERSITIES = {
     "university:sogang": "Sogang University",
 }
 
+# Classic vertical: Korean classical texts / historical records / treatises (고전 · 사료) — the famous,
+# Wikipedia/Wikidata-backed ones (many are UNESCO Memory of the World / National Treasures). `classic:`
+# maps to author P50 + compilation/publication date. Distinctive romanized titles (low collision).
+CLASSICS = {
+    "classic:samguksagi": "Samguk Sagi",
+    "classic:samgukyusa": "Samguk Yusa",
+    "classic:goryeosa": "Goryeosa",
+    "classic:annalsofjoseon": "Annals of the Joseon Dynasty",
+    "classic:seungjeongwonilgi": "Seungjeongwon ilgi",
+    "classic:donguibogam": "Dongui Bogam",
+    "classic:gyeonggukdaejeon": "Gyeongguk daejeon",
+    "classic:nanjungilgi": "Nanjung ilgi",
+    "classic:mokminsimseo": "Mongmin Simseo",
+    "classic:taengniji": "Taengniji",
+    "classic:daedongyeojido": "Daedongyeojido",
+    "classic:jingbirok": "Jingbirok",
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
-         **SHOWS, **ANIMATIONS, **UNIVERSITIES}
+         **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS}

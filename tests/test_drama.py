@@ -180,6 +180,40 @@ def test_attrs_render_as_citable_qa():
     assert "What is Squid Game's episodes?" in qmap
 
 
+def test_classic_parses_author_designation_and_routes_through_book_node():
+    raw = {"entities": {"Q1": {"labels": {"ko": {"value": "삼국사기"}, "en": {"value": "Samguk Sagi"}},
+           "claims": {
+               "P50": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QAUTH"}}}}],
+               "P577": [{"mainsnak": {"snaktype": "value",
+                   "datavalue": {"value": {"time": "+1145-00-00T00:00:00Z"}}}}],
+               "P1435": [{"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "QNT"}}}}],
+           }}}}
+    p = parse_entity(raw, "classic:samguksagi", "facts")
+    assert p["member_qids"] == ["QAUTH"] and p["debut"] == "1145"           # author P50 + date
+    assert p["extra_label_qids"]["Heritage designation"] == ["QNT"]          # P1435 -> Details
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="classic:samguksagi", kind="facts",
+                 name=Name(ko="삼국사기", en_official="Samguk Sagi"), snapshot_at=now,
+                 summary_en="Samguk Sagi — verified Korean classic / historical text.",
+                 data={"debut": "1145", "members": ["Kim Bu-sik"]},
+                 provenance=Provenance(sources=["Wikidata Q1", "Wikipedia Samguk sagi"], fetched_at=now,
+                                       skill_score=1.0, confidence="high"))
+    node = admin._entity_node(rec)
+    assert node["@type"] == "Book"  # classics route through the Book node
+    assert [a["name"] for a in node.get("author", [])] == ["Kim Bu-sik"]
+
+
+def test_food_diet_is_editorial_qa():
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="food:bulgogi", kind="facts", name=Name(ko="불고기", en_official="Bulgogi"),
+                 snapshot_at=now, summary_en="Bulgogi — verified Korean dish / food.",
+                 data={"diet": "contains meat (beef)"},
+                 provenance=Provenance(sources=["Wikidata Q1", "Wikipedia Bulgogi"], fetched_at=now,
+                                       skill_score=1.0, confidence="high"))
+    qmap = dict(admin._entity_qa("Bulgogi", rec, {"facts": rec}))
+    assert "Is Bulgogi vegetarian?" in qmap and "contains meat" in qmap["Is Bulgogi vegetarian?"]
+
+
 def test_place_parses_coordinates_and_node_emits_geocoordinates():
     raw = {"entities": {"Q1": {"labels": {"ko": {"value": "경복궁"}, "en": {"value": "Gyeongbokgung"}},
            "claims": {"P625": [{"mainsnak": {"snaktype": "value",

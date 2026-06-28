@@ -127,6 +127,15 @@ _CURATED = {
     "show:runningman": {"ko": "런닝맨", "en": "Running Man"},
     # animation whose English title is a common word ("Larva" the insect) — pin bilingually.
     "animation:larva": {"ko": "라바", "en": "Larva"},
+    # thin-vertical seeds whose English title is a common phrase — pin bilingually (strict KO guard).
+    "webtoon:truebeauty": {"ko": "여신강림", "en": "True Beauty"},
+    "webtoon:sweethome": {"ko": "스위트홈", "en": "Sweet Home"},
+    "webtoon:windbreaker": {"ko": "윈드브레이커", "en": "Wind Breaker"},
+    "book:pachinko": {"ko": "파친코", "en": "Pachinko"},
+    "book:greeklessons": {"ko": "희랍어 시간", "en": "Greek Lessons"},
+    "book:whitebook": {"ko": "흰", "en": "The White Book"},
+    "book:loveinthebigcity": {"ko": "대도시의 사랑법", "en": "Love in the Big City"},
+    "animation:seoulstation": {"ko": "서울역", "en": "Seoul Station"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.
@@ -252,6 +261,9 @@ _NS_PROPS = {
     "animation": {"agency": "P272", "date": "P577", "date2": "P571", "members": None, "directors": None},
     # university (교육): located-in P131 (region) as the place edge + inception P571 (founded).
     "university": {"agency": "P131", "date": "P571", "members": None, "directors": None},
+    # classic (고전 · 사료 — historical text / record / treatise): author P50 as the people edge,
+    # publication/compilation date P577 (else inception P571). No modern publisher edge.
+    "classic": {"agency": None, "date": "P577", "date2": "P571", "members": "P50", "directors": None},
 }
 
 # Per-vertical EXTRA structured attributes — depth BEYOND name/date/agency/people, so a verified page
@@ -276,6 +288,7 @@ _EXTRAS = {
     "game":      [("Genre", "P136", "label"), ("Platform", "P400", "label")],
     "show":      [("Genre", "P136", "label")],
     "animation": [("Genre", "P136", "label")],
+    "classic":   [("Heritage designation", "P1435", "label")],  # National Treasure / UNESCO Memory of the World
 }
 
 
