@@ -412,6 +412,15 @@ COMPANIES = {
     "company:celltrion": "Celltrion",
     "company:posco": "POSCO",
     "company:cj": "CJ Group",
+    # batch 2 — the K-entertainment majors (also the 소속사 hubs) + more chaebols / global names.
+    "company:hybe": "HYBE",
+    "company:sment": "SM Entertainment",
+    "company:jypent": "JYP Entertainment",
+    "company:ygent": "YG Entertainment",
+    "company:kia": "Kia",
+    "company:lotte": "Lotte Corporation",
+    "company:koreanair": "Korean Air",
+    "company:shinsegae": "Shinsegae",
 }
 
 # Brand vertical: Korean consumer brands, K-beauty-led (Wikidata-verifiable). `brand:` maps to
