@@ -27,7 +27,8 @@ def _seeded_db() -> str:
 
 def test_export_writes_history_and_current_state(tmp_path):
     out = asyncio.run(export(db_path=_seeded_db(), out_dir=str(tmp_path)))
-    assert out == {"appended": 3, "entities": 3}
+    assert out["appended"] == 3 and out["entities"] == 3
+    assert out["dataset_hash"] and out["chain_head"] and out["snapshots"] == 3  # integrity manifest
 
     lines = (tmp_path / "snapshots.jsonl").read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 3
@@ -37,6 +38,10 @@ def test_export_writes_history_and_current_state(tmp_path):
     latest = json.loads((tmp_path / "latest.json").read_text(encoding="utf-8"))
     assert len(latest) == 3
     assert any(e["name"]["en_official"] == "BTS" for e in latest)
+    assert all("content_hash" in e for e in latest)  # per-record tamper-evident fingerprint
+
+    man = json.loads((tmp_path / "integrity.json").read_text(encoding="utf-8"))
+    assert man["dataset_hash"] == out["dataset_hash"] and man["entities"] == 3
 
 
 def test_export_appends_history_but_overwrites_latest(tmp_path):

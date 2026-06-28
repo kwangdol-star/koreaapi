@@ -78,6 +78,7 @@ jobs:
           cp feed.json _site/feed.json   # JSON Feed at /feed.json
           cp data/korea-rising.md _site/korea-rising.md   # shareable verified digest
           cp data/latest.json _site/latest.json   # open machine-readable verified data
+          cp data/integrity.json _site/integrity.json   # tamper-evident dataset hash + history chain head
           cp robots.txt _site/robots.txt   # explicitly welcome answer-engine crawlers (AEO)
           cp googleb476fa8c4c3cccf0.html _site/   # Google Search Console site verification (file method)
           cp -r site/artist _site/artist   # per-entity citable answer pages (/artist/<slug>.html)

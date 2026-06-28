@@ -39,6 +39,7 @@ import re
 import sys
 from datetime import datetime, timezone
 
+from . import integrity
 from .models import Record
 from .pipeline import store
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
@@ -280,9 +281,36 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
         key = f"{r.entity_id}:{r.kind}"
         if key not in latest:
             latest[key] = json.loads(r.model_dump_json())
+    latest_list = list(latest.values())
+    for rec in latest_list:  # per-record content fingerprint -> a single cited row is independently checkable
+        rec["content_hash"] = integrity.record_fingerprint(rec)
     with open(os.path.join(out_dir, "latest.json"), "w", encoding="utf-8") as f:
-        json.dump(list(latest.values()), f, ensure_ascii=False, indent=2)
-    return {"appended": len(recs), "entities": len(latest)}
+        json.dump(latest_list, f, ensure_ascii=False, indent=2)
+    # Publish the integrity manifest: the whole-dataset fingerprint + the append-only history chain head.
+    dh = integrity.dataset_hash(latest_list)
+    head, n_chain = integrity.chain_head(os.path.join(out_dir, "snapshots.jsonl"))
+    manifest = {
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "algorithm": integrity.ALGORITHM,
+        "entities": len(latest_list),
+        "snapshots": n_chain,
+        "dataset_hash": dh,
+        "chain_head": head,
+        "method": ("Every record is cross-checked across independent sources (Wikidata, Wikipedia, "
+                   "MusicBrainz, OpenStreetMap, TMDB, KTO), identity- and hallucination-guarded, and "
+                   "Skill-scored. The history (snapshots.jsonl) is append-only and hash-chained; the "
+                   "chain_head is committed each build, so altered history is detectable."),
+        "verify": ("Per record: content_hash = SHA-256 of the canonical-JSON verified core (entity_id, "
+                   "kind, name{ko,en_official,romanized}, summary_en, summary_ko, data, skill_score@4dp, "
+                   "agreeing_sources, sources with the trailing ' YYYY-MM-DD HH:MM UTC' removed; JSON "
+                   "sort_keys, separators (',',':')). dataset_hash = SHA-256 of the sorted content_hashes "
+                   "joined. Recompute from latest.json to verify."),
+        "note": "Tamper-evidence via a published, git-committed head — not external notarization (a future step).",
+    }
+    with open(os.path.join(out_dir, "integrity.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+    return {"appended": len(recs), "entities": len(latest_list),
+            "dataset_hash": dh, "chain_head": head, "snapshots": n_chain}
 
 
 def _fresh(latest_at: str, kind: str) -> bool:
@@ -838,6 +866,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./llms-full.txt">/llms-full.txt · full corpus</a>
  <a class="pill" href="./korea-rising.md">/korea-rising.md · digest</a>
  <a class="pill" href="./feed.xml">/feed.xml · RSS</a>
+ <a class="pill" href="./integrity.json">/integrity.json · verify</a>
  <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
 <div class="chips">
@@ -846,7 +875,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <span class="chip"><b>Hallucination-guarded</b></span>
  <span class="chip"><b>Bilingual</b> · KO / EN / romanized</span>
 </div>
-<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 8 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_verified</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;.</div>
+<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 8 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_verified</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;. <b>Integrity:</b> every record carries a SHA-256 content hash; the full dataset + append-only history are hash-verifiable — see <a href="./integrity.json">/integrity.json</a>.</div>
 <div class="cards">{cards_html}</div>
 {sections}
 <footer>Generated {generated} · KoreaAPI Phase 1 (cold-start) · verifiable Korean-culture data for AI agents · <a href="./latest.json">/latest.json</a> · <a href="./llms.txt">/llms.txt</a> · <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
@@ -1359,6 +1388,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
                        label_url: str | None = None) -> None:
     entity_slugs, linked, related = entity_slugs or set(), linked or set(), related or []
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
+    content_hash = integrity.record_fingerprint(json.loads(primary.model_dump_json()))  # checkable row id
     ko_raw, en_raw = primary.name.ko or "", primary.name.en_official or ""
     ko, en, rom = html.escape(ko_raw), html.escape(en_raw), html.escape(primary.name.romanized or "")
     sc = primary.provenance.skill_score
@@ -1499,7 +1529,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {cert_block}
 {sources_block}
 {rel_block}
-<div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span></div>
+<div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span><br><span class=rom>SHA-256: {content_hash} · verify at <a href="../integrity.json">/integrity.json</a></span></div>
 <footer>Provenance: {src} · Skill Score {sc:.2f} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
 </body></html>"""
     with open(os.path.join(out_dir, "artist", f"{slug}.html"), "w", encoding="utf-8") as f:
@@ -1755,6 +1785,7 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None
     sc = primary.provenance.skill_score
     src = html.escape("; ".join(primary.provenance.sources))
     ko_url = f"{_SITE_BASE}/ko/artist/{slug}.html"
+    content_hash = integrity.record_fingerprint(json.loads(primary.model_dump_json()))  # 검증용 행 식별자
     title = html.escape(f"{ko_raw or en_raw} ({en_raw})")
     desc = html.escape(f"{ko_raw or en_raw} ({en_raw}) — AI·검색엔진을 위한 교차검증 한국문화 프로필. {asof} 기준.")
     jsonld = _escape_jsonld({"@context": "https://schema.org",
@@ -1826,7 +1857,7 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None
 {ppl}
 {dirb}
 {sources_block}
-<div class=cite><b>이렇게 인용하세요:</b> {cite}<br><span class=rom>{ko_url}</span></div>
+<div class=cite><b>이렇게 인용하세요:</b> {cite}<br><span class=rom>{ko_url}</span><br><span class=rom>SHA-256: {content_hash} · <a href="../../integrity.json">/integrity.json</a>에서 검증</span></div>
 <footer>출처(provenance): {src} · Skill Score {sc:.2f} · <a href="../../latest.json">/latest.json</a> &middot; <a href="../../llms.txt">/llms.txt</a></footer>
 </body></html>"""
     with open(os.path.join(out_dir, "ko", "artist", f"{slug}.html"), "w", encoding="utf-8") as f:
@@ -2272,6 +2303,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Machine-readable (JSON, latest snapshot per entity+kind, with provenance + Skill Score):
   {_SITE_BASE}/latest.json  — fetch it directly, no MCP setup.
 - Full LLM-ingestible corpus (every verified entity, one citable block each): {_SITE_BASE}/llms-full.txt
+- Integrity (tamper-evident): per-record content_hash + dataset_hash + append-only chain head — {_SITE_BASE}/integrity.json
 - Agent (MCP) + crawlable digest: /llms.txt · /llms-full.txt · /korea-rising.md · /sitemap.xml
 """
     with open(out_path, "w", encoding="utf-8") as f:
@@ -2697,7 +2729,9 @@ def _main(argv: list[str]) -> int:
         out = asyncio.run(export())
         print(
             f"export: appended {out['appended']} snapshot(s) -> data/snapshots.jsonl; "
-            f"refreshed data/latest.json ({out['entities']} entities)"
+            f"refreshed data/latest.json ({out['entities']} entities); "
+            f"integrity.json dataset {(out.get('dataset_hash') or '')[:12]}… "
+            f"chain {(out.get('chain_head') or '—')[:12]}… ({out.get('snapshots', 0)} snapshots)"
         )
     elif cmd == "signals":
         sig = asyncio.run(store.top_signals(20))
