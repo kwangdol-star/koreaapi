@@ -283,6 +283,17 @@ _TITLES = {
     "region:northgyeongsang": "North Gyeongsang Province",
     "region:southgyeongsang": "South Gyeongsang Province",
     "region:jeju": "Jeju Province",
+    "game:pubg": "PUBG: Battlegrounds",
+    "game:maplestory": "MapleStory",
+    "game:blackdesert": "Black Desert Online",
+    "game:lostark": "Lost Ark (video game)",
+    "game:dungeonfighter": "Dungeon Fighter Online",
+    "game:ragnarokonline": "Ragnarok Online",
+    "game:bladeandsoul": "Blade & Soul",
+    "game:kartrider": "KartRider",
+    "game:vindictus": "Vindictus",
+    "game:lineage": "Lineage (video game)",
+    "game:aion": "Aion (video game)",
 }
 
 

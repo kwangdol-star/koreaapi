@@ -119,6 +119,10 @@ _CURATED = {
     # The flagship region — pin the country by VERIFIED Q-id (대한민국 = Q884) so the region vertical is
     # anchored; cities/provinces + hospitals are distinctive enough for live search + the identity guard.
     "region:southkorea": {"qid": "Q884", "ko": "대한민국", "en": "South Korea"},
+    # Korean games whose English title is a common word (vs the Welsh myth "Mabinogi" / "lineage" the
+    # concept / "aion") — pin bilingually so the strict KO guard rejects a same-EN-label impostor.
+    "game:lineage": {"ko": "리니지", "en": "Lineage"},
+    "game:aion": {"ko": "아이온", "en": "Aion"},
 }
 # Back-compat: plain entity_id -> Q-id view (used by resolve_qid's fast path). Only entries that
 # actually pin a Q-id; bilingual-only anchors fall through to live search + the strict identity guard.
@@ -189,6 +193,8 @@ _NS_PROPS = {
     "medical": {"agency": "P131", "date": "P571", "members": None, "directors": None},
     # region: country / administrative division — name-anchored (capital/population not modelled here).
     "region": {"agency": None, "date": None, "members": None, "directors": None},
+    # game (Korean-developed video game): developer P178 as the studio edge, publication date P577.
+    "game": {"agency": "P178", "date": "P577", "members": None, "directors": None},
 }
 
 
@@ -502,6 +508,7 @@ _DISCOVER = {
     "brand":   (["Q431289"], "P17", "Q884"),                            # brand, country SK
     "book":    (["Q7725634", "Q47461344"], "P407", "Q9176"),           # literary/written work, language Korean
     "medical": (["Q16917"], "P17", "Q884"),                            # hospital, country SK
+    "game":    (["Q7889"], "P495", "Q884"),                            # video game, origin SK
     # (history/heritage/folklore/region are seed-only: too heterogeneous / closed-set to discover cleanly)
 }
 

@@ -413,6 +413,17 @@ def _entity_node(r) -> dict:
         if wd:
             node["sameAs"] = wd
         return node
+    if r.entity_id.startswith("game:"):
+        node = {"@type": "VideoGame", "name": name, "alternateName": alt,
+                "description": r.summary_en, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        if r.data.get("debut"):  # release date -> citable "when did X come out?"
+            node["datePublished"] = r.data["debut"]
+        dev = r.data.get("agency_en") or r.data.get("agency_ko")  # developer P178 (the studio)
+        if dev:  # citable "who made X?"
+            node["creator"] = {"@type": "Organization", "name": dev}
+        return node
     if r.entity_id.startswith(("drama:", "film:")):
         node = {"@type": "Movie" if r.entity_id.startswith("film:") else "TVSeries",
                 "name": name, "alternateName": alt,
@@ -679,6 +690,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./folklore.html">{_ICON['folklore']} Folklore</a>
  <a class="pill" href="./medical.html">{_ICON['medical']} Medical</a>
  <a class="pill" href="./regions.html">{_ICON['region']} Regions</a>
+ <a class="pill" href="./games.html">{_ICON['game']} Games</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -776,6 +788,10 @@ _ICON = {
     # globe (Korea & regions)
     "region": _icon('<circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/>'
                     '<path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/>'),
+    # gamepad (Korean games)
+    "game": _icon('<rect x="2" y="7" width="20" height="10" rx="5"/><line x1="6" y1="12" x2="8" y2="12"/>'
+                  '<line x1="7" y1="11" x2="7" y2="13"/><circle cx="16" cy="11.5" r="1"/>'
+                  '<circle cx="18.5" cy="13.5" r="1"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -996,6 +1012,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("book:"):
             qas.append((f"When was {name} published?",
                         f"{name} was published in {d['debut']} (verified via {src}, as of {asof})."))
+        elif eid.startswith("game:"):
+            qas.append((f"When was {name} released?",
+                        f"{name} was released in {d['debut']} (verified via {src}, as of {asof})."))
         elif eid.startswith("history:"):
             qas.append((f"When did {name} begin?",
                         f"{name} began in {d['debut']} (verified via {src}, as of {asof})."))
@@ -1048,6 +1067,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("book:"):
             qas.append((f"Who published {name}?",
                         f"{name} was published by {agency} (verified via {src}, as of {asof})."))
+        elif eid.startswith("game:"):
+            qas.append((f"Who developed {name}?",
+                        f"{name} was developed by {agency} (verified via {src}, as of {asof})."))
         else:
             ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
             qas.append((f"What agency (소속사) is {name} under?",
@@ -1246,6 +1268,7 @@ _VERTICALS = {
     "folklore": ("Folklore & myth", "folklore.html", _ICON["folklore"], "Type"),
     "medical": ("Hospitals & medical", "medical.html", _ICON["medical"], "Region"),
     "region": ("Korea & regions", "regions.html", _ICON["region"], "Type"),
+    "game": ("Korean games", "games.html", _ICON["game"], "Developer / studio"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -1607,11 +1630,11 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
         return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
 
     (arts, dramas, films, webtoons, places, foods, companies, brands, books, history, heritage,
-     folklore, medical, region) = (
+     folklore, medical, region, games) = (
         names("artist:"), names("drama:"), names("film:"), names("webtoon:"),
         names("place:"), names("food:"), names("company:"), names("brand:"),
         names("book:"), names("history:"), names("heritage:"), names("folklore:"),
-        names("medical:"), names("region:"))
+        names("medical:"), names("region:"), names("game:"))
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
 
@@ -1621,7 +1644,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coverage = f"""
 ## Coverage (live, as of {today})
-- {len(facts)} verified entities across 14 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions.
+- {len(facts)} verified entities across 15 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions, {len(games)} games.
 - {len(linked)} verified people (directors + cross-work cast/creators), each a citable hub page linking their works.
 - K-pop artists: {sample(arts)}
 - K-dramas: {sample(dramas)}
@@ -1637,6 +1660,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Folklore & myth: {sample(folklore)}
 - Hospitals & medical: {sample(medical)}
 - Korea & regions: {sample(region)}
+- Korean games: {sample(games)}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml

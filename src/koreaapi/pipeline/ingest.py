@@ -223,6 +223,17 @@ async def ingest_one(
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
         summary_en = f"{disp}{ko_part} — verified South Korean region / administrative division."
         summary_ko = f"{name.ko} — 검증된 대한민국 지역 / 행정구역."
+    elif kind == "facts" and entity_id.startswith("game:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        dev = chosen.get("agency_en") or chosen.get("agency_ko")  # developer (P178)
+        year = chosen.get("debut")
+        summary_en = (f"{disp}{ko_part} — verified Korean video game."
+                      + (f" Released {year}." if year else "")
+                      + (f" By {dev}." if dev else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 비디오 게임."
+                      + (f" 출시 {year}." if year else "")
+                      + (f" 개발: {dev}." if dev else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

@@ -439,6 +439,24 @@ REGION = {
     "region:jeju": "Jeju Province",
 }
 
+# Game vertical: Korean-developed video games (a major global K-export — "게임 강국"). `game:` maps to
+# developer P178 (the studio: Nexon · NCSoft · Krafton · Smilegate · Pearl Abyss) + release date P577.
+# Distinctive titles (low collision); the common-word titles (Lineage, Aion) are bilingually pinned in
+# wikidata._CURATED. The wider catalogue is filled by auto-discovery (video-game class, origin SK).
+GAMES = {
+    "game:pubg": "PUBG: Battlegrounds",
+    "game:maplestory": "MapleStory",
+    "game:blackdesert": "Black Desert Online",
+    "game:lostark": "Lost Ark",
+    "game:dungeonfighter": "Dungeon Fighter Online",
+    "game:ragnarokonline": "Ragnarok Online",
+    "game:bladeandsoul": "Blade & Soul",
+    "game:kartrider": "KartRider",
+    "game:vindictus": "Vindictus",
+    "game:lineage": "Lineage",          # bilingual in _CURATED (vs the concept "lineage")
+    "game:aion": "Aion",                # bilingual in _CURATED (vs the common word)
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
-         **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION}
+         **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES}
