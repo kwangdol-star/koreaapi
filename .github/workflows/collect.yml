@@ -1,8 +1,9 @@
 # KoreaAPI daily collector — the cold-start data engine.
-# Runs the live Wikidata pull + cross-verify + exports the growing data asset, then commits
-# data/ back to the repo. GitHub's runners have open network access, so the live pull works
-# here. Manual run: Actions tab -> "collect" -> Run workflow. The daily schedule is active
-# once this file is on the default branch (main).
+# Runs the live Wikidata pull + cross-verify + bulk discovery, accumulating the verified DB across
+# runs via the GitHub Actions cache (OUT OF GIT). The previous git-commit-to-main approach was wiped
+# by the force-push deploy (koreaapi-standalone -> main), so discovery never accumulated; the cache is
+# immune to it. GitHub's runners have open network, so the live pull works here.
+# Manual run: Actions tab -> "collect" -> Run workflow. Daily schedule active once on the default branch.
 name: collect
 
 on:
@@ -11,7 +12,7 @@ on:
     - cron: "17 0 * * *" # daily ~00:17 UTC
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: koreaapi-collect
@@ -29,14 +30,23 @@ jobs:
       - name: Install deps
         run: uv sync
 
-      - name: Pull live Wikidata + export the data asset
+      # Persist the verified DB OUT OF GIT so discovery ACCUMULATES run-over-run. restore-keys
+      # prefix-matches the most recent prior run's cache; the unique per-run key lets save always write.
+      - name: Restore accumulated DB
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/koreaapi.db
+          key: koreaapi-db-${{ github.run_id }}
+          restore-keys: |
+            koreaapi-db-
+
+      - name: Pull live Wikidata + discover + accumulate
         env:
           PYTHONPATH: src
-          KOREAAPI_DB: ${{ runner.temp }}/koreaapi.db # fresh per run; history lives in data/
+          KOREAAPI_DB: ${{ runner.temp }}/koreaapi.db # persisted across runs via the cache above
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }} # romanization + Circle Chart extract (best-effort; skipped if unset)
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }} # official-channel release snapshots (best-effort; skipped if unset)
         run: |
-          uv run python -m koreaapi.admin load     # re-seed from committed data/ so discovery ACCUMULATES
           uv run python -m koreaapi.admin pull
           uv run python -m koreaapi.admin sweep
           uv run python -m koreaapi.admin discover  # bulk-discover each vertical's Korean entities (10x)
@@ -46,14 +56,11 @@ jobs:
           uv run python -m koreaapi.admin digest
           uv run python -m koreaapi.admin stats
 
-      - name: Commit accumulated data
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data
-          if git diff --cached --quiet; then
-            echo "no data change"
-          else
-            git commit -m "data: daily Wikidata snapshot [skip ci]"
-            git push
-          fi
+      # Save the accumulated DB back to the cache (always — even if a step above failed) so the next
+      # run resumes from it. This is what makes discovery the "10x" instead of a fresh-per-run reset.
+      - name: Save accumulated DB
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/koreaapi.db
+          key: koreaapi-db-${{ github.run_id }}

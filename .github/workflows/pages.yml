@@ -34,15 +34,24 @@ jobs:
       - name: Set up uv (Python env)
         uses: astral-sh/setup-uv@v5
 
+      # Read the DB that `collect` accumulated (discovery's "10x") so the SITE reflects it, not just
+      # the seed roster. Read-only restore (collect is the writer); restore-keys picks the newest.
+      - name: Restore accumulated DB
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/koreaapi.db
+          key: koreaapi-db-pages-${{ github.run_id }}
+          restore-keys: |
+            koreaapi-db-
+
       - name: Build the public GEO page from live data
         env:
           PYTHONPATH: src
-          KOREAAPI_DB: ${{ runner.temp }}/koreaapi.db
+          KOREAAPI_DB: ${{ runner.temp }}/koreaapi.db  # the accumulated DB restored above
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }} # romanization + Circle Chart extract (best-effort; skipped if unset)
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }} # official-channel release snapshots (best-effort; skipped if unset)
         run: |
           uv sync
-          uv run python -m koreaapi.admin load   # re-seed from committed data/ so the site shows the accumulated roster
           uv run python -m koreaapi.admin pull
           uv run python -m koreaapi.admin sweep
           uv run python -m koreaapi.admin chart
