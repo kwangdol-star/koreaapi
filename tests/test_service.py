@@ -210,6 +210,32 @@ def test_verified_reports_cross_verification_status():
     assert miss["found"] is False
 
 
+def test_certification_is_top_tier_in_verified_and_on_page(tmp_path):
+    from koreaapi import admin
+    from koreaapi.roster import CERTIFIED
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.unlink(path)
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="artist:bts", kind="facts", name=Name(ko="방탄소년단", en_official="BTS"),
+                 snapshot_at=now, summary_en="BTS — verified.", data={},
+                 provenance=Provenance(sources=["Wikidata Q1", "Wikipedia BTS"], fetched_at=now,
+                                       skill_score=1.0, confidence="high", agreeing_sources=2))
+    asyncio.run(store.append_record(rec, db_path=path))
+    CERTIFIED["artist:bts"] = {"by": "HYBE", "date": "2026-06-01"}  # seed a certification for the test
+    try:
+        out = asyncio.run(service.verified("artist:bts", db_path=path))
+        assert out["officially_certified"] and out["certified_by"] == "HYBE"
+        assert "officially certified by HYBE" in out["note"]  # ranks above cross-verified
+        d = str(tmp_path / "site")
+        asyncio.run(admin.entity_pages(db_path=path, out_dir=d))
+        page = open(os.path.join(d, "artist", "bts.html"), encoding="utf-8").read()
+        assert "Official certification" in page and "Certified by <b>HYBE</b>" in page
+        assert "officially certified by HYBE" in page  # the header badge
+    finally:
+        CERTIFIED.pop("artist:bts", None)
+
+
 if __name__ == "__main__":
     test_artist_status_is_verified_and_bilingual()
     test_korea_rising_ranks_high_skill_first()

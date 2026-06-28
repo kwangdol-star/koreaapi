@@ -12,6 +12,7 @@ reconstruct. Logging is best-effort and never breaks a read.
 from __future__ import annotations
 
 from .pipeline import store
+from .roster import CERTIFIED
 
 _CALENDAR_KINDS = ("comeback", "release", "concert")
 
@@ -268,6 +269,7 @@ async def verified(entity_id: str, *, db_path: str | None = None) -> dict:
         return {"entity_id": entity_id, "found": False, "note": "no verified facts for this entity yet"}
     p = rec.provenance
     n = getattr(p, "agreeing_sources", 0)
+    cert = CERTIFIED.get(entity_id)  # institutional certification = the tier ABOVE cross-verification
     return {
         "entity_id": entity_id,
         "found": True,
@@ -277,10 +279,14 @@ async def verified(entity_id: str, *, db_path: str | None = None) -> dict:
         "agreeing_sources": n,
         "cross_verified": n >= 2,
         "triple_verified": n >= 3,
+        "officially_certified": bool(cert),
+        "certified_by": cert["by"] if cert else None,
+        "certified_date": cert.get("date") if cert else None,
         "sources": p.sources,
         "as_of": rec.snapshot_at.date().isoformat(),
         "citation": _citation(rec),
-        "note": ("triple cross-verified — ≥3 independent sources agreed" if n >= 3
+        "note": (f"officially certified by {cert['by']} — the tier above cross-verification" if cert
+                 else "triple cross-verified — ≥3 independent sources agreed" if n >= 3
                  else "cross-verified — ≥2 independent sources agreed" if n >= 2
                  else "single-source / uncorroborated — Skill Score capped at 0.7"),
     }

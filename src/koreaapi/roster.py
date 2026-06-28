@@ -680,3 +680,13 @@ CLASSICS = {
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS}
+
+# Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
+# museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
+# cross-verified" (an authority staked its name — faster + more official than a wiki edit, and a
+# competitor re-scraping Wikidata can never reproduce it). SEED MODEL: empty until a real partnership
+# lands, then it's a one-line entry per entity. entity_id -> {"by": org, "date": "YYYY-MM-DD", "url"?}.
+# (Deliberately empty — we do not fabricate a certification that hasn't happened.)
+CERTIFIED: dict[str, dict] = {
+    # "artist:bts": {"by": "HYBE", "date": "2026-06-01", "url": "https://hybecorp.com/..."},  # example
+}

@@ -41,7 +41,7 @@ from .models import Record
 from .pipeline import store
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
-from .roster import ARTISTS, NAMES
+from .roster import ARTISTS, CERTIFIED, NAMES
 from .sources.circlechart import CircleChartSource
 from .sources.mock import MockSource
 from .sources.musicbrainz import MusicBrainzSource
@@ -1130,6 +1130,12 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
     asof = primary.snapshot_at.strftime("%Y-%m-%d") if primary else ""
     src = "; ".join(primary.provenance.sources) if primary else ""
     eid0 = primary.entity_id if primary else ""
+    if CERTIFIED.get(eid0):  # institutional certification — the tier above cross-verification
+        c = CERTIFIED[eid0]
+        qas.append((f"Is {name}'s data officially certified?",
+                    f"Yes — {name}'s record is officially certified by {c['by']}"
+                    + (f" (as of {c['date']})" if c.get("date") else "")
+                    + f" (cross-checked via {src}, via KoreaAPI)."))
     _whatis = {  # name-anchored verticals (no people/agency edge) lead with a "what is it" answer
         "food": "a verified Korean dish/food",
         "history": "a verified part of Korean history (dynasty / period / event)",
@@ -1386,6 +1392,18 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     sources_block = (f"<h2>Cross-checked by {len(primary.provenance.sources)} source(s)"
                      f"{' · ✓✓✓ triple-verified' if n_agree >= 3 else ''}</h2>"
                      f"<ul class=people>{src_rows}</ul>") if primary.provenance.sources else ""
+    # Institutional certification — the tier ABOVE cross-verification (an org vouched; non-replicable).
+    cert = CERTIFIED.get(primary.entity_id)
+    cert_badge = f" · 🏅 officially certified by {html.escape(cert['by'])}" if cert else ""
+    cert_block = ""
+    if cert:
+        cu = cert.get("url")
+        clink = (f' · <a href="{html.escape(str(cu))}" rel="nofollow noopener" target="_blank">source ↗</a>'
+                 if cu else "")
+        cert_block = (f"<h2>🏅 Official certification</h2><p>Certified by <b>{html.escape(str(cert['by']))}</b>"
+                      f" (as of {html.escape(str(cert.get('date', '—')))}){clink}<br>"
+                      f"<span class=rom>an institution has vouched for this record — the tier above "
+                      f"cross-verification</span></p>")
 
     # The verified people + hub edges, rendered as an internal-link GRAPH (cross-links to person /
     # entity pages) — the connective tissue answer engines and crawlers traverse.
@@ -1427,7 +1445,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 <p class=back><a href="../index.html">← KoreaAPI · verifiable K-culture data</a></p>
 <h1>{en} <span class=ko>{ko}</span></h1>
 <div class=rom>{rom}</div>
-<div class=sub>Verified Korean-culture entity · as of {asof} · cross-checked + Skill-scored · via KoreaAPI{verify_badge}</div>
+<div class=sub>Verified Korean-culture entity · as of {asof} · cross-checked + Skill-scored · via KoreaAPI{cert_badge}{verify_badge}</div>
 {current_block}
 {about_block}
 <h2>Verified facts</h2><p>{html.escape(primary.summary_en)}</p>
@@ -1438,6 +1456,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {people_block}
 {dir_block}
 {qa_block}
+{cert_block}
 {sources_block}
 {rel_block}
 <div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span></div>
