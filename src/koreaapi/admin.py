@@ -937,20 +937,28 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
 
 _SITE_BASE = "https://kwangdol-star.github.io/koreaapi"
 
-# Inline 태극기 (Korean flag) for the wordmark — an SVG renders identically EVERYWHERE; the emoji flag
-# 🇰🇷 shows as the letters "KR" on Windows. Taegeuk (red top / blue bottom) + the four trigrams
-# (Geon ☰ top-left, Gam ☵ top-right, Ri ☲ bottom-left, Gon ☷ bottom-right). Verified by screenshot.
+# Inline 태극기 (Korean flag) for the wordmark — an SVG renders identically EVERYWHERE (the emoji flag
+# 🇰🇷 shows as "KR" on Windows). Faithful geometry, screenshot-verified vs the official flag: taegeuk
+# (red 양 upper-left, blue 음 lower-right, tilted 33.69°) + the four trigrams rotated toward the centre —
+# 건 ☰ top-left, 감 ☵ top-right, 리 ☲ bottom-left, 곤 ☷ bottom-right.
 _FLAG = (
     '<svg viewBox="0 0 36 24" width="1.15em" height="0.77em" role="img" aria-label="태극기 (South Korea)" '
     'style="vertical-align:-0.1em;margin-left:.14em;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.18)">'
-    '<rect width="36" height="24" fill="#fff"/>'
-    '<circle cx="18" cy="12" r="6" fill="#0047A0"/>'
-    '<path transform="rotate(-90 18 12)" fill="#CD2E3A" d="M18,6 a6,6 0 0,1 0,12 a3,3 0 0,1 0,-6 a3,3 0 0,0 0,-6 z"/>'
+    '<rect width="36" height="24" fill="#fff"/><circle cx="18" cy="12" r="6" fill="#cd2e3a"/>'
+    '<path d="M18,6 a6,6 0 0,1 0,12 a3,3 0 0,1 0,-6 a3,3 0 0,0 0,-6 z" transform="rotate(33.69 18 12)" fill="#0047a0"/>'
     '<g fill="#000">'
-    '<rect x="3" y="4" width="6" height="1"/><rect x="3" y="6" width="6" height="1"/><rect x="3" y="8" width="6" height="1"/>'
-    '<rect x="27" y="15" width="2.5" height="1"/><rect x="30.5" y="15" width="2.5" height="1"/><rect x="27" y="17" width="2.5" height="1"/><rect x="30.5" y="17" width="2.5" height="1"/><rect x="27" y="19" width="2.5" height="1"/><rect x="30.5" y="19" width="2.5" height="1"/>'
-    '<rect x="27" y="4" width="2.5" height="1"/><rect x="30.5" y="4" width="2.5" height="1"/><rect x="27" y="6" width="6" height="1"/><rect x="27" y="8" width="2.5" height="1"/><rect x="30.5" y="8" width="2.5" height="1"/>'
-    '<rect x="3" y="15" width="6" height="1"/><rect x="3" y="17" width="2.5" height="1"/><rect x="6.5" y="17" width="2.5" height="1"/><rect x="3" y="19" width="6" height="1"/>'
+    '<g transform="translate(8,5) rotate(-55)"><rect x="-3.6" y="-2.9" width="7.2" height="1.2"/>'
+    '<rect x="-3.6" y="-0.6" width="7.2" height="1.2"/><rect x="-3.6" y="1.7" width="7.2" height="1.2"/></g>'
+    '<g transform="translate(28,5) rotate(55)"><rect x="-3.6" y="-2.9" width="3" height="1.2"/>'
+    '<rect x="0.6" y="-2.9" width="3" height="1.2"/><rect x="-3.6" y="-0.6" width="7.2" height="1.2"/>'
+    '<rect x="-3.6" y="1.7" width="3" height="1.2"/><rect x="0.6" y="1.7" width="3" height="1.2"/></g>'
+    '<g transform="translate(8,19) rotate(-125)"><rect x="-3.6" y="-2.9" width="7.2" height="1.2"/>'
+    '<rect x="-3.6" y="-0.6" width="3" height="1.2"/><rect x="0.6" y="-0.6" width="3" height="1.2"/>'
+    '<rect x="-3.6" y="1.7" width="7.2" height="1.2"/></g>'
+    '<g transform="translate(28,19) rotate(125)"><rect x="-3.6" y="-2.9" width="3" height="1.2"/>'
+    '<rect x="0.6" y="-2.9" width="3" height="1.2"/><rect x="-3.6" y="-0.6" width="3" height="1.2"/>'
+    '<rect x="0.6" y="-0.6" width="3" height="1.2"/><rect x="-3.6" y="1.7" width="3" height="1.2"/>'
+    '<rect x="0.6" y="1.7" width="3" height="1.2"/></g>'
     '</g></svg>'
 )
 
