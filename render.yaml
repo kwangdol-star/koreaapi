@@ -1,0 +1,18 @@
+# Render.com Blueprint — one-click deploy of the KoreaAPI HTTP API as a web service.
+# (Other hosts — Railway / Fly / Cloud Run — use the Dockerfile directly.)
+# After it's live, point agents at https://<your-service>.onrender.com (see API.md / /agents.json).
+services:
+  - type: web
+    name: koreaapi
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: KOREAAPI_DATA_URL
+        value: https://kwangdol-star.github.io/koreaapi/latest.json
+      # To TURN ON x402 payments, set a receiving wallet + mainnet (otherwise the premium endpoint
+      # is served free / dormant):
+      # - key: X402_PAY_TO
+      #   value: "0xYourWalletAddress"
+      # - key: X402_NETWORK
+      #   value: base

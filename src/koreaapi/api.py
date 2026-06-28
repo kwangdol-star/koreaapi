@@ -81,6 +81,10 @@ async def buy_options(request: Request) -> JSONResponse:
     return JSONResponse(await service.buy_options(request.path_params["item"]))
 
 
+async def resolve(request: Request) -> JSONResponse:
+    return JSONResponse(await service.resolve(request.path_params["query"]))
+
+
 # ---- premium endpoint (x402-gated) ----
 async def korea_rising(request: Request) -> JSONResponse:
     gate = await _gate(request, x402.default_price_usd(), PREMIUM_DESC)
@@ -128,6 +132,7 @@ async def index(request: Request) -> JSONResponse:
             "GET /v1/agency/{name}": "artists under an agency",
             "GET /v1/calendar": "recent verified K-culture events",
             "GET /v1/buy-options/{item}": "where-to-buy (logs buy-intent)",
+            "GET /v1/resolve/{query}": "resolve a name / external ID / id -> the canonical verified entity",
         },
         "premium_x402": {
             "endpoint": "GET /v1/korea-rising",
@@ -151,6 +156,7 @@ routes = [
     Route("/v1/agency/{name}", agency),
     Route("/v1/calendar", calendar),
     Route("/v1/buy-options/{item}", buy_options),
+    Route("/v1/resolve/{query}", resolve),
     Route("/v1/korea-rising", korea_rising),
     Route("/billing/stripe/checkout", stripe_checkout, methods=["POST"]),
 ]

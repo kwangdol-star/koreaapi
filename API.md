@@ -55,14 +55,26 @@ We never hold a private key — the **facilitator** does the on-chain verify/set
 need the receiving address. (If the EIP-712 `extra` domain ever mismatches the live token,
 the signature simply won't verify — it fails safe, no funds at risk.)
 
-## Deploy
+## Deploy as a remote endpoint
 
-Any ASGI host (Railway / Render / Fly / Vercel). The host needs the accumulated
-`koreaapi.db` — ship a snapshot with the deploy or point `KOREAAPI_DB` at it.
+A `Dockerfile` + `render.yaml` ship in the repo. The container **hydrates its DB from the published
+open data** (`latest.json` on Pages) at boot via `deploy/start.sh`, so the host needs no committed
+DB — Pages is the data source, the container is the live API face.
 
-```bash
-uv run --extra web uvicorn koreaapi.api:app --host 0.0.0.0 --port $PORT
-```
+- **Render** (free-ish): connect the repo; `render.yaml` is picked up automatically.
+- **Railway / Fly / Cloud Run / any Docker host**: build the `Dockerfile`.
+- **Local**: `KOREAAPI_DB=koreaapi.db uv run --extra web uvicorn koreaapi.api:app --port 8000`
+
+Env: `KOREAAPI_DATA_URL` (where to hydrate from; defaults to the Pages `latest.json`), `PORT`, and the
+`X402_*` vars above to turn on payments. Once live, point agents at `https://<your-host>` — the same
+endpoints, now remote (no local install). Update `/agents.json` `homepage` if you want it to advertise
+the hosted base.
+
+### Remote MCP (optional)
+
+The MCP server also runs remotely: set `MCP_TRANSPORT=http` (or `sse`) and run
+`python -m koreaapi.server` — agents then connect over the network instead of spawning it locally.
+(Transport names follow your installed `fastmcp`; stdio remains the default with no env set.)
 
 ## Fiat (Stripe) — skeleton only
 

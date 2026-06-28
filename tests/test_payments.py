@@ -112,6 +112,12 @@ def test_free_endpoint_serves_even_on_empty_db(monkeypatch, tmp_path):
     assert r.status_code == 200 and r.json()["entity_id"] == "artist:bts"
 
 
+def test_resolve_route_is_wired(monkeypatch, tmp_path):
+    monkeypatch.delenv("X402_PAY_TO", raising=False)
+    r = _client(monkeypatch, tmp_path).get("/v1/resolve/빈센조")   # empty db -> miss, but route works
+    assert r.status_code == 200 and r.json()["found"] is False
+
+
 def test_premium_is_free_when_dormant(monkeypatch, tmp_path):
     monkeypatch.delenv("X402_PAY_TO", raising=False)
     r = _client(monkeypatch, tmp_path).get("/v1/korea-rising")

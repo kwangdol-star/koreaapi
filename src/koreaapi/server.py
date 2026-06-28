@@ -10,6 +10,8 @@ Requires fastmcp at runtime:  pip install fastmcp   (use a venv if system deps c
 
 from __future__ import annotations
 
+import os
+
 from fastmcp import FastMCP
 
 from . import service
@@ -84,7 +86,13 @@ async def get_buy_options(item: str) -> dict:
 
 
 def main() -> None:
-    mcp.run()
+    # Default: stdio (a local MCP server). Set MCP_TRANSPORT=http (or sse) to serve a REMOTE MCP
+    # endpoint that agents connect to over the network — no local install. (Needs a host; see API.md.)
+    transport = os.environ.get("MCP_TRANSPORT")
+    if transport:
+        mcp.run(transport=transport, host="0.0.0.0", port=int(os.environ.get("PORT", "8080")))
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":
