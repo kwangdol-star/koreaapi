@@ -89,6 +89,17 @@ def test_abstract_from_wikipedia_enriches_the_verified_record():
     assert rec.provenance.skill_score >= 0.8  # name still cross-verified; abstract doesn't change it
 
 
+def test_food_ingest_attaches_editorial_spice_rating():
+    # the curated FOOD_SPICE rating is attached at ingest (so it reaches the page + /latest.json),
+    # kept separate from the cross-verified name.
+    p = {"name_ko": "떡볶이", "name_en_official": "Tteokbokki", "name_en_source": "official",
+         "summary_en": "Tteokbokki - facts."}
+    rec = asyncio.run(ingest_one("facts", "food:tteokbokki",
+                      [MockSource("Wikidata", p), MockSource("Wikipedia", p)], db_path=_tmp_db()))
+    assert rec.data.get("spice_level") == "hot"           # from the curated map
+    assert rec.provenance.skill_score >= 0.8              # name still cross-verified
+
+
 def test_two_sources_disagreeing_on_name_do_not_fully_verify():
     a = {"name_ko": "방탄소년단", "name_en_official": "BTS", "name_en_source": "official", "summary_en": "x"}
     b = {"name_ko": "에스파", "name_en_official": "aespa", "name_en_source": "official", "summary_en": "y"}

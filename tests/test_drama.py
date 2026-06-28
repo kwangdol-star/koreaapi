@@ -180,6 +180,36 @@ def test_attrs_render_as_citable_qa():
     assert "What is Squid Game's episodes?" in qmap
 
 
+def test_place_parses_coordinates_and_node_emits_geocoordinates():
+    raw = {"entities": {"Q1": {"labels": {"ko": {"value": "경복궁"}, "en": {"value": "Gyeongbokgung"}},
+           "claims": {"P625": [{"mainsnak": {"snaktype": "value",
+               "datavalue": {"value": {"latitude": 37.579621, "longitude": 126.977041}}}}]}}}}
+    p = parse_entity(raw, "place:gyeongbokgung", "facts")
+    assert p["geo"] == {"lat": 37.57962, "lon": 126.97704}  # rounded
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="place:gyeongbokgung", kind="facts",
+                 name=Name(ko="경복궁", en_official="Gyeongbokgung"), snapshot_at=now,
+                 summary_en="Gyeongbokgung — verified Korean place.",
+                 data={"geo": {"lat": 37.57962, "lon": 126.97704}},
+                 provenance=Provenance(sources=["Wikidata Q1"], fetched_at=now, skill_score=1.0,
+                                       confidence="high"))
+    node = admin._entity_node(rec)
+    assert node["geo"] == {"@type": "GeoCoordinates", "latitude": 37.57962, "longitude": 126.97704}
+
+
+def test_food_spice_is_editorial_qa_and_stays_out_of_verified_facts():
+    now = datetime.now(timezone.utc)
+    rec = Record(entity_id="food:tteokbokki", kind="facts",
+                 name=Name(ko="떡볶이", en_official="Tteokbokki"), snapshot_at=now,
+                 summary_en="Tteokbokki — verified Korean dish / food.", data={"spice_level": "hot"},
+                 provenance=Provenance(sources=["Wikidata Q1", "Wikipedia Tteokbokki"], fetched_at=now,
+                                       skill_score=1.0, confidence="high"))
+    qmap = dict(admin._entity_qa("Tteokbokki", rec, {"facts": rec}))
+    assert "Is Tteokbokki spicy?" in qmap
+    assert "hot" in qmap["Is Tteokbokki spicy?"] and "editorial" in qmap["Is Tteokbokki spicy?"]
+    assert "spice" not in rec.summary_en.lower()  # editorial rating never pollutes the verified facts
+
+
 def test_region_parses_stable_infobox_facts_and_excludes_volatile():
     # The country: parse_entity pulls STABLE facts (capital P36 / language P37 / currency P38 entity
     # Q-ids + ISO P297 / calling code P474 strings) and IGNORES volatile stats (population P1082).

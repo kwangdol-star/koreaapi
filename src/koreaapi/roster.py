@@ -159,6 +159,16 @@ AGENCY_HINTS = {
     "place:gamcheon": "Busan",
     "place:jeonjuhanok": "Jeonju",
     "place:everland": "Yongin",
+    "place:seoraksan": "Gangwon",
+    "place:seokguram": "Gyeongju",
+    "place:jongmyo": "Seoul",
+    "place:deoksugung": "Seoul",
+    "place:changgyeonggung": "Seoul",
+    "place:ddp": "Seoul",
+    "place:namiisland": "Chuncheon",
+    "place:hwaseong": "Suwon",
+    "place:hahoe": "Andong",
+    "place:jagalchi": "Busan",
 }
 
 # K-drama vertical (Phase A breadth). Distinctive titles = low search-collision. Verified by the
@@ -270,6 +280,17 @@ PLACES = {
     "place:gamcheon": "Gamcheon Culture Village",
     "place:jeonjuhanok": "Jeonju Hanok Village",
     "place:everland": "Everland",
+    # seed expansion — famous attractions (all P625-coordinate-bearing -> map + geo JSON-LD)
+    "place:seoraksan": "Seoraksan",
+    "place:seokguram": "Seokguram",
+    "place:jongmyo": "Jongmyo",
+    "place:deoksugung": "Deoksugung",
+    "place:changgyeonggung": "Changgyeonggung",
+    "place:ddp": "Dongdaemun Design Plaza",
+    "place:namiisland": "Nami Island",
+    "place:hwaseong": "Hwaseong Fortress",
+    "place:hahoe": "Hahoe Folk Village",
+    "place:jagalchi": "Jagalchi Market",
 }
 
 # Food vertical: Korean dishes/cuisine (Wikidata-verifiable). `food:` is cross-verified by NAME only
@@ -301,6 +322,38 @@ FOODS = {
     "food:koreanfriedchicken": "Korean fried chicken",
     "food:dalgona": "Dalgona",
     "food:dalgonacoffee": "Dalgona coffee",
+    # more staples / soups / classics (seed expansion)
+    "food:samgyetang": "Samgyetang",
+    "food:seolleongtang": "Seolleongtang",
+    "food:gamjatang": "Gamjatang",
+    "food:jjamppong": "Jjamppong",
+    "food:kalguksu": "Kalguksu",
+    "food:doenjangjjigae": "Doenjang-jjigae",
+    "food:tteokguk": "Tteokguk",
+    "food:mandu": "Mandu",
+    "food:pajeon": "Pajeon",
+    "food:yukhoe": "Yukhoe",
+    "food:dakbokkeumtang": "Dak-bokkeum-tang",
+    "food:songpyeon": "Songpyeon",
+}
+
+# Curated EDITORIAL spice rating (none / mild / medium / hot / very hot) — Wikidata has no spiciness
+# property, so this is a KoreaAPI editorial classification (clearly labeled as such on the page, NOT
+# cross-verified). It answers the #1 foreigner food question ("is it spicy?"). The dish NAME stays
+# cross-verified; only this rating is editorial.
+FOOD_SPICE = {
+    "food:bibimbap": "medium", "food:kimchi": "medium", "food:tteokbokki": "hot",
+    "food:bulgogi": "mild", "food:samgyeopsal": "mild", "food:japchae": "mild",
+    "food:naengmyeon": "mild", "food:kimbap": "mild", "food:sundubujjigae": "hot",
+    "food:galbi": "mild", "food:jjajangmyeon": "mild", "food:dakgalbi": "hot",
+    "food:hotteok": "none", "food:bingsu": "none", "food:gochujang": "very hot",
+    "food:kimchijjigae": "hot", "food:makgeolli": "none", "food:soju": "none",
+    "food:sundae": "mild", "food:koreancorndog": "mild", "food:budaejjigae": "hot",
+    "food:koreanfriedchicken": "medium", "food:dalgona": "none", "food:dalgonacoffee": "none",
+    "food:samgyetang": "mild", "food:seolleongtang": "mild", "food:gamjatang": "medium",
+    "food:jjamppong": "hot", "food:kalguksu": "mild", "food:doenjangjjigae": "mild",
+    "food:tteokguk": "mild", "food:mandu": "mild", "food:pajeon": "mild",
+    "food:yukhoe": "mild", "food:dakbokkeumtang": "hot", "food:songpyeon": "none",
 }
 
 # Company vertical: major Korean companies/brands (Wikidata-verifiable). `company:` maps to industry

@@ -195,6 +195,20 @@ def _claim_qty(item: dict, prop: str) -> str | None:
     return None
 
 
+def _claim_coord(item: dict, prop: str) -> tuple[float, float] | None:
+    """Pure: a globe-coordinate claim (P625) -> (lat, lon), rounded. Enables a map link + Schema.org
+    GeoCoordinates for physical places. None when absent/malformed (supplementary)."""
+    for claim in item.get("claims", {}).get(prop, []):
+        ms = claim.get("mainsnak", {})
+        if ms.get("snaktype") != "value":
+            continue
+        v = (ms.get("datavalue") or {}).get("value") or {}
+        lat, lon = v.get("latitude"), v.get("longitude")
+        if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+            return (round(float(lat), 5), round(float(lon), 5))
+    return None
+
+
 # Per-namespace Wikidata property map — the SAME engine, switched by entity namespace. `agency` is
 # the org edge (소속사 / network / publisher), `date` the debut/air/publication date (`date2` a
 # fallback), `members` the people edge (group members / cast / authors), `directors` drama·film only,
@@ -323,6 +337,10 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         payload["attrs"] = extra_attrs
     if extra_label_qids:
         payload["extra_label_qids"] = extra_label_qids
+    if ns in ("place", "medical", "university"):  # physical locations -> coordinates (map + geo JSON-LD)
+        coord = _claim_coord(item, "P625")
+        if coord:
+            payload["geo"] = {"lat": coord[0], "lon": coord[1]}
     return payload
 
 

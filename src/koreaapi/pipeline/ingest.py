@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 from ..models import Name, Provenance, Record, TranslationProvenance
 from ..romanize import romanize
+from ..roster import FOOD_SPICE
 from ..skill_score import compute_skill_score, to_confidence
 from . import store
 from .scheduler import CADENCE
@@ -160,6 +161,9 @@ async def ingest_one(
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
         summary_en = f"{disp}{ko_part} — verified Korean dish / food."
         summary_ko = f"{name.ko} — 검증된 한국 음식."
+        spice = FOOD_SPICE.get(entity_id)  # editorial spice rating (kept out of the verified summary)
+        if spice:
+            chosen["spice_level"] = spice
     elif kind == "facts" and entity_id.startswith("company:"):
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

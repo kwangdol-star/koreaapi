@@ -337,6 +337,9 @@ def _entity_node(r) -> dict:
         region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
         if region:  # citable "where is X?"
             node["containedInPlace"] = {"@type": "Place", "name": region}
+        geo = r.data.get("geo")
+        if geo:  # P625 -> map + schema.org GeoCoordinates
+            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
         return node
     if r.entity_id.startswith("food:"):
         # a Korean dish: verified bilingual name + Wikidata sameAs is the asset (no agency/people edge)
@@ -407,6 +410,9 @@ def _entity_node(r) -> dict:
                                "addressCountry": "KR"}
         if r.data.get("debut"):  # founded -> citable "when was X founded?"
             node["foundingDate"] = r.data["debut"]
+        geo = r.data.get("geo")
+        if geo:  # P625 -> map + schema.org GeoCoordinates
+            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
         return node
     if r.entity_id.startswith("region:"):
         # The country -> schema.org Country; its administrative divisions -> AdministrativeArea. Verified
@@ -473,6 +479,9 @@ def _entity_node(r) -> dict:
                                "addressCountry": "KR"}
         if r.data.get("debut"):  # founded -> citable "when was X founded?"
             node["foundingDate"] = r.data["debut"]
+        geo = r.data.get("geo")
+        if geo:  # P625 -> map + schema.org GeoCoordinates
+            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
         return node
     if r.entity_id.startswith(("drama:", "film:")):
         node = {"@type": "Movie" if r.entity_id.startswith("film:") else "TVSeries",
@@ -1162,6 +1171,14 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
             ag = agency + (f" ({d['agency_ko']})" if d.get("agency_ko") and d["agency_ko"] != agency else "")
             qas.append((f"What agency (소속사) is {name} under?",
                         f"{name} is under {ag} (verified via {src}, as of {asof})."))
+    geo = d.get("geo") or {}
+    if geo.get("lat") is not None:  # verified coordinates (P625)
+        qas.append((f"What are the coordinates of {name}?",
+                    f"{name} is located at {geo['lat']}, {geo['lon']} (verified via {src}, as of {asof})."))
+    if d.get("spice_level"):  # editorial spice rating (clearly attributed)
+        qas.append((f"Is {name} spicy?",
+                    f"{name} is rated '{d['spice_level']}' on KoreaAPI's spice scale "
+                    f"(editorial rating; the dish name is cross-verified via {src})."))
     for k, v in (d.get("attrs") or {}).items():  # per-vertical structured attrs -> citable Q&A
         qas.append((f"What is {name}'s {k.lower()}?",
                     f"{name} — {k}: {v} (verified via {src}, as of {asof})."))
@@ -1250,6 +1267,18 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     details_block = ("<h2>Details</h2><ul class=attrs>"
                      + "".join(f"<li><b>{html.escape(str(k))}:</b> {html.escape(str(v))}</li>"
                                for k, v in attrs.items()) + "</ul>") if attrs else ""
+    # Coordinates (verified P625) -> a real map link + the citable lat/lon. Numbers, so URL is safe.
+    geo = primary.data.get("geo") or {}
+    geo_block = ""
+    if geo.get("lat") is not None:
+        lat, lon = geo["lat"], geo["lon"]
+        maps = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
+        geo_block = (f'<h2>Location</h2><p>{lat}, {lon} · '
+                     f'<a href="{maps}" rel="nofollow noopener" target="_blank">View on map →</a></p>')
+    # Spice level (editorial, clearly labeled — Wikidata has no spiciness property; the NAME is verified).
+    spice = primary.data.get("spice_level")
+    spice_block = (f"<h2>Spice level</h2><p>{html.escape(str(spice))} "
+                   "<span class=rom>— KoreaAPI editorial rating (not cross-verified)</span></p>") if spice else ""
 
     # The verified people + hub edges, rendered as an internal-link GRAPH (cross-links to person /
     # entity pages) — the connective tissue answer engines and crawlers traverse.
@@ -1296,6 +1325,8 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {about_block}
 <h2>Verified facts</h2><p>{html.escape(primary.summary_en)}</p>
 {details_block}
+{geo_block}
+{spice_block}
 {people_block}
 {dir_block}
 {qa_block}
