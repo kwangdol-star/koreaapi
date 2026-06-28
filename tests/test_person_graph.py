@@ -111,6 +111,29 @@ def test_person_qa_groups_by_role():
     assert any("acting" in q.lower() for q in qa_cast)
 
 
+def test_collaborators_link_people_who_share_verified_works():
+    by_entity = _by_entity()
+    people = admin._collect_credits(by_entity)
+    linked = admin._linked_person_slugs(people, {admin._slug(e) for e in by_entity})
+    work_people: dict[str, set] = {}
+    for nm, p in people.items():
+        for c in p["credits"]:
+            work_people.setdefault(c["work_slug"], set()).add(nm)
+    linked_names = {nm for nm, p in people.items() if p["slug"] in linked}
+    collabs = admin._collaborators("Bong Joon-ho", people["Bong Joon-ho"]["credits"],
+                                   work_people, linked_names)
+    cmap = {o: set(w) for o, _s, w in collabs}
+    # Song Kang-ho shares BOTH films with Bong -> a collaborator, both shared works listed
+    assert cmap.get("Song Kang-ho") == {"Parasite", "Memories of Murder"}
+    assert "Bong Joon-ho" not in cmap          # self excluded
+    assert "Choi Woo-shik" not in cmap          # only 1 credit -> not a linked person -> excluded
+    # the edge surfaces in the Person node (colleague) + Q&A (FAQPage)
+    node = admin._person_node("Bong Joon-ho", people["Bong Joon-ho"]["credits"], collabs)
+    assert node["colleague"][0]["name"] == "Song Kang-ho"
+    qmap = dict(admin._person_qa("Bong Joon-ho", people["Bong Joon-ho"]["credits"], collabs))
+    assert "Song Kang-ho" in qmap.get("Who has Bong Joon-ho worked with?", "")
+
+
 def test_related_same_agency_and_network_within_family():
     by_entity = _by_entity()
     bts_related = admin._related("artist:bts", by_entity["artist:bts"]["facts"], by_entity)

@@ -985,18 +985,35 @@ def _credit_link(name: str, entity_slugs: set, linked: set) -> str:
     return label
 
 
-def _person_node(name: str, credits: list[dict]) -> dict:
-    """Schema.org Person with `knownFor` the verified works (each linked) — a citable node that ties
-    a person to their cross-verified filmography/discography on the open web."""
+def _collaborators(name: str, credits: list[dict], work_people: dict, linked_names: set) -> list[tuple]:
+    """The person↔person graph edge: other LINKED people who share a verified work with `name`.
+    Pure. Returns [(collab_name, slug, [shared work_names])] sorted by #shared works desc, then name."""
+    shared: dict[str, set] = {}
+    for c in credits:
+        for other in work_people.get(c["work_slug"], ()):
+            if other == name or other not in linked_names:
+                continue
+            shared.setdefault(other, set()).add(c["work_name"])
+    return [(o, _person_slug(o), sorted(w))
+            for o, w in sorted(shared.items(), key=lambda kv: (-len(kv[1]), kv[0]))]
+
+
+def _person_node(name: str, credits: list[dict], collaborators: list | None = None) -> dict:
+    """Schema.org Person with `knownFor` the verified works (each linked) + `colleague` the verified
+    collaborators — a citable node tying a person to their cross-verified works AND co-workers."""
     known = [
         {"@type": _ROLE_TYPE.get(c["kind"], "CreativeWork"), "name": c["work_name"],
          "url": f"{_SITE_BASE}/artist/{c['work_slug']}.html"}
         for c in credits
     ]
-    return {"@type": "Person", "name": name, "knownFor": known}
+    node = {"@type": "Person", "name": name, "knownFor": known}
+    if collaborators:
+        node["colleague"] = [{"@type": "Person", "name": o, "url": f"{_SITE_BASE}/person/{s}.html"}
+                             for o, s, _w in collaborators]
+    return node
 
 
-def _person_qa(name: str, credits: list[dict]) -> list[tuple[str, str]]:
+def _person_qa(name: str, credits: list[dict], collaborators: list | None = None) -> list[tuple[str, str]]:
     """Answer-shaped Q&A for a person, grouped by role — emitted visibly AND as FAQPage JSON-LD."""
     src = "; ".join(sorted({s for c in credits for s in c["sources"]}))
     qas: list[tuple[str, str]] = []
@@ -1021,6 +1038,10 @@ def _person_qa(name: str, credits: list[dict]) -> list[tuple[str, str]]:
     if member:
         qas.append((f"What group is {name} in?",
                     f"{name} is a member of {', '.join(member)} (verified via {src})."))
+    if collaborators:
+        parts = [f"{o} (on {', '.join(w)})" for o, _s, w in collaborators[:8]]
+        qas.append((f"Who has {name} worked with?",
+                    f"{name} shares verified works with {', '.join(parts)} (via {src})."))
     return qas
 
 
@@ -1352,9 +1373,10 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 
 
 def _write_person_html(out_dir: str, name: str, credits: list[dict],
-                       qas: list[tuple[str, str]], jsonld: str) -> None:
-    """A citable per-person page: verified credits (each work linked), Q&A, cite line + provenance.
-    Provenance is the union of the works' sources — the person edge is asserted by those records."""
+                       qas: list[tuple[str, str]], jsonld: str, *,
+                       collaborators: list | None = None) -> None:
+    """A citable per-person page: verified credits (each work linked), collaborators (person↔person
+    graph edges), Q&A, cite line + provenance — the person edge asserted by the works' records."""
     slug = _person_slug(name)
     url = f"{_SITE_BASE}/person/{slug}.html"
     sources = sorted({s for c in credits for s in c["sources"]})
@@ -1371,6 +1393,13 @@ def _write_person_html(out_dir: str, name: str, credits: list[dict],
         for q, a in qas
     )
     qa_block = f"<h2>Q&amp;A — what agents ask</h2>{qa_html}" if qa_html else ""
+    collab_block = ""
+    if collaborators:
+        lis = "".join(
+            f'<li><a href="{s}.html">{html.escape(o)}</a> '
+            f'<span class=rom>— {len(w)} shared work{"s" if len(w) > 1 else ""}</span></li>'
+            for o, s, w in collaborators)
+        collab_block = f"<h2>Worked with ({len(collaborators)})</h2><ul class=people>{lis}</ul>"
     nm = html.escape(name)
     desc = html.escape(f"{name} — verified Korean-culture credits ({len(credits)} works) for AI "
                        f"agents & answer engines.")
@@ -1390,6 +1419,7 @@ def _write_person_html(out_dir: str, name: str, credits: list[dict],
 <h1>{nm}</h1>
 <div class=sub>Verified Korean-culture credits · {len(credits)} works · cross-checked · via KoreaAPI</div>
 <h2>Verified credits</h2><ul class=people>{items}</ul>
+{collab_block}
 {qa_block}
 <div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span></div>
 <footer>Provenance: {html.escape('; '.join(sources))} · as of {asof} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
@@ -1607,6 +1637,12 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         written.append({"slug": slug, "name": name, "url": url})
 
     # Person pages — the graph hubs. Dedup by slug (rare name->slug collisions: richest wins).
+    # First index works -> the people credited on them, so each person can link their collaborators.
+    work_people: dict[str, set] = {}
+    for nm, pp in people.items():
+        for c in pp["credits"]:
+            work_people.setdefault(c["work_slug"], set()).add(nm)
+    linked_names = {nm for nm, pp in people.items() if pp["slug"] in linked}
     people_written: list[dict] = []
     done: set[str] = set()
     for name, p in sorted(people.items(), key=lambda kv: -len(kv[1]["credits"])):
@@ -1615,12 +1651,13 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
             continue
         done.add(slug)
         credits = p["credits"]
-        qas = _person_qa(name, credits)
+        collabs = _collaborators(name, credits, work_people, linked_names)
+        qas = _person_qa(name, credits, collabs)
         doc = {"@context": "https://schema.org",
-               "@graph": [_person_node(name, credits)] + ([_faqpage_node(qas)] if qas else [])
+               "@graph": [_person_node(name, credits, collabs)] + ([_faqpage_node(qas)] if qas else [])
                + [_breadcrumb(name, f"{_SITE_BASE}/person/{slug}.html",
                               middle=("People", f"{_SITE_BASE}/people.html"))]}
-        _write_person_html(out_dir, name, credits, qas, _escape_jsonld(doc))
+        _write_person_html(out_dir, name, credits, qas, _escape_jsonld(doc), collaborators=collabs)
         people_written.append({"slug": slug, "name": name, "url": f"{_SITE_BASE}/person/{slug}.html"})
 
     # Vertical hub pages + a people hub (hub-and-spoke): each lists its vertical and carries an

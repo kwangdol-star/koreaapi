@@ -384,6 +384,14 @@ _TITLES = {
     "classic:taengniji": "Taengniji",
     "classic:daedongyeojido": "Daedongyeojido",
     "classic:jingbirok": "Jingbirok",
+    "classic:goryeosajeoryo": "Goryeosa jeoryo",
+    "classic:jikji": "Jikji",
+    "classic:uigwe": "Uigwe",
+    "classic:ilseongnok": "Ilseongnok",
+    "classic:hanjungnok": "The Memoirs of Lady Hyegyeong",
+    "classic:jasaneobo": "Jasaneobo",
+    "classic:jibongyuseol": "Jibong yuseol",
+    "classic:muyedobotongji": "Muyedobotongji",
 }
 
 

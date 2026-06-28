@@ -625,6 +625,15 @@ CLASSICS = {
     "classic:taengniji": "Taengniji",
     "classic:daedongyeojido": "Daedongyeojido",
     "classic:jingbirok": "Jingbirok",
+    # batch 2 — more canonical records / treatises (several UNESCO Memory of the World)
+    "classic:goryeosajeoryo": "Goryeosa jeoryo",
+    "classic:jikji": "Jikji",
+    "classic:uigwe": "Uigwe",
+    "classic:ilseongnok": "Ilseongnok",
+    "classic:hanjungnok": "Hanjungnok",
+    "classic:jasaneobo": "Jasaneobo",
+    "classic:jibongyuseol": "Jibong yuseol",
+    "classic:muyedobotongji": "Muyedobotongji",
 }
 
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
