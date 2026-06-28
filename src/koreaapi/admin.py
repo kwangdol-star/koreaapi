@@ -23,6 +23,7 @@ CLI:
   python -m koreaapi.admin llmsfull # regenerate llms-full.txt (full LLM-ingestible corpus)
   python -m koreaapi.admin feed     # regenerate feed.xml (RSS) + feed.json (JSON Feed)
   python -m koreaapi.admin reconcile # regenerate reconcile.json (name/external-ID -> canonical entity)
+  python -m koreaapi.admin status   # regenerate status.json (health/freshness snapshot)
   python -m koreaapi.admin entitypages  # write per-entity + per-person citable pages (site/)
   python -m koreaapi.admin sitemap  # write sitemap.xml (every entity + person page)
   python -m koreaapi.admin monitor  # write monitor.html (human data-quality cockpit)
@@ -42,6 +43,7 @@ from datetime import datetime, timezone
 
 from . import integrity
 from .models import Record
+from .payments.stripe import PLANS as _PRICING_PLANS
 from .pipeline import store
 from .reconcile import external_ids
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
@@ -352,6 +354,36 @@ async def stats(db_path: str | None = None) -> dict:
         "low_confidence": low,
         "fresh_entities": f"{fresh}/{len(ents)}",
     }
+
+
+async def status_json(db_path: str | None = None, out_path: str = "status.json") -> str:
+    """/status.json — a machine-readable HEALTH/FRESHNESS snapshot an operator (or agent) can poll:
+    coverage, average Skill Score, cross/triple-verified counts, freshness, low-confidence count. The
+    operator's SLA signal that the data is actively maintained. Empty store -> static file untouched."""
+    s = await stats(db_path)
+    if not s.get("entities"):
+        return out_path
+    by_entity = await _load_by_entity(db_path)
+    facts = [bk["facts"] for bk in by_entity.values() if "facts" in bk]
+    cross = sum(1 for r in facts if getattr(r.provenance, "agreeing_sources", 0) >= 2)
+    triple = sum(1 for r in facts if getattr(r.provenance, "agreeing_sources", 0) >= 3)
+    doc = {
+        "ok": True,
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "entities": s["entities"],
+        "snapshots": s["snapshots"],
+        "avg_skill_score": s["avg_skill_score"],
+        "cross_verified": cross,
+        "triple_verified": triple,
+        "low_confidence": s["low_confidence"],
+        "fresh": s["fresh_entities"],
+        "integrity": f"{_SITE_BASE}/integrity.json",
+        "note": ("Health/freshness snapshot, regenerated each build. cross_verified = ≥2 agreeing "
+                 "sources; triple_verified = ≥3; fresh = entities within their freshness TTL."),
+    }
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+    return out_path
 
 
 def _one_source_url(s: str) -> str | None:
@@ -883,6 +915,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./methodology.html">/methodology · how we verify</a>
  <a class="pill" href="./for-agents.html">/for-agents · integrate</a>
  <a class="pill" href="./reconcile.json">/reconcile.json · resolve</a>
+ <a class="pill" href="./pricing.html">/pricing · access</a>
+ <a class="pill" href="./status.json">/status.json · health</a>
  <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
 <div class="chips">
@@ -2199,6 +2233,7 @@ def _agents_manifest() -> dict:
             "feed_rss": f"{_SITE_BASE}/feed.xml",
             "feed_json": f"{_SITE_BASE}/feed.json",
             "reconcile": f"{_SITE_BASE}/reconcile.json",
+            "status": f"{_SITE_BASE}/status.json",
         },
         "verification": {
             "methodology": f"{_SITE_BASE}/methodology.html",
@@ -2210,6 +2245,7 @@ def _agents_manifest() -> dict:
             "protocol": "x402",
             "endpoint": "/v1/korea-rising",
             "asset": "USDC on Base",
+            "pricing": f"{_SITE_BASE}/pricing.html",
             "note": "agents pay per call autonomously; dormant until a receiving wallet is configured",
         },
         "cite_as": "Name — kind, as of <date> · source · Skill Score · via KoreaAPI",
@@ -2288,6 +2324,57 @@ def _write_for_agents(out_dir: str) -> None:
                         ko_body, ko_jsonld)
 
 
+def _write_pricing(out_dir: str) -> None:
+    """/pricing (+ /ko) — the offer made legible for an operator: free open data, x402 per-call
+    (agent-native), and fiat Pro/Scale tiers (scaffolded). Reuses the hub (EN) + ko list (KO) writers."""
+    repo = "https://github.com/kwangdol-star/koreaapi"
+    plans = "".join(
+        f"<li><b>{html.escape(p['name'])}</b> — ${p['usd_month']}/mo · {html.escape(', '.join(p['includes']))}</li>"
+        for p in _PRICING_PLANS.values())
+    body = (
+        "<h2>Free — the open verified data</h2><p>Fetch it directly, no account: "
+        "<a href=\"./latest.json\">/latest.json</a>, <a href=\"./llms-full.txt\">/llms-full.txt</a>, "
+        "<a href=\"./reconcile.json\">/reconcile.json</a>, plus the MCP tools "
+        "(<a href=\"./for-agents.html\">/for-agents</a>). Attribution (&ldquo;via KoreaAPI&rdquo;) appreciated.</p>"
+        "<h2>x402 — pay per call (agent-native)</h2><p>The premium signal <code>/v1/korea-rising</code> "
+        "is payable per call in USDC on Base via the x402 protocol — your agent pays autonomously, no "
+        "account. Example ~$0.01/call (configurable). Dormant until a receiving wallet is set.</p>"
+        f"<h2>Pro / Scale — for teams (fiat)</h2><ul>{plans}</ul>"
+        f"<p>Want an invoice, higher limits, or an SLA? <a href=\"{repo}/issues\">Open an issue</a> to talk. "
+        "(Fiat billing is scaffolded; we wire it when a buyer needs it.)</p>"
+        "<h2>How to start</h2><p>Wire it in via <a href=\"./for-agents.html\">/for-agents</a> + "
+        "<a href=\"./agents.json\">/agents.json</a>. Trust model: <a href=\"./methodology.html\">/methodology</a>; "
+        "live health: <a href=\"./status.json\">/status.json</a>.</p>"
+    )
+    _write_hub_html(out_dir, "pricing.html", "💳", "Pricing &amp; access",
+                    "Free open data · x402 per-call · fiat tiers for teams.", body,
+                    _escape_jsonld({"@context": "https://schema.org", "@type": "WebPage",
+                                    "name": "KoreaAPI — pricing", "inLanguage": "en",
+                                    "url": f"{_SITE_BASE}/pricing.html"}))
+    plans_ko = "".join(
+        f"<li><b>{html.escape(p['name'])}</b> — ${p['usd_month']}/월 · {html.escape(', '.join(p['includes']))}</li>"
+        for p in _PRICING_PLANS.values())
+    ko_body = (
+        "<h2>무료 — 공개 검증 데이터</h2><p>계정 없이 바로: <a href=\"../latest.json\">/latest.json</a>, "
+        "<a href=\"../llms-full.txt\">/llms-full.txt</a>, <a href=\"../reconcile.json\">/reconcile.json</a>, "
+        "MCP 도구(<a href=\"./for-agents.html\">/for-agents</a>). 출처 표기(&ldquo;via KoreaAPI&rdquo;) 권장.</p>"
+        "<h2>x402 — 호출당 결제(에이전트 네이티브)</h2><p>프리미엄 신호 <code>/v1/korea-rising</code>를 Base "
+        "USDC로 호출당 결제(x402) — 에이전트가 계정 없이 자동 결제. 예: 호출당 ~$0.01(설정 가능). 수신 지갑 "
+        "설정 전까지 휴면.</p>"
+        f"<h2>Pro / Scale — 팀용(법정화폐)</h2><ul>{plans_ko}</ul>"
+        f"<p>인보이스·상향 한도·SLA가 필요하면 <a href=\"{repo}/issues\">이슈로 문의</a>. "
+        "(법정화폐 결제는 골격만 — 수요 생기면 연결.)</p>"
+        "<h2>시작하기</h2><p><a href=\"./for-agents.html\">/for-agents</a> + "
+        "<a href=\"../agents.json\">/agents.json</a>로 연동. 신뢰 모델: <a href=\"./methodology.html\">/methodology</a>; "
+        "상태: <a href=\"../status.json\">/status.json</a>.</p>"
+    )
+    _write_ko_list_page(out_dir, "pricing.html", "가격 · 이용 안내",
+                        "무료 공개 데이터 · x402 호출당 결제 · 팀용 유료 등급.", ko_body,
+                        _escape_jsonld({"@context": "https://schema.org", "@type": "WebPage",
+                                        "name": "KoreaAPI — 가격·이용", "inLanguage": "ko",
+                                        "url": f"{_SITE_BASE}/ko/pricing.html"}))
+
+
 async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dict:
     """Citable answer-pages — the AEO citation-surface multiplier — for BOTH entities and people.
 
@@ -2340,6 +2427,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     _write_ko_home(out_dir, len(written), sorted(ko_written, key=lambda x: x[1])[:60])
     _write_methodology(out_dir)  # /methodology + /ko/methodology — the trust model (E-E-A-T)
     _write_for_agents(out_dir)   # /for-agents (+ /ko) + /agents.json — the agent-operator surface
+    _write_pricing(out_dir)      # /pricing (+ /ko) — the offer, legible for an operator
 
     # Person pages — the graph hubs. Dedup by slug (rare name->slug collisions: richest wins).
     # First index works -> the people credited on them, so each person can link their collaborators.
@@ -2457,6 +2545,7 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
     urls += [(f"{_SITE_BASE}/people.html", "0.8"), (f"{_SITE_BASE}/ko/people.html", "0.7"),
              (f"{_SITE_BASE}/methodology.html", "0.7"), (f"{_SITE_BASE}/ko/methodology.html", "0.6"),
              (f"{_SITE_BASE}/for-agents.html", "0.7"),
+             (f"{_SITE_BASE}/pricing.html", "0.7"), (f"{_SITE_BASE}/ko/pricing.html", "0.6"),
              (f"{_SITE_BASE}/korea-rising.md", "0.8"), (f"{_SITE_BASE}/latest.json", "0.6")]
     by_entity = await _load_by_entity(db_path=db_path)
     seen: set[str] = set()
@@ -3057,6 +3146,8 @@ def _main(argv: list[str]) -> int:
         print("wrote", asyncio.run(feed_xml()), "+", asyncio.run(feed_json()))
     elif cmd == "reconcile":
         print("wrote", asyncio.run(reconcile_json()))
+    elif cmd == "status":
+        print("wrote", asyncio.run(status_json()))
     elif cmd == "monitor":
         print("wrote", asyncio.run(monitor_html()))
     elif cmd == "pull":
