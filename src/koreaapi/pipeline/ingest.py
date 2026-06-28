@@ -351,7 +351,7 @@ async def ingest_one(
     # Drop redundant prose + transient per-source IDs (mbid/osm_id/tmdb_id are already in the citation;
     # only Wikidata pops its own *_qids, so strip the 3rd-source IDs here when a non-Wikidata payload won).
     data = {k: v for k, v in chosen.items()
-            if k not in ("summary_en", "summary_ko", "mbid", "osm_id", "tmdb_id")}
+            if k not in ("summary_en", "summary_ko", "mbid", "osm_id", "tmdb_id", "tour_id")}
 
     record = Record(
         entity_id=entity_id,

@@ -1,6 +1,7 @@
-"""Two more independent 3rd sources, each self-scoped to its verticals:
+"""More independent 3rd sources, each self-scoped to its verticals:
 - Nominatim/OSM (places): separate DB, returns name:ko + name:en -> works with bilingual cross-verify.
 - TMDB (drama/film/animation): carries the Korean original_title; key-gated (inert without TMDB_API_KEY).
+- KTO/TourAPI (places): the official government tourism authority; key-gated (inert without TOURAPI_KEY).
 Parse + identity guards are pure/offline; live fetch runs on the open network."""
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import pytest
 
 from koreaapi.sources.nominatim import NominatimSource, parse_nominatim
 from koreaapi.sources.tmdb import TMDBSource, parse_tmdb
+from koreaapi.sources.tourapi import TourAPISource, parse_tourapi
 from koreaapi.sources.wikidata import _name_match
 
 
@@ -63,6 +65,38 @@ def test_tmdb_rejects_drift_self_filters_and_is_key_gated():
     os.environ.pop("TMDB_API_KEY", None)
     with pytest.raises(ValueError, match="not set"):
         asyncio.run(TMDBSource().fetch("drama:squidgame", "facts"))
+
+
+def _tourapi_raw(item):
+    # TourAPI nests: response.body.items.item is a list for many, a bare dict for one result.
+    return {"response": {"body": {"items": {"item": item}}}}
+
+
+def test_tourapi_parses_official_listing():
+    raw = _tourapi_raw([{"title": "Gyeongbokgung Palace", "contentid": "264337"}])
+    p = parse_tourapi(raw, "Gyeongbokgung")  # expected ⊂ official title (long-contain) -> matches
+    assert p["name_en_official"] == "Gyeongbokgung Palace" and p["tour_id"] == "264337"
+    assert p["name_en_source"] == "official"  # KTO is a government authority
+
+
+def test_tourapi_accepts_single_item_dict():
+    # one result comes back as a bare dict (not a list) — _items must still find it
+    raw = _tourapi_raw({"title": "Bukchon Hanok Village", "contentid": "264386"})
+    p = parse_tourapi(raw, "Bukchon Hanok Village")
+    assert p["tour_id"] == "264386"
+
+
+def test_tourapi_rejects_drift_self_filters_and_is_key_gated():
+    with pytest.raises(ValueError, match="no official listing"):
+        parse_tourapi(_tourapi_raw([{"title": "Somewhere Else", "contentid": "1"}]), "Gyeongbokgung")
+    with pytest.raises(ValueError, match="no official listing"):  # empty results ("" body)
+        parse_tourapi({"response": {"body": {"items": ""}}}, "Gyeongbokgung")
+    with pytest.raises(ValueError, match="places only"):
+        asyncio.run(TourAPISource().fetch("artist:bts", "facts"))
+    # place vertical but no key -> inert (graceful raise, dropped by ingest)
+    os.environ.pop("TOURAPI_KEY", None)
+    with pytest.raises(ValueError, match="not set"):
+        asyncio.run(TourAPISource().fetch("place:gyeongbokgung", "facts"))
 
 
 if __name__ == "__main__":
