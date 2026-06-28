@@ -314,6 +314,20 @@ async def ingest_one(
         summary_ko = (f"{name.ko} — 검증된 한국 고전 / 사료."
                       + (f" 편찬 {year}." if year else "")
                       + (f" 저자: {', '.join(authors)}." if authors else ""))
+    elif kind == "facts" and entity_id.startswith("fashion:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        owner = chosen.get("agency_en") or chosen.get("agency_ko")  # parent / owner (P127)
+        year = chosen.get("debut")
+        designers = chosen.get("members") or []  # founded by (P112)
+        summary_en = (f"{disp}{ko_part} — verified Korean fashion brand."
+                      + (f" Est. {year}." if year else "")
+                      + (f" By {', '.join(designers)}." if designers else "")
+                      + (f" Owner: {owner}." if owner else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 패션 브랜드."
+                      + (f" 설립 {year}." if year else "")
+                      + (f" 디자이너: {', '.join(designers)}." if designers else "")
+                      + (f" 소유: {owner}." if owner else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

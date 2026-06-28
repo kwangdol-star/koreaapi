@@ -676,10 +676,24 @@ CLASSICS = {
     "classic:muyedobotongji": "Muyedobotongji",
 }
 
+# Fashion vertical: Korean fashion brands & designer labels (a global K-export — Gentle Monster,
+# Ader Error…). `fashion:` maps to owner P127 + inception P571 + founded-by P112 (the designer ->
+# person graph). Seed-only (the fashion-house Wikidata class is sparse); distinctive names.
+FASHION = {
+    "fashion:gentlemonster": "Gentle Monster",
+    "fashion:adererror": "Ader Error",
+    "fashion:thisisneverthat": "Thisisneverthat",
+    "fashion:anderssonbell": "Andersson Bell",
+    "fashion:wooyoungmi": "Wooyoungmi",
+    "fashion:juunj": "Juun.J",
+    "fashion:liesangbong": "Lie Sang Bong",
+    "fashion:kimseoryong": "Kimseoryong",
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
-         **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS}
+         **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

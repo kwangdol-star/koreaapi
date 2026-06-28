@@ -426,6 +426,14 @@ _TITLES = {
     "classic:jasaneobo": "Jasaneobo",
     "classic:jibongyuseol": "Jibong yuseol",
     "classic:muyedobotongji": "Muyedobotongji",
+    "fashion:gentlemonster": "Gentle Monster",
+    "fashion:adererror": "Ader Error",
+    "fashion:thisisneverthat": "Thisisneverthat",
+    "fashion:anderssonbell": "Andersson Bell",
+    "fashion:wooyoungmi": "Wooyoungmi",
+    "fashion:juunj": "Juun.J",
+    "fashion:liesangbong": "Lie Sang-bong",
+    "fashion:kimseoryong": "Kimseoryong",
 }
 
 

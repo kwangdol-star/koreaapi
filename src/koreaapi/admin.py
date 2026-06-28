@@ -408,7 +408,7 @@ def _entity_node(r) -> dict:
         if r.data.get("debut"):  # founded -> citable "when was X founded?"
             node["foundingDate"] = r.data["debut"]
         return node
-    if r.entity_id.startswith("brand:"):
+    if r.entity_id.startswith(("brand:", "fashion:")):
         node = {"@type": "Brand", "name": name, "alternateName": alt,
                 "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
@@ -808,6 +808,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./animation.html">{_ICON['animation']} Animation</a>
  <a class="pill" href="./universities.html">{_ICON['university']} Universities</a>
  <a class="pill" href="./classics.html">{_ICON['classic']} Classics</a>
+ <a class="pill" href="./fashion.html">{_ICON['fashion']} Fashion</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -921,6 +922,8 @@ _ICON = {
     "classic": _icon('<path d="M6 3h9l4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>'
                      '<polyline points="15 3 15 7 19 7"/><line x1="8" y1="12" x2="15" y2="12"/>'
                      '<line x1="8" y1="16" x2="13" y2="16"/>'),
+    # t-shirt (fashion)
+    "fashion": _icon('<path d="M8 3 4 6l2 3 2-1v10h8V8l2 1 2-3-4-3-2 2a3 3 0 0 1-4 0z"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -965,7 +968,8 @@ def _person_slug(name: str) -> str:
 # ...), which is exactly the internal-link + entity structure answer engines reward. Pure aggregation
 # over ALREADY-verified records — no new fetch, no new trust surface (provenance = the works' own).
 
-_ROLE_TYPE = {"film": "Movie", "drama": "TVSeries", "artist": "MusicGroup", "webtoon": "ComicSeries"}
+_ROLE_TYPE = {"film": "Movie", "drama": "TVSeries", "artist": "MusicGroup", "webtoon": "ComicSeries",
+              "fashion": "Brand"}
 
 
 def _entity_kind(entity_id: str) -> str:
@@ -999,6 +1003,7 @@ def _collect_credits(by_entity: dict) -> dict:
             continue
         member_role = ("creator" if entity_id.startswith("webtoon:")
                        else "author" if entity_id.startswith(("book:", "classic:"))
+                       else "designer" if entity_id.startswith("fashion:")
                        else "cast" if entity_id.startswith(("drama:", "film:", "show:")) else "member")
         for nm in (rec.data.get("members") or []):
             add(nm, rec, member_role)
@@ -1076,10 +1081,13 @@ def _person_qa(name: str, credits: list[dict], collaborators: list | None = None
         return [c["work_name"] for c in credits if c["role"] == role]
 
     directed, acted, member = names("director"), names("cast"), names("member")
-    created, authored = names("creator"), names("author")
+    created, authored, designed = names("creator"), names("author"), names("designer")
     if directed:
         qas.append((f"What did {name} direct?",
                     f"{name} directed {', '.join(directed)} (verified via {src})."))
+    if designed:
+        qas.append((f"What did {name} design?",
+                    f"{name} designed {', '.join(designed)} (verified via {src})."))
     if acted:
         qas.append((f"What is {name} known for acting in?",
                     f"{name} appears in {', '.join(acted)} (verified via {src})."))
@@ -1180,7 +1188,7 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("medical:"):
             qas.append((f"When was {name} founded?",
                         f"{name} was founded in {d['debut']} (verified via {src}, as of {asof})."))
-        elif eid.startswith("brand:"):
+        elif eid.startswith(("brand:", "fashion:")):
             qas.append((f"When was {name} established?",
                         f"{name} was established in {d['debut']} (verified via {src}, as of {asof})."))
         elif eid.startswith(("book:", "classic:")):
@@ -1219,6 +1227,9 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith(("book:", "classic:")):
             qas.append((f"Who wrote {name}?",
                         f"{name} was written by {', '.join(members)} (verified via {src}, as of {asof})."))
+        elif eid.startswith("fashion:"):
+            qas.append((f"Who designed {name}?",
+                        f"{name} was designed by {', '.join(members)} (verified via {src}, as of {asof})."))
         else:
             qas.append((f"Who are the members of {name}?",
                         f"{', '.join(members)} — {len(members)} members (verified via {src}, as of {asof})."))
@@ -1241,7 +1252,7 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         elif eid.startswith("company:"):
             qas.append((f"What industry is {name} in?",
                         f"{name} operates in {agency} (verified via {src}, as of {asof})."))
-        elif eid.startswith("brand:"):
+        elif eid.startswith(("brand:", "fashion:")):
             qas.append((f"Who owns {name}?",
                         f"{name} is owned by {agency} (verified via {src}, as of {asof})."))
         elif eid.startswith("book:"):
@@ -1417,7 +1428,8 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
                 + "".join(f"<li>{_credit_link(n, entity_slugs, linked)}</li>" for n in names)
                 + "</ul>")
 
-    people_heading = "Creators" if ns == "webtoon" else ("Cast" if is_video else "Members")
+    people_heading = ("Creators" if ns == "webtoon" else "Designers" if ns == "fashion"
+                      else "Cast" if is_video else "Members")
     people_block = (f"<h2>{people_heading} ({len(members)})</h2>{_people_ul(members)}"
                     if members else "")
     dir_block = (f"<h2>Director{'s' if len(directors) > 1 else ''}</h2>{_people_ul(directors)}"
@@ -1546,6 +1558,7 @@ _VERTICALS = {
     "animation": ("Animation", "animation.html", _ICON["animation"], "Studio"),
     "university": ("Universities", "universities.html", _ICON["university"], "Region / location"),
     "classic": ("Classics & records", "classics.html", _ICON["classic"], "Author"),
+    "fashion": ("Korean fashion", "fashion.html", _ICON["fashion"], "Designer / owner"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -1918,12 +1931,12 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
         return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
 
     (arts, dramas, films, webtoons, places, foods, companies, brands, books, history, heritage,
-     folklore, medical, region, games, shows, animations, universities, classics) = (
+     folklore, medical, region, games, shows, animations, universities, classics, fashion) = (
         names("artist:"), names("drama:"), names("film:"), names("webtoon:"),
         names("place:"), names("food:"), names("company:"), names("brand:"),
         names("book:"), names("history:"), names("heritage:"), names("folklore:"),
         names("medical:"), names("region:"), names("game:"),
-        names("show:"), names("animation:"), names("university:"), names("classic:"))
+        names("show:"), names("animation:"), names("university:"), names("classic:"), names("fashion:"))
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
 
@@ -1933,7 +1946,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coverage = f"""
 ## Coverage (live, as of {today})
-- {len(facts)} verified entities across 19 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions, {len(games)} games, {len(shows)} variety shows, {len(animations)} animations, {len(universities)} universities, {len(classics)} classics.
+- {len(facts)} verified entities across 19 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions, {len(games)} games, {len(shows)} variety shows, {len(animations)} animations, {len(universities)} universities, {len(classics)} classics, {len(fashion)} fashion brands.
 - {len(linked)} verified people (directors + cross-work cast/creators), each a citable hub page linking their works.
 - K-pop artists: {sample(arts)}
 - K-dramas: {sample(dramas)}
@@ -1954,6 +1967,7 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Animation: {sample(animations)}
 - Universities: {sample(universities)}
 - Classics & historical records: {sample(classics)}
+- Korean fashion brands: {sample(fashion)}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml

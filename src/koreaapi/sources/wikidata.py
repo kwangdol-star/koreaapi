@@ -269,6 +269,9 @@ _NS_PROPS = {
     # classic (고전 · 사료 — historical text / record / treatise): author P50 as the people edge,
     # publication/compilation date P577 (else inception P571). No modern publisher edge.
     "classic": {"agency": None, "date": "P577", "date2": "P571", "members": "P50", "directors": None},
+    # fashion: Korean fashion brand / designer label — owner P127 (parent) + inception P571 +
+    # founded-by P112 (the designer) as the people edge -> designer person hubs.
+    "fashion": {"agency": "P127", "date": "P571", "members": "P112", "directors": None},
 }
 
 # Per-vertical EXTRA structured attributes — depth BEYOND name/date/agency/people, so a verified page
