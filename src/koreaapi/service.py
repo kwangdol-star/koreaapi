@@ -135,27 +135,38 @@ async def agency(name: str, *, db_path: str | None = None) -> dict:
 
 async def korea_rising(category: str = "all", limit: int = 10, *, db_path: str | None = None) -> dict:
     """What is rising in Korea now: verified snapshots ranked by observed DEMAND (the captured
-    behavioral signal) then Skill Score - engine 2 turning usage into the trend product."""
+    behavioral signal) then Skill Score — engine 2 turning usage into the trend product (the
+    proprietary signal a latecomer can't reconstruct). `category` drills into one vertical
+    ('artist', 'drama', 'food', …) or 'all'. Demand blends queries + buy-intent (weighted higher)."""
     await _log("query", f"rising:{category}", db_path)
     recs = await store.recent(500, db_path=db_path)
-    signals = await store.top_signals(1000, kind="query", db_path=db_path)
-    demand = {s["key"]: s["count"] for s in signals}  # entity_id -> queries observed
+    if category and category != "all":  # drill into one vertical (was previously ignored)
+        recs = [r for r in recs if r.entity_id.startswith(f"{category}:")]
+    queries = {s["key"]: s["count"] for s in await store.top_signals(1000, kind="query", db_path=db_path)}
+    buys = {s["key"]: s["count"] for s in await store.top_signals(1000, kind="buy_intent", db_path=db_path)}
+
+    def demand(eid: str) -> int:  # buy-intent is a stronger signal than a lookup -> weight it 3x
+        return queries.get(eid, 0) + 3 * buys.get(eid, 0)
+
     ranked = sorted(
         recs,
-        key=lambda r: (demand.get(r.entity_id, 0), r.provenance.skill_score, r.snapshot_at),
+        key=lambda r: (demand(r.entity_id), r.provenance.skill_score, r.snapshot_at),
         reverse=True,
     )
     items = []
     for r in ranked[:limit]:
         it = _item(r)
-        it["demand_signal"] = demand.get(r.entity_id, 0)  # engine 2: queries seen for this entity
+        it["demand_signal"] = demand(r.entity_id)  # engine 2: blended queries + 3×buy-intent
+        it["queries"] = queries.get(r.entity_id, 0)
+        it["buy_intent"] = buys.get(r.entity_id, 0)
         items.append(it)
     return {
         "category": category,
+        "count": len(items),
         "items": items,
         "note": (
-            "Ranked by observed demand (behavioral signal) then Skill Score; only verified "
-            "snapshots are surfaced. demand_signal = queries seen for that entity."
+            "Ranked by observed demand (queries + 3×buy-intent) then Skill Score; only verified "
+            "snapshots surfaced. category drills into one vertical or 'all'."
         ),
     }
 

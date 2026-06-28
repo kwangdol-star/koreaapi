@@ -277,20 +277,22 @@ _NS_PROPS = {
 # "qty" (numeric amount). STABLE facts only (volatile stats stay off-model). Best-effort + supplementary
 # (a missing one never fails the record, never enters cross-verification, never moves the Skill Score).
 _EXTRAS = {
-    "artist":    [("Genre", "P136", "label")],
+    "artist":    [("Genre", "P136", "label"), ("Awards", "P166", "label")],
     "drama":     [("Genre", "P136", "label"), ("Episodes", "P1113", "qty"),
-                  ("Original language", "P364", "label")],
+                  ("Original language", "P364", "label"), ("Awards", "P166", "label")],
     "film":      [("Genre", "P136", "label"), ("Runtime (min)", "P2047", "qty"),
-                  ("Original language", "P364", "label")],
+                  ("Original language", "P364", "label"), ("Awards", "P166", "label")],
     "webtoon":   [("Genre", "P136", "label")],
     "place":     [("Heritage status", "P1435", "label")],
     "food":      [("Country of origin", "P495", "label"), ("Made from", "P186", "label")],
     "company":   [("Headquarters", "P159", "label")],
     "brand":     [("Country of origin", "P495", "label")],
-    "book":      [("Genre", "P136", "label"), ("Original language", "P407", "label")],
+    "book":      [("Genre", "P136", "label"), ("Original language", "P407", "label"),
+                  ("Awards", "P166", "label")],
     "history":   [("End", "P582", "time")],
     "heritage":  [("Heritage designation", "P1435", "label")],
-    "game":      [("Genre", "P136", "label"), ("Platform", "P400", "label")],
+    "game":      [("Genre", "P136", "label"), ("Platform", "P400", "label"),
+                  ("Awards", "P166", "label")],
     "show":      [("Genre", "P136", "label")],
     "animation": [("Genre", "P136", "label")],
     "classic":   [("Heritage designation", "P1435", "label")],  # National Treasure / UNESCO Memory of the World

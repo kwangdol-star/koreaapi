@@ -180,6 +180,18 @@ def test_buy_options_phase1_stub_is_honest():
     assert "buy-intent" in out["note"]
 
 
+def test_korea_rising_category_filter_and_buy_intent_weight():
+    db = _agency_db()  # seeds 4 artists
+    asyncio.run(store.log_signal("query", "artist:aespa", db_path=db))
+    asyncio.run(store.log_signal("buy_intent", "artist:straykids", db_path=db))
+    out = asyncio.run(service.korea_rising(category="artist", db_path=db))
+    assert out["count"] >= 2
+    # buy-intent (×3) outranks a single query -> Stray Kids tops aespa
+    assert out["items"][0]["name"]["en_official"] == "Stray Kids" and out["items"][0]["buy_intent"] == 1
+    # category drill-down actually filters (was previously ignored): no dramas seeded -> empty
+    assert asyncio.run(service.korea_rising(category="drama", db_path=db))["count"] == 0
+
+
 def test_verified_reports_cross_verification_status():
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
