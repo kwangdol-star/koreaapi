@@ -52,6 +52,7 @@ jobs:
           uv run python -m koreaapi.admin pull
           uv run python -m koreaapi.admin sweep
           uv run python -m koreaapi.admin discover  # bulk-discover each vertical's Korean entities (10x)
+          uv run python -m koreaapi.admin prune  # clean any mis-discovered items (e.g. wrong-class webtoons)
           # chart (Circle Chart, weekly) + youtube (search-quota-heavy) change slowly — run them ONCE/day
           # (at the 00:17 UTC tick) to stay within the YouTube Data API daily quota and save LLM cost.
           if [ "$(date -u +%H)" = "00" ]; then

@@ -204,3 +204,21 @@ async def recent(limit: int = 200, *, db_path: str | None = None) -> list[Record
 
     raws = await asyncio.to_thread(_do)
     return [Record.model_validate_json(r) for r in raws]
+
+
+async def delete_entity(entity_id: str, *, db_path: str | None = None) -> int:
+    """Maintenance ONLY: remove all snapshots for an entity_id (e.g. a mis-discovered wrong item — a
+    bad discovery class once matched K-pop singles as 'webtoon'). The store is otherwise APPEND-ONLY;
+    this is the single narrow exception, used by admin.prune to clean bad ingests. Returns rows deleted.
+    """
+
+    def _do() -> int:
+        conn = _connect(db_path)
+        try:
+            cur = conn.execute("DELETE FROM snapshots WHERE entity_id = ?", (entity_id,))
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
+
+    return await asyncio.to_thread(_do)

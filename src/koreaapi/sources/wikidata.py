@@ -704,10 +704,12 @@ _DISCOVER = {
     "artist":  (["Q215380", "Q864897", "Q4439542"], "P495", "Q884"),   # group/boy band/girl group, origin SK
     "drama":   (["Q5398426"], "P495", "Q884"),                          # television series, origin SK
     "film":    (["Q11424", "Q506240"], "P495", "Q884"),                 # film + television film, origin SK
-    "webtoon": (["Q1062335", "Q21198342", "Q193977"], "P495", "Q884"),  # webtoon + manhwa + webcomic, origin SK
+    # webtoon: SEED-ONLY for now — the extra classes I tried (Q21198342/Q193977) matched K-pop
+    # SINGLES (one is a music class), polluting the vertical with songs. Q1062335 alone returns 0.
+    # Left out of discovery until the correct manhwa/webtoon class is confirmed on a live endpoint.
     "place":   (["Q570116", "Q16560", "Q33506", "Q839954", "Q44539", "Q22698", "Q23413"], "P17", "Q884"),
     #            attraction/palace/museum/archaeological site + temple/park/castle, country SK
-    "food":    (["Q746549", "Q2095"], "P2012", "Q234138"),              # dish + food, cuisine = Korean cuisine
+    "food":    (["Q746549"], "P2012", "Q234138"),                       # dish, cuisine = Korean cuisine (Q2095 'food' was too broad — pulled a Japanese item)
     "company": (["Q4830453", "Q891723", "Q783794", "Q6881511"], "P17", "Q884"),  # business/public/company/enterprise, SK
     "brand":   (["Q431289"], "P17", "Q884"),                            # brand, country SK
     "book":    (["Q7725634", "Q47461344"], "P407", "Q9176"),           # literary/written work, language Korean

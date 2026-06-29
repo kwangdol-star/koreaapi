@@ -243,6 +243,27 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
     return out
 
 
+_PRUNE_DENYLIST = {
+    "food:shizuokaoden",  # Japanese (Shizuoka) — slipped in via an over-broad food class (now reverted)
+}
+
+
+async def prune(db_path: str | None = None) -> dict:
+    """Remove mis-discovered entities — the narrow cleanup for a bad discovery class. Deletes every
+    DISCOVERED `webtoon:` (one not in the roster), because the webtoon class once matched K-pop singles,
+    plus an explicit denylist. Idempotent (safe every collect). The store is otherwise append-only."""
+    bad = set(_PRUNE_DENYLIST)
+    for e in await store.entities(db_path=db_path):
+        eid = e["entity_id"]
+        if eid.startswith("webtoon:") and eid not in NAMES:  # discovered webtoon = song pollution
+            bad.add(eid)
+    removed: list[str] = []
+    for eid in sorted(bad):
+        if await store.delete_entity(eid, db_path=db_path):
+            removed.append(eid)
+    return {"removed": removed}
+
+
 async def load_latest(in_path: str = "data/latest.json", *, db_path: str | None = None) -> int:
     """Re-seed the DB from the committed data asset (data/latest.json) so a fresh-per-run collector
     ACCUMULATES: discover()/sweep() dedup against everything found in prior runs, instead of
@@ -3159,6 +3180,10 @@ def _main(argv: list[str]) -> int:
         print("wrote", asyncio.run(reconcile_json()))
     elif cmd == "status":
         print("wrote", asyncio.run(status_json()))
+    elif cmd == "prune":
+        out = asyncio.run(prune())
+        print(f"prune: removed {len(out['removed'])} mis-discovered entit(ies)"
+              + (f" -> {', '.join(out['removed'])}" if out["removed"] else ""))
     elif cmd == "monitor":
         print("wrote", asyncio.run(monitor_html()))
     elif cmd == "pull":
