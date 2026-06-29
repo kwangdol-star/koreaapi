@@ -22,7 +22,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from . import service
+from . import answers, service
 from .payments import stripe, x402
 
 PREMIUM_DESC = "KoreaAPI korea-rising — verified Korean-culture demand signal (queries + buy-intent)"
@@ -85,6 +85,18 @@ async def resolve(request: Request) -> JSONResponse:
     return JSONResponse(await service.resolve(request.path_params["query"]))
 
 
+async def answer(request: Request) -> JSONResponse:
+    """Answer Products (engine 3). No params -> the catalog. ?q= -> run ALL products on the query.
+    ?product=&q= -> run one. Free; the underlying korea-rising signal is x402-metered separately."""
+    product = request.query_params.get("product")
+    q = request.query_params.get("q", "")
+    if not product and not q:
+        return JSONResponse(answers.list_products())
+    if product:
+        return JSONResponse(await answers.answer(product, q))
+    return JSONResponse(await answers.answer_all(q))
+
+
 # ---- premium endpoint (x402-gated) ----
 async def korea_rising(request: Request) -> JSONResponse:
     gate = await _gate(request, x402.default_price_usd(), PREMIUM_DESC)
@@ -133,6 +145,7 @@ async def index(request: Request) -> JSONResponse:
             "GET /v1/calendar": "recent verified K-culture events",
             "GET /v1/buy-options/{item}": "where-to-buy (logs buy-intent)",
             "GET /v1/resolve/{query}": "resolve a name / external ID / id -> the canonical verified entity",
+            "GET /v1/answer": "Answer Products catalog; ?product=&q= runs one decision, ?q= runs all",
         },
         "premium_x402": {
             "endpoint": "GET /v1/korea-rising",
@@ -157,6 +170,7 @@ routes = [
     Route("/v1/calendar", calendar),
     Route("/v1/buy-options/{item}", buy_options),
     Route("/v1/resolve/{query}", resolve),
+    Route("/v1/answer", answer),
     Route("/v1/korea-rising", korea_rising),
     Route("/billing/stripe/checkout", stripe_checkout, methods=["POST"]),
 ]

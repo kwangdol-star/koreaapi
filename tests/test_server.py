@@ -29,6 +29,8 @@ EXPECTED_TOOLS = {
     "get_verified",
     "get_resolve",
     "get_buy_options",
+    "list_answer_products",  # engine 3: the Answer Products catalog
+    "get_answer",            # engine 3: run one product (or all) -> decision envelope
 }
 
 
@@ -64,6 +66,16 @@ def test_graph_tools_are_bound_and_callable(monkeypatch, tmp_path):
     out_p = asyncio.run(server.get_person("Bong Joon-ho"))
     out_r = asyncio.run(server.get_related("artist:bts"))
     assert out_p["found"] is False and out_r["found"] is False
+
+
+def test_answer_product_tools_are_bound(monkeypatch, tmp_path):
+    # engine 3: the catalog lists products, and get_answer returns the decision envelope end to end
+    # (empty store -> NOT_FOUND, but a well-formed envelope, no crash). Depth in test_answers.py.
+    monkeypatch.setenv("KOREAAPI_DB", str(tmp_path / "empty.db"))
+    cat = asyncio.run(server.list_answer_products())
+    assert cat["count"] >= 5 and any(p["id"] == "canonical-name" for p in cat["products"])
+    env = asyncio.run(server.get_answer("Vincenzo", "canonical-name"))
+    assert env["signal"] == "NOT_FOUND" and env["product"] == "canonical-name"
 
 
 if __name__ == "__main__":

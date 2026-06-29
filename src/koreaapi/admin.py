@@ -41,7 +41,7 @@ import re
 import sys
 from datetime import datetime, timezone
 
-from . import integrity
+from . import answers, integrity
 from .models import Record
 from .payments.stripe import PLANS as _PRICING_PLANS
 from .pipeline import store
@@ -2227,7 +2227,7 @@ def _write_methodology(out_dir: str) -> None:
                         "신뢰 모델 — 교차검증 · Skill Score · 출처 · 변조 감지 무결성.", ko_body, ko_jsonld)
 
 
-# The 8 MCP tools (mirrors server.py) — published in the agent manifest + the operator quickstart.
+# The MCP tools (mirrors server.py) — published in the agent manifest + the operator quickstart.
 _MCP_TOOLS = [
     ("get_verified", "cross-verification status + Skill Score (check trust BEFORE citing)"),
     ("get_resolve", "resolve a fuzzy name / external ID / canonical id -> the verified entity (+ external IDs)"),
@@ -2238,6 +2238,8 @@ _MCP_TOOLS = [
     ("get_kculture_calendar", "upcoming K-culture events"),
     ("get_korea_rising", "what is rising in Korea now (premium signal)"),
     ("get_buy_options", "where to buy a release / ticket / goods (logs buy-intent)"),
+    ("list_answer_products", "list the Answer Products — named, citable decisions over the verified store"),
+    ("get_answer", "run an Answer Product -> {signal, action, score, rationale, answer, evidence}"),
 ]
 
 
@@ -2272,6 +2274,14 @@ def _agents_manifest() -> dict:
             "attestation_log": f"{_SITE_BASE}/integrity-log.jsonl",
             "per_record": "content_hash (SHA-256) on every record in latest.json",
         },
+        "answer_products": {
+            "endpoint": "/v1/answer",
+            "catalog": "/v1/answer  (no params) · ?product=&q= runs one · ?q= runs all",
+            "envelope": ["product", "name", "signal", "action", "score", "rationale", "answer", "evidence"],
+            "products": [{"id": p["id"], "name": p["name"], "sector": p["sector"], "about": p["about"]}
+                         for p in answers.list_products()["products"]],
+            "note": "named, citable decisions over the verified store (the agent's pre-answer step)",
+        },
         "premium": {
             "protocol": "x402",
             "endpoint": "/v1/korea-rising",
@@ -2289,6 +2299,8 @@ def _write_for_agents(out_dir: str) -> None:
     with open(os.path.join(out_dir, "agents.json"), "w", encoding="utf-8") as f:
         json.dump(_agents_manifest(), f, ensure_ascii=False, indent=2)
     tools = "".join(f"<li><code>{n}</code> — {html.escape(d)}</li>" for n, d in _MCP_TOOLS)
+    prods = "".join(f"<li>{p['emoji']} <code>{html.escape(p['id'])}</code> — {html.escape(p['about'])}</li>"
+                    for p in answers.list_products()["products"])
     body = (
         "<h2>Two ways to consume</h2><p>1) <b>MCP</b> — call KoreaAPI as tools from your agent. "
         "2) <b>Plain HTTP/JSON</b> — fetch the open data directly, no setup.</p>"
@@ -2297,6 +2309,14 @@ def _write_for_agents(out_dir: str) -> None:
         "<pre>pip install \"git+https://github.com/kwangdol-star/koreaapi\"   # or: git clone … &amp;&amp; uv sync\n"
         "python -m koreaapi.server   # stdio MCP server \"koreaapi\"</pre>"
         f"<p>Tools:</p><ul>{tools}</ul>"
+        "<h2>Answer Products — decide before you answer</h2><p>Don't just fetch rows — call a "
+        "<b>decision</b>. Each Answer Product turns the verified store into one envelope "
+        "<code>{signal, action, score, rationale, answer, evidence}</code> your agent can branch on: "
+        "confirm a Korean spelling, decide whether a claim is safe to cite, resolve a mention to a "
+        "trusted ID, read the demand trend, pull a roster. One call: "
+        "<code>GET /v1/answer?product=canonical-name&amp;q=Vincenzo</code> — omit <code>product</code> "
+        "to run all; catalog at <code>GET /v1/answer</code> (also in <a href=\"./agents.json\">/agents.json</a>).</p>"
+        f"<ul>{prods}</ul>"
         "<h2>No setup? Use the open data</h2><ul>"
         "<li><a href=\"./latest.json\">/latest.json</a> — every verified record (provenance + Skill Score + content_hash)</li>"
         "<li><a href=\"./llms-full.txt\">/llms-full.txt</a> — the full corpus, one citable block per entity</li>"
@@ -2327,13 +2347,22 @@ def _write_for_agents(out_dir: str) -> None:
         ("get_artist_status", "아티스트 최신 검증 상태"), ("get_agency", "소속사 소속 아티스트"),
         ("get_person", "인물의 검증된 크레딧"), ("get_related", "같은 소속사·채널의 다른 엔티티"),
         ("get_kculture_calendar", "다가오는 K-컬처 일정"), ("get_korea_rising", "지금 떠오르는 것(프리미엄 신호)"),
-        ("get_buy_options", "구매처(구매의도 로깅)")])
+        ("get_buy_options", "구매처(구매의도 로깅)"),
+        ("list_answer_products", "Answer Products 목록(검증 저장소 기반 인용 가능한 결정)"),
+        ("get_answer", "Answer Product 실행 → {signal, action, score, rationale, answer, evidence}")])
+    prods_ko = "".join(f"<li>{p['emoji']} <code>{html.escape(p['id'])}</code></li>"
+                       for p in answers.list_products()["products"])
     ko_body = (
         "<h2>두 가지 사용법</h2><p>1) <b>MCP</b> — 에이전트에서 도구로 호출. 2) <b>일반 HTTP/JSON</b> — "
         "공개 데이터를 바로 가져오기(설정 불필요).</p>"
         "<h2>MCP 빠른 시작</h2><pre>pip install \"git+https://github.com/kwangdol-star/koreaapi\"\n"
         "python -m koreaapi.server   # stdio MCP 서버 \"koreaapi\"</pre>"
         f"<p>도구:</p><ul>{tools_ko}</ul>"
+        "<h2>Answer Products — 답하기 전에 결정</h2><p>행을 가져오는 데 그치지 않고 <b>결정</b>을 호출하세요. "
+        "각 제품은 검증 저장소를 하나의 봉투 <code>{signal, action, score, rationale, answer, evidence}</code>로 "
+        "바꿔 한글표기 확정·인용 가능 여부·신뢰 ID 매핑 등을 에이전트가 바로 분기하게 합니다. "
+        "예: <code>GET /v1/answer?product=canonical-name&amp;q=Vincenzo</code> (product 생략 시 전체 실행).</p>"
+        f"<ul>{prods_ko}</ul>"
         "<h2>설정 없이 — 공개 데이터</h2><ul>"
         "<li><a href=\"../latest.json\">/latest.json</a> — 모든 검증 기록(출처 + Skill Score + content_hash)</li>"
         "<li><a href=\"../llms-full.txt\">/llms-full.txt</a> — 전체 코퍼스(엔티티당 인용 블록)</li>"
@@ -2365,7 +2394,8 @@ def _write_pricing(out_dir: str) -> None:
     body = (
         "<h2>Free — the open verified data</h2><p>Fetch it directly, no account: "
         "<a href=\"./latest.json\">/latest.json</a>, <a href=\"./llms-full.txt\">/llms-full.txt</a>, "
-        "<a href=\"./reconcile.json\">/reconcile.json</a>, plus the MCP tools "
+        "<a href=\"./reconcile.json\">/reconcile.json</a>, plus the MCP tools and the "
+        "<b>Answer Products</b> (<code>/v1/answer</code> — named decisions over that data) "
         "(<a href=\"./for-agents.html\">/for-agents</a>). Attribution (&ldquo;via KoreaAPI&rdquo;) appreciated.</p>"
         "<h2>x402 — pay per call (agent-native)</h2><p>The premium signal <code>/v1/korea-rising</code> "
         "is payable per call in USDC on Base via the x402 protocol — your agent pays autonomously, no "

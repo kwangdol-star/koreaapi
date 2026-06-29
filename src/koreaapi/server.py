@@ -14,7 +14,7 @@ import os
 
 from fastmcp import FastMCP
 
-from . import service
+from . import answers, service
 
 mcp = FastMCP(name="koreaapi")
 
@@ -83,6 +83,26 @@ async def get_resolve(query: str) -> dict:
 async def get_buy_options(item: str) -> dict:
     """Where to buy a release/ticket/goods (Phase 1: commerce rail pending; logs buy-intent)."""
     return await service.buy_options(item)
+
+
+@mcp.tool
+async def list_answer_products() -> dict:
+    """List KoreaAPI's Answer Products — named, citable DECISIONS over the verified store (confirm a
+    Korean spelling, fact-check a claim, resolve an ID, read the demand trend, pull a roster). Each
+    returns {signal, action, score(0..1), rationale, answer, evidence}. Then call get_answer."""
+    return answers.list_products()
+
+
+@mcp.tool
+async def get_answer(query: str, product: str = "") -> dict:
+    """Run a KoreaAPI Answer Product and get one decision envelope {signal, action, score(0..1),
+    rationale, answer, evidence} — the decision an agent makes BEFORE answering its user. `product`
+    e.g. 'canonical-name' (authoritative Korean spelling), 'fact-check' (safe to cite?),
+    'identity-resolve' (map a mention to a trusted ID), 'trend-radar', 'agency-roster',
+    'person-credits', 'related-network' (catalog via list_answer_products). Omit `product` to run ALL."""
+    if product:
+        return await answers.answer(product, query)
+    return await answers.answer_all(query)
 
 
 def main() -> None:
