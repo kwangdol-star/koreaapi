@@ -642,10 +642,22 @@ def _cirrus_url(srsearch: str, *, limit: int, offset: int = 0) -> str:
 def _discover_candidates(srsearch: str, *, limit: int) -> list[dict]:
     """Live: CirrusSearch (`haswbstatement`) -> [{qid, en, ko, slug}], with labels resolved in
     batched wbgetentities calls — ALL on www.wikidata.org/w/api.php (NOT WDQS). Sync (call via
-    asyncio.to_thread); raises on transport error (caller degrades gracefully)."""
-    raw = _http_get_json(_cirrus_url(srsearch, limit=limit), _UA)
-    qids = [h["title"] for h in raw.get("query", {}).get("search", [])
-            if re.fullmatch(r"Q\d+", (h.get("title") or ""))]
+    asyncio.to_thread); raises on transport error (caller degrades gracefully).
+
+    PAGINATES via sroffset: the API caps srlimit at 50/request, so a single call only ever sees the
+    first 50 (which, once ingested, yield 0 new forever — the plateau). We walk pages up to `limit`
+    so discovery reaches the long tail and keeps growing run-over-run."""
+    qids: list[str] = []
+    page = 50  # CirrusSearch hard-caps srlimit at 50 per request for non-bot clients
+    offset = 0
+    while len(qids) < limit:
+        hits = (_http_get_json(_cirrus_url(srsearch, limit=page, offset=offset), _UA)
+                .get("query", {}).get("search", []))
+        qids += [h["title"] for h in hits if re.fullmatch(r"Q\d+", (h.get("title") or ""))]
+        if len(hits) < page:  # last page reached
+            break
+        offset += page
+    qids = qids[:limit]
     out: list[dict] = []
     seen: set[str] = set()
     for i in range(0, len(qids), 50):  # wbgetentities accepts <=50 ids per call
@@ -692,7 +704,7 @@ _DISCOVER = {
     "artist":  (["Q215380", "Q864897", "Q4439542"], "P495", "Q884"),   # group/boy band/girl group, origin SK
     "drama":   (["Q5398426"], "P495", "Q884"),                          # television series, origin SK
     "film":    (["Q11424", "Q506240"], "P495", "Q884"),                 # film + television film, origin SK
-    "webtoon": (["Q1062335"], "P495", "Q884"),                          # webtoon, origin SK
+    "webtoon": (["Q1062335", "Q21198342", "Q193977"], "P495", "Q884"),  # webtoon + manhwa + webcomic, origin SK
     "place":   (["Q570116", "Q16560", "Q33506", "Q839954", "Q44539", "Q22698", "Q23413"], "P17", "Q884"),
     #            attraction/palace/museum/archaeological site + temple/park/castle, country SK
     "food":    (["Q746549", "Q2095"], "P2012", "Q234138"),              # dish + food, cuisine = Korean cuisine
