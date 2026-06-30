@@ -27,6 +27,24 @@ def test_discover_food_uses_korean_cuisine_filter():
         assert build_discover_search(v).startswith("haswbstatement:")
 
 
+def test_fetch_discover_forwards_full_limit_not_clamped(monkeypatch):
+    # Regression (the +0-new plateau): fetch_discover used to clamp the limit to min(limit, 50),
+    # which silently defeated _discover_candidates' internal 50/request pagination — discovery only
+    # ever saw the FIRST 50 candidates per vertical (all already ingested -> 0 new forever). It must
+    # pass the full limit through so the paginating walker reaches the long tail.
+    import koreaapi.sources.wikidata as wd
+
+    captured: dict = {}
+
+    def fake(search: str, *, limit: int) -> list:
+        captured["limit"] = limit
+        return []
+
+    monkeypatch.setattr(wd, "_discover_candidates", fake)
+    wd.fetch_discover("artist", limit=400)
+    assert captured["limit"] == 400  # not 50
+
+
 def test_injected_qid_is_fetched_without_search(monkeypatch):
     # A SPARQL-discovered qid is fetched directly — resolve_qid must NOT hit wbsearchentities.
     calls = {"search": 0}

@@ -734,5 +734,10 @@ def build_discover_search(vertical: str) -> str:
 def fetch_discover(vertical: str, *, limit: int = 400, offset: int = 0) -> list[dict]:
     """Live: a vertical's Korean entities via CirrusSearch on www.wikidata.org/w/api.php — the SAME
     endpoint `pull` uses successfully (WDQS SPARQL returned 0 on the runner). Sync (asyncio.to_thread);
-    raises on transport error (caller degrades gracefully)."""
-    return _discover_candidates(build_discover_search(vertical), limit=min(limit, 50))
+    raises on transport error (caller degrades gracefully).
+
+    Pass `limit` THROUGH (no min(,50) clamp): _discover_candidates paginates internally at 50/request,
+    so clamping here to 50 silently defeated that pagination — discovery only ever saw the first 50
+    candidates per vertical, which (once ingested) yield +0 new forever (the plateau). With the full
+    limit the walker reaches the long tail and discovery grows again run-over-run."""
+    return _discover_candidates(build_discover_search(vertical), limit=limit)
