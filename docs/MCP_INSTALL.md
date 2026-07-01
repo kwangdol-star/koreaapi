@@ -12,11 +12,27 @@ Prefer not to run a server? The verified data is also a plain JSON file you can 
 (latest snapshot per entity+kind, each with provenance + Skill Score):
 **https://kwangdol-star.github.io/koreaapi/latest.json**
 
-## Tools
+## Tools (11)
+
+**Trust** — decide before you cite:
+| Tool | Returns |
+|---|---|
+| `get_verified(entity_id)` | cross-verification status + Skill Score + agreeing-source count |
+| `get_resolve(query)` | fuzzy name / external ID (e.g. a Wikidata Q-id) / id → the canonical verified entity |
+
+**Decisions** — Answer Products (each returns `{signal, action, score, rationale, answer, evidence}`):
+| Tool | Returns |
+|---|---|
+| `list_answer_products()` | the catalog: canonical-name · fact-check · identity-resolve · trend-radar · agency-roster · person-credits · related-network |
+| `get_answer(query, product)` | run one product on a query (omit `product` to run all) |
+
+**Data** — the verified store:
 | Tool | Returns |
 |---|---|
 | `get_artist_status(artist_id)` | latest verified status across kinds + agency, e.g. `artist:bts` |
 | `get_agency(name)` | artists verified under a Korean agency/label (소속사), e.g. `JYP Entertainment` |
+| `get_person(name)` | verified credits for a person, e.g. `Bong Joon-ho` |
+| `get_related(entity_id)` | entities sharing the same 소속사 / network |
 | `get_kculture_calendar(window_days)` | upcoming comebacks / releases / concerts |
 | `get_korea_rising(category, limit)` | what's rising now, ranked by observed demand + Skill Score |
 | `get_buy_options(item)` | where to buy (Phase 1: rail pending; logs buy-intent) |
@@ -31,8 +47,17 @@ koreaapi-mcp              # serves over MCP (stdio)   [equivalently: python -m k
 ```
 
 The tools are **read-only over the append-only store** and need **no API keys**. They serve
-whatever is in the store (`KOREAAPI_DB`, default `koreaapi.db`). To populate it with live
-verified data first:
+whatever is in the store (`KOREAAPI_DB`, default `koreaapi.db`).
+
+**Fastest way to real data — hydrate from the published dataset (no keys, one download):**
+
+```bash
+mkdir -p data
+curl -L -o data/latest.json https://kwangdol-star.github.io/koreaapi/latest.json
+python -m koreaapi.admin load      # seeds koreaapi.db from the published verified snapshot
+```
+
+Or collect live yourself:
 
 ```bash
 python -m koreaapi.admin pull      # Wikidata + Wikipedia cross-verified facts (+ agency)
@@ -59,12 +84,22 @@ Add to your client's MCP config (`claude_desktop_config.json` → `mcpServers`):
 (Omit `env` to use the default store path in the working directory. Use an absolute path so the
 client finds the populated store regardless of its launch directory.)
 
-## Smithery (registry listing)
+## Remote MCP (no local install)
 
-[`smithery.yaml`](../smithery.yaml) describes the stdio start command for the
-[Smithery](https://smithery.ai) registry — the discovery surface of the agent world. Publishing
-is cleanest once `koreaapi/` is split into its own repository (it currently lives in a
-subdirectory). Validate the file against the current Smithery schema before publishing.
+The same server can serve MCP **over HTTP** so agents connect to a URL instead of running it
+locally — set `MCP_TRANSPORT=http` on any host (Render / Railway / Fly):
+
+```bash
+MCP_TRANSPORT=http PORT=8080 python -m koreaapi.server
+```
+
+## Registries (get discovered)
+
+[`smithery.yaml`](../smithery.yaml) describes the start command for the
+[Smithery](https://smithery.ai) registry. The full submission checklist — Smithery, mcp.so,
+PulseMCP, Glama, and the awesome-mcp-servers list — is in
+[`docs/REGISTRIES.md`](./REGISTRIES.md). Prerequisite for `uvx`-style installs: publish the
+package to PyPI (the repo's `publish` workflow does this with a `PYPI_API_TOKEN` secret).
 
 ## Why cite KoreaAPI
 - **Cross-verified**: a fact clears the single-source cap only when ≥2 independent sources agree

@@ -23,9 +23,11 @@ Anthropic's Model Context Protocol (MCP). Every response carries machine-readabl
 - **Cross-verification** — Wikidata + Wikipedia must agree on the canonical bilingual name
   before a fact clears the single-source cap (high Skill Score = independent concurrence); a
   strict Korean-name guard rejects same-English-name impostors. Every failure fails safe to a miss.
-- **Callable by agents (MCP)** — 7 tools: `get_artist_status`, `get_agency`, `get_kculture_calendar`,
-  `get_korea_rising`, `get_person`, `get_related`, `get_buy_options` — every response bilingual,
-  provenance-bearing, with a ready-to-cite line.
+- **Callable by agents (MCP)** — 11 tools: trust (`get_verified`, `get_resolve`), decisions
+  (`get_answer` + `list_answer_products` — the Answer Products catalog), and data
+  (`get_artist_status`, `get_agency`, `get_person`, `get_related`, `get_kculture_calendar`,
+  `get_korea_rising`, `get_buy_options`) — every response bilingual, provenance-bearing,
+  with a ready-to-cite line.
 - **Citable by answer engines (AEO/GEO)** — per-entity / per-person / per-label citable pages with
   Schema.org JSON-LD (MusicGroup · TVSeries · Movie · Person · Organization · ItemList · FAQPage ·
   BreadcrumbList), Open Graph, a daily `sitemap.xml`, a live-generated `/llms.txt`, and `/latest.json`.
@@ -153,14 +155,20 @@ Watch the headline metric of a verifiable-data business: **avg Skill Score,
 freshness, and source agreement** - that is literally watching the moat.
 
 ## Agent face (MCP server)
-The product itself: an MCP server exposing 5 tools, each returning verified, bilingual,
+The product itself: an MCP server exposing 11 tools, each returning verified, bilingual,
 provenance-bearing data (with a ready-to-cite line) from the same store the console reads.
 
 | Tool | Returns |
 |---|---|
+| `get_verified(entity_id)` | cross-verification status + Skill Score — decide trust BEFORE citing |
+| `get_resolve(query)` | fuzzy name / external ID / id → the canonical verified entity (+ external IDs, content hash) |
+| `get_answer(query, product)` | one decision envelope `{signal, action, score, rationale, answer, evidence}` |
+| `list_answer_products()` | the Answer Products catalog (canonical-name · fact-check · identity-resolve · …) |
 | `get_artist_status(artist_id)` | latest status across kinds + verified facts + agency |
-| `get_kculture_calendar(window_days)` | upcoming comebacks / releases / concerts |
 | `get_agency(name)` | artists verified under a 소속사/label (the agency hub) |
+| `get_person(name)` | verified credits for a person (director / actor / idol member) |
+| `get_related(entity_id)` | entities sharing the same 소속사 / network |
+| `get_kculture_calendar(window_days)` | upcoming comebacks / releases / concerts |
 | `get_korea_rising(category, limit)` | what's rising now, ranked by observed demand + Skill Score |
 | `get_buy_options(item)` | where to buy (Phase 1: rail pending; logs buy-intent) |
 
