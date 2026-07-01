@@ -741,10 +741,81 @@ FESTIVALS = {
     "festival:andongmask": "Andong Mask Dance Festival",
 }
 
+# Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
+# Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
+# extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
+# Kim Min-jae, is deliberately left OUT — both share ko+en so the impostor guard can't split them).
+SPORTS = {
+    "sports:sonheungmin": "Son Heung-min",
+    "sports:leekangin": "Lee Kang-in",
+    "sports:hwangheechan": "Hwang Hee-chan",
+    "sports:parkjisung": "Park Ji-sung",
+    "sports:chabumkun": "Cha Bum-kun",
+    "sports:kimyuna": "Yuna Kim",
+    "sports:pakseri": "Pak Se-ri",
+    # MLB players: canonical EN follows the given-name-first form their articles/labels use.
+    "sports:ryuhyunjin": "Hyun-jin Ryu",
+    "sports:kimhaseong": "Ha-seong Kim",
+    "sports:leejunghoo": "Jung Hoo Lee",
+    "sports:anseyoung": "An Se-young",
+    "sports:kimyeonkoung": "Kim Yeon-koung",
+    "sports:hwangsunwoo": "Hwang Sun-woo",
+    "sports:woosanghyeok": "Woo Sang-hyeok",
+    "sports:shinyubin": "Shin Yu-bin",
+    "sports:faker": "Faker",
+    "sports:sonkeechung": "Sohn Kee-chung",
+}
+
+# Actor vertical: Korean actors as first-class entities (마동석, 송강호, 윤여정…). Name-anchored
+# (credits already flow from works via the person graph; this adds the canonical bilingual name +
+# abstract + awards). Distinctive romanizations; heavy-collision names (Kim Soo-hyun) left out.
+ACTORS = {
+    "actor:songkangho": "Song Kang-ho",
+    "actor:younyuhjung": "Youn Yuh-jung",
+    "actor:madongseok": "Ma Dong-seok",
+    "actor:leebyunghun": "Lee Byung-hun",
+    "actor:junjihyun": "Jun Ji-hyun",
+    "actor:gongyoo": "Gong Yoo",
+    "actor:baedoona": "Bae Doona",
+    "actor:choiminsik": "Choi Min-sik",
+    "actor:songhyekyo": "Song Hye-kyo",
+    "actor:parkseojoon": "Park Seo-joon",
+    "actor:hansohee": "Han So-hee",
+    "actor:kimtaeri": "Kim Tae-ri",
+    "actor:leejungjae": "Lee Jung-jae",
+    # (Jung Ho-yeon deliberately out: her article/label moved to the mononym 'Hoyeon', which the
+    #  name guard can't reconcile with the full name — a miss is fine, a wrong record is not.)
+    "actor:hyunbin": "Hyun Bin",
+    "actor:sonyejin": "Son Ye-jin",
+    "actor:parkeunbin": "Park Eun-bin",
+    "actor:kimhyesoo": "Kim Hye-soo",
+    "actor:leeminho": "Lee Min-ho",
+    "actor:kimgoeun": "Kim Go-eun",
+}
+
+# Song vertical: iconic K-pop songs as work-level entities. `song:` -> performer P175 as the org
+# edge ("what else by BLACKPINK?" via related/agency) + release date P577. DISTINCTIVE titles only —
+# a real-word title (Butter, Ditto, Supernova) collides with the everyday entity, which is
+# self-consistent bilingually, so the guard can't reject it; those stay out until pinned.
+SONGS = {
+    "song:gangnamstyle": "Gangnam Style",
+    "song:boywithluv": "Boy with Luv",
+    "song:springday": "Spring Day",
+    "song:ddudu": "Ddu-Du Ddu-Du",
+    "song:howyoulikethat": "How You Like That",
+    "song:killthislove": "Kill This Love",
+    "song:hypeboy": "Hype Boy",
+    "song:lovedive": "Love Dive",
+    "song:sorrysorry": "Sorry, Sorry",
+    "song:fantasticbaby": "Fantastic Baby",
+    "song:iamthebest": "I Am the Best",
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
-         **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS}
+         **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
+         **SPORTS, **ACTORS, **SONGS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

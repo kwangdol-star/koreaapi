@@ -144,10 +144,11 @@ def test_curated_anchors_are_bilingual():
 
 
 def test_roster_breadth():
-    # Guard the asset's breadth (21 verticals, 400+ entities) so a bad edit that drops rows is caught.
-    from koreaapi.roster import (ANIMATIONS, ARTISTS, BOOKS, BRANDS, CLASSICS, COMPANIES, DRAMAS, FASHION,
-                                 FESTIVALS, FILMS, FOLKLORE, FOODS, GAMES, HERITAGE, HISTORY, MEDICAL,
-                                 NAMES, PLACES, REGION, SHOWS, UNIVERSITIES, WEBTOONS)
+    # Guard the asset's breadth (24 verticals, 400+ entities) so a bad edit that drops rows is caught.
+    from koreaapi.roster import (ACTORS, ANIMATIONS, ARTISTS, BOOKS, BRANDS, CLASSICS, COMPANIES,
+                                 DRAMAS, FASHION, FESTIVALS, FILMS, FOLKLORE, FOODS, GAMES, HERITAGE,
+                                 HISTORY, MEDICAL, NAMES, PLACES, REGION, SHOWS, SONGS, SPORTS,
+                                 UNIVERSITIES, WEBTOONS)
     assert len(ARTISTS) >= 50 and len(DRAMAS) >= 18 and len(FILMS) >= 15
     assert len(WEBTOONS) >= 5 and len(PLACES) >= 10 and len(FOODS) >= 12
     assert len(COMPANIES) >= 8 and len(BRANDS) >= 8 and len(BOOKS) >= 6 and len(HISTORY) >= 8
@@ -155,11 +156,12 @@ def test_roster_breadth():
     assert len(MEDICAL) >= 6 and len(REGION) >= 15 and len(GAMES) >= 8
     assert len(SHOWS) >= 8 and len(ANIMATIONS) >= 6 and len(UNIVERSITIES) >= 8 and len(CLASSICS) >= 10
     assert len(FASHION) >= 6 and len(FESTIVALS) >= 6
+    assert len(SPORTS) >= 12 and len(ACTORS) >= 15 and len(SONGS) >= 8
     assert len(NAMES) >= 400
     assert len(NAMES) == sum(map(len, (ARTISTS, DRAMAS, FILMS, WEBTOONS, PLACES, FOODS, COMPANIES,
                                        BRANDS, BOOKS, HISTORY, HERITAGE, FOLKLORE, MEDICAL, REGION,
                                        GAMES, SHOWS, ANIMATIONS, UNIVERSITIES, CLASSICS, FASHION,
-                                       FESTIVALS)))
+                                       FESTIVALS, SPORTS, ACTORS, SONGS)))
 
 
 def test_food_editorial_tags_cover_every_dish():

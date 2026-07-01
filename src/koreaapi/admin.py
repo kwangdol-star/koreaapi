@@ -50,6 +50,7 @@ from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS, CERTIFIED, NAMES
 from .sources.circlechart import CircleChartSource
+from .sources.kosis import KOSISSource
 from .sources.mock import MockSource
 from .sources.musicbrainz import MusicBrainzSource
 from .sources.nominatim import NominatimSource
@@ -105,8 +106,8 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
     # dropped elsewhere), so the list is safe for every entity and only cross-checks where competent:
     #   MusicBrainz -> artists · OpenStreetMap -> places · TMDB -> drama/film/animation (key-gated).
     # Wikidata+Wikipedia are correlated; these come from separate DBs -> genuine triple-verification.
-    sources = [WikidataSource(), WikipediaSource(),
-               MusicBrainzSource(), NominatimSource(), TMDBSource(), TourAPISource()]
+    sources = [WikidataSource(), WikipediaSource(), MusicBrainzSource(),
+               NominatimSource(), TMDBSource(), TourAPISource(), KOSISSource()]
     ingested: list[str] = []
     failed: list[str] = []
     for i, entity_id in enumerate(ids):
@@ -1023,6 +1024,15 @@ _ICON = {
                   '<line x1="17" y1="14" x2="21" y2="14"/>'),
     # person (people)
     "people": _icon('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+    # trophy (sports / athletes)
+    "sports": _icon('<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a2 2 0 0 0 2 4h1"/>'
+                    '<path d="M17 6h3a2 2 0 0 1-2 4h-1"/><line x1="12" y1="14" x2="12" y2="18"/>'
+                    '<line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="18" x2="12" y2="21"/>'),
+    # star (actors)
+    "actor": _icon('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 '
+                   '5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'),
+    # music note (songs)
+    "song": _icon('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'),
     # tag (labels / agencies / networks)
     "label": _icon('<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 3 12.2V5a2 2 0 0 1 '
                    '2-2h7.2a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8z"/><circle cx="7.6" cy="7.6" r="1.3"/>'),
@@ -1720,6 +1730,9 @@ _VERTICALS = {
     "classic": ("Classics & records", "classics.html", _ICON["classic"], "Author"),
     "fashion": ("Korean fashion", "fashion.html", _ICON["fashion"], "Designer / owner"),
     "festival": ("Festivals", "festivals.html", _ICON["heritage"], "Location"),
+    "sports": ("Athletes & esports", "sports.html", _ICON["sports"], "Team"),
+    "actor": ("Korean actors", "actors.html", _ICON["actor"], "Works"),
+    "song": ("K-pop songs", "songs.html", _ICON["song"], "Performer"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -2072,7 +2085,7 @@ _KO_VERTICAL = {  # ns -> Korean hub label
     "book": "한국 도서", "history": "한국사", "heritage": "문화유산·전통", "folklore": "설화·신화",
     "medical": "병원·의료", "region": "한국·지역", "game": "한국 게임", "show": "예능·방송",
     "animation": "애니메이션", "university": "대학교", "classic": "고전·기록", "fashion": "한국 패션",
-    "festival": "축제", "people": "인물",
+    "festival": "축제", "people": "인물", "sports": "스포츠 선수", "actor": "배우", "song": "K-pop 곡",
 }
 
 
@@ -2772,6 +2785,7 @@ _CORPUS_VERTICALS = [
     ("medical:", "Hospitals & medical"), ("region:", "Korea & regions"), ("game:", "Korean games"),
     ("show:", "Variety & TV shows"), ("animation:", "Animation"), ("university:", "Universities"),
     ("classic:", "Classics & records"), ("fashion:", "Korean fashion"), ("festival:", "Festivals"),
+    ("sports:", "Athletes & esports"), ("actor:", "Korean actors"), ("song:", "K-pop songs"),
 ]
 
 

@@ -277,6 +277,13 @@ _NS_PROPS = {
     # fashion: Korean fashion brand / designer label — owner P127 (parent) + inception P571 +
     # founded-by P112 (the designer) as the people edge -> designer person hubs.
     "fashion": {"agency": "P127", "date": "P571", "members": "P112", "directors": None},
+    # sports: athlete / esports pro — member-of-team P54 as the org edge (related-by-team; first
+    # preferred value = the current club), no date (a birth date isn't a debut).
+    "sports": {"agency": "P54", "date": None, "members": None, "directors": None},
+    # actor: name-anchored (credits flow from works via the person graph; awards via extras).
+    "actor": {"agency": None, "date": None, "members": None, "directors": None},
+    # song: performer P175 as the org edge ("what else by BLACKPINK?"), release date P577.
+    "song": {"agency": "P175", "date": "P577", "date2": "P571", "members": None, "directors": None},
 }
 
 # Per-vertical EXTRA structured attributes — depth BEYOND name/date/agency/people, so a verified page
@@ -304,6 +311,10 @@ _EXTRAS = {
     "show":      [("Genre", "P136", "label")],
     "animation": [("Genre", "P136", "label")],
     "classic":   [("Heritage designation", "P1435", "label")],  # National Treasure / UNESCO Memory of the World
+    "sports":    [("Sport", "P641", "label"), ("Represents", "P1532", "label"),
+                  ("Awards", "P166", "label")],
+    "actor":     [("Awards", "P166", "label")],
+    "song":      [("Genre", "P136", "label"), ("Awards", "P166", "label")],
 }
 
 
