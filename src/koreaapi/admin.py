@@ -245,6 +245,8 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
 
 _PRUNE_DENYLIST = {
     "food:shizuokaoden",  # Japanese (Shizuoka) — slipped in via an over-broad food class (now reverted)
+    "animation:streetfighter",  # Capcom (Japan) IP — a Wikidata origin mis-tag, not a Korean animation
+    "animation:burningstage",   # no verifiable Korean animation by this name — likely an origin mis-tag
 }
 
 
