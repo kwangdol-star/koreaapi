@@ -15,10 +15,11 @@ from koreaapi.pipeline import store
 NOW = datetime(2026, 6, 28, tzinfo=timezone.utc)
 
 
-def _add(db: str, eid: str, ko: str, en: str, *, sources: list[str], agree: int, skill: float) -> None:
+def _add(db: str, eid: str, ko: str, en: str, *, sources: list[str], agree: int, skill: float,
+         data: dict | None = None) -> None:
     asyncio.run(store.append_record(Record(
         entity_id=eid, kind="facts", name=Name(ko=ko, en_official=en), snapshot_at=NOW,
-        summary_en=en, data={}, provenance=Provenance(
+        summary_en=en, data=data or {}, provenance=Provenance(
             sources=sources, fetched_at=NOW, skill_score=skill,
             confidence="high" if agree >= 2 else "low", agreeing_sources=agree)), db_path=db))
 
@@ -78,6 +79,33 @@ def test_answer_all_runs_every_product():
     # every envelope carries the uniform decision keys
     for a in out["answers"]:
         assert {"product", "signal", "action", "score", "rationale", "answer", "evidence"} <= set(a)
+
+
+def test_trip_plan_matches_region_and_packs_foods():
+    db = tempfile.mktemp(suffix=".db")
+    for i, (eid, ko, en) in enumerate([("place:haeundae", "해운대", "Haeundae"),
+                                       ("place:gamcheon", "감천문화마을", "Gamcheon Culture Village"),
+                                       ("place:jagalchi", "자갈치시장", "Jagalchi Market")]):
+        _add(db, eid, ko, en, sources=["Wikidata Q1", "Wikipedia x"], agree=2, skill=1.0 - i * 0.01,
+             data={"agency_en": "Busan"})  # located-in hub edge = the region match
+    _add(db, "festival:busaniff", "부산국제영화제", "Busan International Film Festival",
+         sources=["Wikidata Q2", "Wikipedia y"], agree=2, skill=1.0, data={"agency_en": "Busan"})
+    _add(db, "place:gyeongbokgung", "경복궁", "Gyeongbokgung",
+         sources=["Wikidata Q3"], agree=2, skill=1.0, data={"agency_en": "Seoul"})  # other region
+    _add(db, "food:bibimbap", "비빔밥", "Bibimbap", sources=["Wikidata Q4"], agree=2, skill=1.0)
+    out = asyncio.run(answers.answer("trip-plan", "Busan", db_path=db))
+    assert out["signal"] == "PLAN_READY"
+    ids = [p["id"] for p in out["answer"]["places"]]
+    assert "place:haeundae" in ids and "place:gyeongbokgung" not in ids   # region-filtered
+    assert out["answer"]["festivals"][0]["id"] == "festival:busaniff"
+    assert out["answer"]["foods"][0]["id"] == "food:bibimbap"             # national picks ride along
+    assert asyncio.run(answers.answer("trip-plan", "Nowhereville", db_path=db))["signal"] == "THIN"
+
+
+def test_catalog_is_bilingual():
+    cat = answers.list_products()
+    assert all(p.get("name_ko") and p.get("about_ko") for p in cat["products"])
+    assert "note_ko" in cat
 
 
 def test_unknown_product_errors():

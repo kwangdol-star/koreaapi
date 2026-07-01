@@ -22,6 +22,7 @@ MCP tools list_answer_products + get_answer.
 from __future__ import annotations
 
 from . import service
+from .pipeline import store
 
 
 def _clamp01(x: float) -> float:
@@ -216,35 +217,95 @@ async def _run_related_network(query: str, db_path: str | None = None) -> dict:
                 rationale=f"{count} related via {rel.get('related_by')}.", answer=answer)
 
 
+async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
+    """Compose a verified visit plan for a region/city: the places + festivals verified THERE
+    (matched on the located-in / location hub edge and the name/summary), plus signature Korean
+    dishes (national — not region-filtered). Every item is a verified, citable entity."""
+    q = (query or "").strip().casefold()
+    places: list = []
+    festivals: list = []
+    foods: list = []
+    for e in await store.entities(db_path=db_path):
+        ns = e["entity_id"].split(":", 1)[0]
+        if e["kind"] != "facts" or ns not in ("place", "festival", "food"):
+            continue
+        rec = await store.latest(e["entity_id"], "facts", db_path=db_path)
+        if rec is None:
+            continue
+        if ns == "food":
+            foods.append((e["entity_id"], rec))
+            continue
+        hay = " ".join(filter(None, [
+            rec.data.get("agency_en"), rec.data.get("agency_ko"),
+            rec.name.en_official, rec.name.ko, rec.summary_en])).casefold()
+        if q and q in hay:
+            (places if ns == "place" else festivals).append((e["entity_id"], rec))
+    def by_skill(t) -> float:
+        return -t[1].provenance.skill_score
+
+    places.sort(key=by_skill)
+    festivals.sort(key=by_skill)
+    foods.sort(key=by_skill)
+
+    def _li(items: list, n: int) -> list[dict]:
+        return [{"id": eid, "name": {"ko": r.name.ko, "en_official": r.name.en_official},
+                 "skill_score": r.provenance.skill_score} for eid, r in items[:n]]
+
+    n_pl, n_fe = len(places), len(festivals)
+    if n_pl >= 3:
+        signal, action = "PLAN_READY", f"Build the itinerary — {n_pl} verified place(s) in '{query}'."
+    elif n_pl or n_fe:
+        signal, action = "PARTIAL", f"Thin coverage for '{query}' — pad with national picks."
+    else:
+        signal, action = "THIN", f"No verified places/festivals matched '{query}' yet."
+    return _env("trip-plan", query, signal=signal, action=action,
+                score=_clamp01((n_pl + n_fe) / 8.0),
+                rationale=f"{n_pl} place(s) + {n_fe} festival(s) matched; foods are national picks.",
+                answer={"region": query, "places": _li(places, 6),
+                        "festivals": _li(festivals, 4), "foods": _li(foods, 5)})
+
+
 _PRODUCTS = [
-    {"id": "canonical-name", "name": "Canonical Name Resolver", "emoji": "🪪",
+    {"id": "canonical-name", "name": "Canonical Name Resolver", "name_ko": "공식 표기 확정", "emoji": "🪪",
      "sector": "Identity / AEO", "inputs": ["name or id"],
      "about": "Confirm the authoritative Korean ↔ English spelling of an entity before you assert it.",
+     "about_ko": "단정하기 전에 공식 한글 ↔ 영문 표기를 확정합니다.",
      "run": _run_canonical_name},
-    {"id": "fact-check", "name": "Citability / Fact Check", "emoji": "✅",
+    {"id": "fact-check", "name": "Citability / Fact Check", "name_ko": "인용 가능성 판정", "emoji": "✅",
      "sector": "Trust / AEO", "inputs": ["name or id"],
      "about": "Decide whether a claim about an entity is safe to cite (cross-/triple-verified / certified).",
+     "about_ko": "이 주장을 인용해도 되는지(교차/3중 검증·공증) 판정합니다.",
      "run": _run_fact_check},
-    {"id": "identity-resolve", "name": "Entity ID Resolver", "emoji": "🧭",
+    {"id": "identity-resolve", "name": "Entity ID Resolver", "name_ko": "식별자 매핑", "emoji": "🧭",
      "sector": "Reconciliation", "inputs": ["name, external id, or id"],
      "about": "Map a fuzzy mention or external ID onto the canonical verified KoreaAPI entity.",
+     "about_ko": "모호한 멘션·외부 ID를 신뢰 엔티티에 매핑합니다.",
      "run": _run_identity_resolve},
-    {"id": "trend-radar", "name": "Korea Demand Radar", "emoji": "📈",
+    {"id": "trend-radar", "name": "Korea Demand Radar", "name_ko": "수요 레이더", "emoji": "📈",
      "sector": "Trends", "inputs": ["category or 'all'"],
      "about": "Read what is rising in Korea now from accumulated demand signal.",
+     "about_ko": "축적된 수요 신호로 지금 뜨는 것을 읽습니다.",
      "run": _run_trend_radar},
-    {"id": "agency-roster", "name": "Agency Roster", "emoji": "🏢",
+    {"id": "agency-roster", "name": "Agency Roster", "name_ko": "소속사 명단", "emoji": "🏢",
      "sector": "Knowledge Graph", "inputs": ["agency name"],
      "about": "List the verified artists under a Korean agency/label (소속사).",
+     "about_ko": "소속사/레이블 아래 검증된 아티스트를 나열합니다.",
      "run": _run_agency_roster},
-    {"id": "person-credits", "name": "Person Credits", "emoji": "🎬",
+    {"id": "person-credits", "name": "Person Credits", "name_ko": "인물 크레딧", "emoji": "🎬",
      "sector": "Knowledge Graph", "inputs": ["person name"],
      "about": "Aggregate a Korean-culture person's verified credits across works.",
+     "about_ko": "작품들에 걸친 인물의 검증된 크레딧을 집계합니다.",
      "run": _run_person_credits},
-    {"id": "related-network", "name": "Related Network", "emoji": "🕸️",
+    {"id": "related-network", "name": "Related Network", "name_ko": "연관 네트워크", "emoji": "🕸️",
      "sector": "Knowledge Graph", "inputs": ["name or id"],
      "about": "Find entities sharing the same agency/network hub edge.",
+     "about_ko": "같은 소속사/채널 허브를 공유하는 엔티티를 찾습니다.",
      "run": _run_related_network},
+    {"id": "trip-plan", "name": "Trip Plan (Region)", "name_ko": "여행 플랜", "emoji": "🧳",
+     "sector": "Travel", "inputs": ["region or city name, e.g. 'Busan'"],
+     "about": "Verified places + festivals in a region, plus signature Korean dishes — itinerary raw material.",
+     "about_ko": "지역의 검증된 명소·축제 + 대표 음식 — 여행 일정의 재료.",
+     "run": _run_trip_plan},
 ]
 _BY_ID = {p["id"]: p for p in _PRODUCTS}
 
@@ -253,12 +314,15 @@ def list_products() -> dict:
     """The catalog — every Answer Product an agent can call, with its inputs + the shared envelope."""
     return {
         "count": len(_PRODUCTS),
-        "products": [{"id": p["id"], "name": p["name"], "emoji": p["emoji"],
-                      "sector": p["sector"], "inputs": p["inputs"], "about": p["about"]}
+        "products": [{"id": p["id"], "name": p["name"], "name_ko": p["name_ko"], "emoji": p["emoji"],
+                      "sector": p["sector"], "inputs": p["inputs"], "about": p["about"],
+                      "about_ko": p["about_ko"]}
                      for p in _PRODUCTS],
         "envelope": ["product", "name", "signal", "action", "score", "rationale", "answer", "evidence"],
         "note": ("Each product turns the verified store into one decision. Call answer(product, query); "
                  "omit product to run all. Free; the underlying korea-rising signal is x402-metered."),
+        "note_ko": "각 제품은 검증 저장소를 하나의 결정으로 바꿉니다. answer(product, query) 호출; "
+                   "product 생략 시 전체 실행. 무료 (korea-rising 신호만 x402 과금).",
     }
 
 
