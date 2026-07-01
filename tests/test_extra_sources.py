@@ -101,3 +101,17 @@ def test_tourapi_rejects_drift_self_filters_and_is_key_gated():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_tourapi_official_attrs_ride_along():
+    # KTO practical facts (address/tel/geo) become attrs that UNION with Wikidata attrs at ingest.
+    raw = _tourapi_raw({"title": "Gyeongbokgung Palace", "contentid": "264337",
+                        "addr1": "161, Sajik-ro, Jongno-gu, Seoul", "tel": "+82-2-3700-3900",
+                        "mapx": "126.9769930325", "mapy": "37.5788222356"})
+    p = parse_tourapi(raw, "Gyeongbokgung")
+    assert p["attrs"]["Address"].startswith("161, Sajik-ro")
+    assert p["attrs"]["Tel"].startswith("+82")
+    assert p["attrs"]["Coordinates"] == "37.5788222356,126.9769930325"  # lat,lon
+    # and a bare listing (no addr/tel/geo) carries NO attrs key at all
+    assert "attrs" not in parse_tourapi(_tourapi_raw({"title": "Bukchon Hanok Village",
+                                                      "contentid": "264386"}), "Bukchon Hanok Village")

@@ -56,3 +56,9 @@ later *read* markets to cross-reference: Polymarket (on-chain, public), Kalshi (
 3. **Beehiiv** (free) → first "Korea Rising" digest → traffic → unlocks affiliate approval
 
 Set any of these → drop in `.env` + GitHub Actions secrets → ping me; I wire them in one pass.
+
+## KOSIS_API_KEY — 국가통계포털 (지역 인구, 정부 공식 통계)
+- 무엇: `region:` 엔티티에 주민등록인구(월간)를 정부 출처로 부착 (KOSIS 표 DT_1B040A3).
+- 발급(무료): https://kosis.kr → 로그인 → 공유서비스(OpenAPI) → 활용신청 → 인증키 확인.
+- 등록: GitHub → Settings → Secrets and variables → Actions → `KOSIS_API_KEY`.
+- 미설정 시: 소스는 완전 휴면(수집은 정상 진행) — 다른 키들과 같은 dormant 패턴.

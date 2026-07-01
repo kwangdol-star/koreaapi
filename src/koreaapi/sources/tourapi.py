@@ -41,7 +41,12 @@ def parse_tourapi(raw: dict, expected_en: str) -> dict:
     for it in _items(raw):
         if isinstance(it, dict) and it.get("title") and _name_match(want, {_norm(it.get("title"))}):
             title = it["title"]
-            return {
+            # Official practical facts (address / tel / geo) ride along as attrs — they UNION with
+            # the Wikidata attrs at ingest, giving the place page KTO-grade visiting detail.
+            attrs = {k: v for k, v in (("Address", it.get("addr1")), ("Tel", it.get("tel"))) if v}
+            if it.get("mapy") and it.get("mapx"):
+                attrs["Coordinates"] = f"{it['mapy']},{it['mapx']}"  # lat,lon (KTO WGS84)
+            out = {
                 "name_ko": title,  # EngService has only the English title; folds (no Korean to verify)
                 "name_en_official": title,
                 "name_romanized": None,
@@ -51,6 +56,9 @@ def parse_tourapi(raw: dict, expected_en: str) -> dict:
                 "summary_en": f"{title} - place (한국관광공사 / KTO).",
                 "summary_ko": f"{title} - 장소 (한국관광공사).",
             }
+            if attrs:
+                out["attrs"] = attrs
+            return out
     raise ValueError(f"KTO TourAPI: no official listing matches {expected_en!r}")
 
 

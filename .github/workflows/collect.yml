@@ -48,6 +48,7 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }} # official-channel release snapshots (best-effort; skipped if unset)
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }} # 3rd-source cross-check for drama/film/animation (skipped if unset)
           TOURAPI_KEY: ${{ secrets.TOURAPI_KEY }} # KTO official place-authority source + badge (skipped if unset)
+          KOSIS_API_KEY: ${{ secrets.KOSIS_API_KEY }} # 국가통계포털 region population attrs (skipped if unset)
         run: |
           uv run python -m koreaapi.admin pull
           uv run python -m koreaapi.admin sweep

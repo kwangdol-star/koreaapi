@@ -134,10 +134,15 @@ async def ingest_one(
     same_work = [p for p in payloads if _same_work(p, chosen)]
     if not chosen.get("abstract_en"):
         chosen["abstract_en"] = next((p.get("abstract_en") for p in same_work if p.get("abstract_en")), None)
-    if not chosen.get("attrs"):  # per-vertical structured attrs live on the Wikidata payload
-        merged_attrs = next((p.get("attrs") for p in same_work if p.get("attrs")), None)
-        if merged_attrs:
-            chosen["attrs"] = merged_attrs
+    # attrs: UNION across same-work payloads (Wikidata genre/awards + KTO address/tel + KOSIS
+    # population complement each other); on a key conflict the structured base's own value wins.
+    merged_attrs: dict = {}
+    for p in same_work:
+        if p.get("attrs"):
+            merged_attrs.update(p["attrs"])
+    merged_attrs.update(chosen.get("attrs") or {})
+    if merged_attrs:
+        chosen["attrs"] = merged_attrs
 
     if not chosen.get("name_romanized") and chosen.get("name_ko"):
         rom = await asyncio.to_thread(romanize, chosen["name_ko"])  # cheap LLM; best-effort
