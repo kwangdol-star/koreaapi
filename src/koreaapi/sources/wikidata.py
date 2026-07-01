@@ -723,12 +723,32 @@ _DISCOVER = {
 }
 
 
-def build_discover_search(vertical: str) -> str:
-    """Pure: the CirrusSearch query for a vertical — instance-of ANY of its classes AND the
-    country/cuisine/language filter, via `haswbstatement` (matched on the working API endpoint)."""
-    classes, prop, val = _DISCOVER[vertical]
+# Alternate query axes per vertical — a SECOND CirrusSearch merged into discovery. haswbstatement
+# clauses AND together, so a different property filter (dish by ORIGIN instead of by cuisine tag)
+# must be its own query. Only ALREADY-PROVEN class/property Q-ids are reused here (no new guesses —
+# a guessed webtoon class once polluted the vertical with K-pop singles): both P2012=Korean-cuisine
+# and P17=country are sparsely tagged on Wikidata, which left food/brand candidate pools near-empty
+# (4 / 37 candidates) while P495 origin=South-Korea is the densely-used property on those items.
+_DISCOVER_ALT = {
+    "food":  [(["Q746549"], "P495", "Q884")],   # dish, origin = South Korea
+    "brand": [(["Q431289"], "P495", "Q884")],   # brand, origin = South Korea
+}
+
+
+def _search(classes: list[str], prop: str, val: str) -> str:
     p31 = "|".join(f"P31={c}" for c in classes)
     return f"haswbstatement:{p31} haswbstatement:{prop}={val}"
+
+
+def build_discover_search(vertical: str) -> str:
+    """Pure: the PRIMARY CirrusSearch query for a vertical — instance-of ANY of its classes AND the
+    country/cuisine/language filter, via `haswbstatement` (matched on the working API endpoint)."""
+    return _search(*_DISCOVER[vertical])
+
+
+def build_discover_searches(vertical: str) -> list[str]:
+    """Pure: every CirrusSearch query for a vertical — the primary + any alternate axes."""
+    return [build_discover_search(vertical)] + [_search(*t) for t in _DISCOVER_ALT.get(vertical, ())]
 
 
 def fetch_discover(vertical: str, *, limit: int = 400, offset: int = 0) -> list[dict]:
@@ -739,5 +759,19 @@ def fetch_discover(vertical: str, *, limit: int = 400, offset: int = 0) -> list[
     Pass `limit` THROUGH (no min(,50) clamp): _discover_candidates paginates internally at 50/request,
     so clamping here to 50 silently defeated that pagination — discovery only ever saw the first 50
     candidates per vertical, which (once ingested) yield +0 new forever (the plateau). With the full
-    limit the walker reaches the long tail and discovery grows again run-over-run."""
-    return _discover_candidates(build_discover_search(vertical), limit=limit)
+    limit the walker reaches the long tail and discovery grows again run-over-run.
+
+    Walks EVERY query axis for the vertical (primary + _DISCOVER_ALT), merging candidates and
+    deduping by Q-id AND slug, capped at `limit` total."""
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for srsearch in build_discover_searches(vertical):
+        for c in _discover_candidates(srsearch, limit=limit):
+            if c["qid"] in seen or c["slug"] in seen:
+                continue
+            seen.add(c["qid"])
+            seen.add(c["slug"])
+            merged.append(c)
+            if len(merged) >= limit:
+                return merged
+    return merged

@@ -27,6 +27,36 @@ def test_discover_food_uses_korean_cuisine_filter():
         assert build_discover_search(v).startswith("haswbstatement:")
 
 
+def test_discover_alt_axes_for_food_and_brand():
+    # food/brand pools were near-empty (4 / 37 candidates): P2012 cuisine / P17 country are sparsely
+    # tagged on those items. A SECOND query axis by P495 origin=SK (already-proven ids only — no new
+    # class guesses, the webtoon-pollution lesson) widens the pool without lowering the bar.
+    from koreaapi.sources.wikidata import build_discover_searches
+    for v in ("food", "brand"):
+        searches = build_discover_searches(v)
+        assert len(searches) == 2
+        assert searches[0] == build_discover_search(v)      # primary unchanged
+        assert "haswbstatement:P495=Q884" in searches[1]    # alt: origin = South Korea
+    assert build_discover_searches("drama") == [build_discover_search("drama")]  # no alt
+
+
+def test_fetch_discover_merges_and_dedups_across_axes(monkeypatch):
+    # Candidates from every axis merge into one pool, deduped by qid AND slug, capped at limit.
+    import koreaapi.sources.wikidata as wd
+
+    def fake(search: str, *, limit: int) -> list:
+        if "P495" in search:  # the alt axis: one dup (Q2) + one new (Q3)
+            return [{"qid": "Q2", "en": "Bulgogi", "ko": "불고기", "slug": "bulgogi"},
+                    {"qid": "Q3", "en": "Naengmyeon", "ko": "냉면", "slug": "naengmyeon"}]
+        return [{"qid": "Q1", "en": "Bibimbap", "ko": "비빔밥", "slug": "bibimbap"},
+                {"qid": "Q2", "en": "Bulgogi", "ko": "불고기", "slug": "bulgogi"}]
+
+    monkeypatch.setattr(wd, "_discover_candidates", fake)
+    out = wd.fetch_discover("food", limit=400)
+    assert [c["qid"] for c in out] == ["Q1", "Q2", "Q3"]     # merged, dup dropped
+    assert [c["qid"] for c in wd.fetch_discover("food", limit=2)] == ["Q1", "Q2"]  # cap respected
+
+
 def test_fetch_discover_forwards_full_limit_not_clamped(monkeypatch):
     # Regression (the +0-new plateau): fetch_discover used to clamp the limit to min(limit, 50),
     # which silently defeated _discover_candidates' internal 50/request pagination — discovery only
