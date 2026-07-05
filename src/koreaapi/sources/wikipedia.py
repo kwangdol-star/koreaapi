@@ -460,6 +460,8 @@ _TITLES = {
     "festival:hwacheonice": "Hwacheon Sancheoneo Ice Festival",
     "festival:lotuslantern": "Lotus Lantern Festival",
     "festival:andongmask": "Andong Mask Dance Festival",
+    # artists — batch 5 (solo/trot)
+    "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)
     "sports:sonheungmin": "Son Heung-min",
     "sports:leekangin": "Lee Kang-in",

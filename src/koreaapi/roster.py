@@ -84,6 +84,8 @@ ARTISTS = {
     # Batch 4 — distinctive coined names (agency hints in AGENCY_HINTS).
     "artist:btob": "BTOB",
     "artist:wjsn": "WJSN",
+    # Batch 5 — solo/trot expansion (top domestic search demand).
+    "artist:limyoungwoong": "Lim Young-woong",
 }
 
 # 소속사 disambiguation hint: entity_id -> agency CORE name. Wikidata's P264 can list several labels
@@ -140,6 +142,7 @@ AGENCY_HINTS = {
     "artist:younha": "C9",
     "artist:btob": "Cube",
     "artist:wjsn": "Starship",
+    "artist:limyoungwoong": "Mulgogi",  # 물고기뮤직; a non-matching hint just falls back to the first label
     # webtoon publisher/platform hints (P123 disambiguation; falls back to the first label)
     "webtoon:sololeveling": "Kakao",
     "webtoon:towerofgod": "Naver",

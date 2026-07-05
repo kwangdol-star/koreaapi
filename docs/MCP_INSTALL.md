@@ -23,7 +23,7 @@ Prefer not to run a server? The verified data is also a plain JSON file you can 
 **Decisions** — Answer Products (each returns `{signal, action, score, rationale, answer, evidence}`):
 | Tool | Returns |
 |---|---|
-| `list_answer_products()` | the catalog: canonical-name · fact-check · identity-resolve · trend-radar · agency-roster · person-credits · related-network |
+| `list_answer_products()` | the catalog: canonical-name · fact-check · identity-resolve · trend-radar · agency-roster · person-credits · related-network · trip-plan |
 | `get_answer(query, product)` | run one product on a query (omit `product` to run all) |
 
 **Data** — the verified store:

@@ -3301,6 +3301,13 @@ def _main(argv: list[str]) -> int:
         if not tot:
             print("  → 0 new: either all candidates already ingested, or SPARQL egress is blocked "
                   "(runs on GitHub's open-network runners).")
+    elif cmd == "answer":
+        # Operator smoke for Answer Products: `admin answer <query> [product]` — e.g.
+        # `admin answer Busan trip-plan`, `admin answer 빈센조 canonical-name`, `admin answer BTS`.
+        q = sys.argv[2] if len(sys.argv) > 2 else ""
+        prod = sys.argv[3] if len(sys.argv) > 3 else ""
+        out = asyncio.run(answers.answer(prod, q) if prod else answers.answer_all(q))
+        print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
     elif cmd == "youtube":
         out = asyncio.run(youtube())
         total = len(out["ingested"]) + len(out["skipped"])

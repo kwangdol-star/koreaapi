@@ -26,9 +26,19 @@
 ## 4. Glama — https://glama.ai/mcp/servers
 GitHub 공개 레포를 자동 인덱싱하는 편. 등재 안 보이면 사이트의 add/claim 경로로 제출.
 
-## 5. awesome-mcp-servers (GitHub 리스트)
-https://github.com/punkpeye/awesome-mcp-servers — PR 필요라 난이도 높음.
-원하면 Claude 세션에서 PR 문안까지 만들어 준다 (제출은 계정 주인이).
+## 5. awesome-mcp-servers (GitHub 리스트 — 전부 웹에서 가능)
+https://github.com/punkpeye/awesome-mcp-servers
+1. 우상단 **Fork** → 내 계정으로 포크.
+2. 포크에서 `README.md` 열기 → 연필(✏️ Edit) → 성격에 맞는 카테고리(예: *Knowledge & Memory*
+   또는 데이터/검색 계열)에서 **알파벳 순서** 자리에 아래 한 줄 삽입:
+
+```
+- [kwangdol-star/koreaapi](https://github.com/kwangdol-star/koreaapi) 🐍 🏠 ☁️ - Verified Korean-culture data layer: 1,200+ cross-verified entities (K-pop, dramas, films, food, places, athletes) with provenance + a 0-1 Skill Score on every record. Answer Products (canonical-name, fact-check, identity-resolve, trip-plan). No API key required.
+```
+
+   (이모지 규례: 🐍 Python · 🏠 로컬 · ☁️ 원격 — 저장소 상단 legend가 바뀌었으면 그에 맞춤)
+3. **Commit changes** → **Contribute → Open pull request** → 제출.
+   PR 제목: `Add KoreaAPI (verified Korean-culture data layer)`
 
 ---
 

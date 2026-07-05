@@ -99,7 +99,8 @@ async def get_answer(query: str, product: str = "") -> dict:
     rationale, answer, evidence} — the decision an agent makes BEFORE answering its user. `product`
     e.g. 'canonical-name' (authoritative Korean spelling), 'fact-check' (safe to cite?),
     'identity-resolve' (map a mention to a trusted ID), 'trend-radar', 'agency-roster',
-    'person-credits', 'related-network' (catalog via list_answer_products). Omit `product` to run ALL."""
+    'person-credits', 'related-network', 'trip-plan' (region query → verified places/festivals/foods;
+    catalog via list_answer_products). Omit `product` to run ALL."""
     if product:
         return await answers.answer(product, query)
     return await answers.answer_all(query)
