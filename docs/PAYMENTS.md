@@ -45,6 +45,8 @@ X402_PRICE_USD      = 0.01
 - **무료(계속 개방):** 검증 데이터 전부 — `/v1/verified`, `/v1/resolve`, `/v1/answer`(Answer Products),
   `/latest.json`, MCP 도구. AEO/인용 권위를 위해 일부러 열어 둔다.
 - **과금:** `/v1/korea-rising`(독점 수요 신호) — 호출당 x402.
+- **협의 레인 (준비됨):** 검증 데이터셋의 LLM 학습/평가용 라이선스 — 해외 선례(Wiley·Informa 등
+  "쌓인 문서" 라이선스)의 KoreaAPI 버전. 정본 표기 정답셋은 한국어 모델 eval 재료로 그대로 쓰인다.
 - 확장: 다른 프리미엄 엔드포인트도 `api.py`의 `_gate()`로 감싸면 같은 방식으로 과금.
 
 ## 마켓플레이스 연결
