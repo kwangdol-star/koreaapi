@@ -267,6 +267,46 @@ async def prune(db_path: str | None = None) -> dict:
     return {"removed": removed}
 
 
+async def audit(*, db_path: str | None = None, fix: bool = False) -> dict:
+    """Store-wide retroactive TYPE audit (the 'Sweet Home' sweep). Every record with Wikidata
+    provenance gets its Q-id's P31 typing re-fetched (50-id batches) and checked with the same
+    cross-vertical type guard fetch() now applies. ROSTER entities self-heal on every pull, but
+    DISCOVERED entities are ingested once — a poisoned one sits until removed, so `fix=True`
+    deletes violators (miss, never wrong). Needs egress; a failed batch just stays unaudited."""
+    from .sources.wikidata import _UA, _alien_class, _http_get_json, batch_claims_url, parse_p31_map
+    targets: dict[str, str] = {}  # entity_id -> its verified Wikidata Q-id
+    skipped = 0
+    for e in await store.entities(db_path=db_path):
+        if e["kind"] != "facts":
+            continue
+        rec = await store.latest(e["entity_id"], "facts", db_path=db_path)
+        if rec is None:
+            continue
+        qid = next((m.group(0) for s in rec.provenance.sources
+                    if "wikidata" in s.lower() and (m := re.search(r"\bQ\d+\b", s))), None)
+        if qid:
+            targets[e["entity_id"]] = qid
+        else:
+            skipped += 1  # no Wikidata provenance -> nothing to re-verify against
+    p31: dict[str, set] = {}
+    qids = sorted(set(targets.values()))
+    for i in range(0, len(qids), 50):  # wbgetentities accepts <=50 ids per call
+        try:
+            raw = await asyncio.to_thread(_http_get_json, batch_claims_url(qids[i:i + 50]), _UA)
+        except Exception:
+            continue  # this batch stays unaudited this run (audited next collect)
+        p31.update(parse_p31_map(raw))
+    violations = [{"entity_id": eid, "qid": qid, "alien": alien}
+                  for eid, qid in sorted(targets.items())
+                  if qid in p31 and (alien := _alien_class(eid.split(":", 1)[0], p31[qid]))]
+    removed: list[str] = []
+    if fix:
+        for v in violations:
+            if await store.delete_entity(v["entity_id"], db_path=db_path):
+                removed.append(v["entity_id"])
+    return {"checked": len(targets), "skipped": skipped, "violations": violations, "removed": removed}
+
+
 async def load_latest(in_path: str = "data/latest.json", *, db_path: str | None = None) -> int:
     """Re-seed the DB from the committed data asset (data/latest.json) so a fresh-per-run collector
     ACCUMULATES: discover()/sweep() dedup against everything found in prior runs, instead of
@@ -3308,6 +3348,15 @@ def _main(argv: list[str]) -> int:
         if not tot:
             print("  → 0 new: either all candidates already ingested, or SPARQL egress is blocked "
                   "(runs on GitHub's open-network runners).")
+    elif cmd == "audit":
+        out = asyncio.run(audit(fix="fix" in sys.argv[2:]))
+        print(f"audit: type-checked {out['checked']} record(s) with Wikidata provenance "
+              f"({out['skipped']} without) -> {len(out['violations'])} cross-vertical violation(s)")
+        for v in out["violations"]:
+            mark = " [removed]" if v["entity_id"] in out["removed"] else ""
+            print(f"  ✗ {v['entity_id']} — {v['qid']} is typed {v['alien']} (another vertical){mark}")
+        if not out["violations"]:
+            print("  ✓ clean — no same-name impostors of another kind in the store")
     elif cmd == "answer":
         # Operator smoke for Answer Products: `admin answer <query> [product]` — e.g.
         # `admin answer Busan trip-plan`, `admin answer 빈센조 canonical-name`, `admin answer BTS`.

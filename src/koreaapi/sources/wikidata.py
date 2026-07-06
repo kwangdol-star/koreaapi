@@ -424,6 +424,21 @@ def p31_of(raw: dict) -> set[str]:
             for s in item.get("claims", {}).get("P31", [])} - {None}
 
 
+def batch_claims_url(qids: list[str]) -> str:
+    """A wbgetentities URL for up to 50 ids' claims — the store-wide type AUDIT reads P31 in batches."""
+    return f"{WIKIDATA_API}?" + urllib.parse.urlencode(
+        {"action": "wbgetentities", "ids": "|".join(qids), "props": "claims", "format": "json"})
+
+
+def parse_p31_map(raw: dict) -> dict[str, set[str]]:
+    """Pure: qid -> its P31 class Q-ids, for a BATCH wbgetentities response."""
+    out: dict[str, set[str]] = {}
+    for qid, item in (raw.get("entities") or {}).items():
+        out[qid] = {s.get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("id")
+                    for s in (item.get("claims") or {}).get("P31", [])} - {None}
+    return out
+
+
 def _norm(s: str | None) -> str:
     """Normalize a name for identity comparison: drop case and spaces (NewJeans == New Jeans)."""
     return (s or "").casefold().replace(" ", "")
