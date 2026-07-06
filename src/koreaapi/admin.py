@@ -930,9 +930,9 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  .note{{color:var(--mut);font-size:13px;line-height:1.65;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-left:3px solid var(--accent);border-radius:14px;padding:15px 18px;margin-bottom:24px;max-width:1000px;box-shadow:var(--gshadow)}}
  .note b{{color:var(--ink)}}
  code{{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);padding:1px 6px;border-radius:5px;font-size:12px}}
- .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:14px;margin-bottom:24px}}
- .card{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:18px;padding:18px 20px;box-shadow:var(--gshadow)}}
- .card .v{{font-size:28px;font-weight:800;letter-spacing:-.02em}}
+ .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:24px}}
+ .card{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:18px;padding:16px 18px;min-width:0;box-shadow:var(--gshadow)}}
+ .card .v{{font-size:21px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;font-variant-numeric:tabular-nums}}
  .card .k{{color:var(--mut);font-size:12px;margin-top:3px}}
  .tablewrap{{overflow:hidden;overflow-x:auto;border:1px solid var(--gbord);border-radius:18px;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);box-shadow:var(--gshadow)}}
  table{{width:100%;border-collapse:collapse;min-width:900px;background:transparent}}
