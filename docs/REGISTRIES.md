@@ -4,13 +4,12 @@
 아래 순서대로 하면 된다 — 전부 브라우저에서 가능. (제출 문구는 맨 아래 "복붙 블록" 사용.)
 
 ## 0. 선행 1회 — PyPI 배포 (uvx 설치 경로 활성화)
-레지스트리들이 선호하는 설치법(`uvx --from koreaapi-mcp koreaapi-mcp`)은 패키지가 PyPI에 있어야 한다.
-1. https://pypi.org 계정 생성 → Account settings → **API tokens** → 토큰 생성(복사).
-2. GitHub `kwangdol-star/koreaapi` → Settings → Secrets and variables → **Actions** →
-   New repository secret → 이름 `PYPI_API_TOKEN`, 값 = 토큰.
-3. Actions 탭 → **publish** 워크플로 → Run workflow.
-4. 확인: https://pypi.org/project/koreaapi-mcp/ 페이지가 생기면 성공.
-   (실패 시 로그를 Claude 세션에 붙여넣으면 해결해 준다.)
+패키지 이름은 `koreaapi` — **이미 우리 소유**(kwangdol 계정, 0.1.0 릴리스됨). 계정·토큰·시크릿
+(`PYPI_API_TOKEN`)도 이미 있으므로, 새 버전 올릴 때 할 일은 하나뿐:
+1. Actions 탭 → **publish** 워크플로 → Run workflow.
+2. 확인: https://pypi.org/project/koreaapi/ 가 새 버전으로 갱신되면 성공.
+   (403 에러가 나면 pypi.org에서 토큰을 새로 만들어 GitHub Secret `PYPI_API_TOKEN` 값을 교체;
+   실패 로그를 Claude 세션에 붙여넣으면 해결해 준다.)
 
 ## 1. Smithery — https://smithery.ai (최우선)
 가장 큰 MCP 레지스트리. 레포에 `smithery.yaml`이 이미 준비돼 있다.
@@ -56,7 +55,7 @@ https://github.com/punkpeye/awesome-mcp-servers
 
 **Repository**: https://github.com/kwangdol-star/koreaapi
 **Homepage**: https://kwangdol-star.github.io/koreaapi/
-**Install (stdio)**: `uvx --from koreaapi-mcp koreaapi-mcp`  (또는 `pip install koreaapi-mcp` 후 `koreaapi-mcp`)
+**Install (stdio)**: `uvx --from koreaapi koreaapi-mcp`  (또는 `pip install koreaapi` 후 `koreaapi-mcp`)
 
 **Why it's trustworthy (심사 문구)**:
 > Every record is cross-verified across independent sources (Wikidata, Wikipedia,

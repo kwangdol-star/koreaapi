@@ -2,7 +2,7 @@
 # The "agent-era backlink": listing here lets agents find + install KoreaAPI.
 # Validate against the current schema at https://smithery.ai/docs before publishing.
 #
-# NOTE: starts via `uvx --from koreaapi-mcp koreaapi-mcp` -> requires the package on PyPI first
+# NOTE: starts via `uvx --from koreaapi koreaapi-mcp` -> requires the package on PyPI first
 # (`uv build && uv publish`). The server tools are READ-ONLY over the verified store and need NO
 # secrets; the optional keys below are only for self-ingestion (romanization / chart / YouTube).
 
@@ -27,7 +27,7 @@ startCommand:
   commandFunction: |
     (config) => ({
       command: 'uvx',
-      args: ['--from', 'koreaapi-mcp', 'koreaapi-mcp'],
+      args: ['--from', 'koreaapi', 'koreaapi-mcp'],
       env: {
         ...(config.koreaapiDb ? { KOREAAPI_DB: config.koreaapiDb } : {}),
         ...(config.anthropicApiKey ? { ANTHROPIC_API_KEY: config.anthropicApiKey } : {}),

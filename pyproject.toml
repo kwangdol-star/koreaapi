@@ -1,6 +1,6 @@
 [project]
-name = "koreaapi-mcp"
-version = "0.1.0"
+name = "koreaapi"
+version = "0.2.0"
 description = "The verifiable data layer for Korean culture & commerce, callable by any AI agent (MCP)."
 readme = "README.md"
 requires-python = ">=3.11"
