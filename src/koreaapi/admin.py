@@ -966,24 +966,31 @@ _SITE_BASE = "https://kwangdol-star.github.io/koreaapi"
 # (red 양 upper-right, blue 음 lower-left, tilted 33.69°) + the four trigrams rotated toward the centre —
 # 건 ☰ top-left, 감 ☵ top-right, 리 ☲ bottom-left, 곤 ☷ bottom-right.
 _FLAG = (
+    # Official construction (국기법 시행령): flag 3:2, taegeuk Ø = height/2 (r=6 here ✓); each trigram
+    # is a 6×4.4 block whose CENTRE sits on the diagonal at r + gap(3) + block/2(2.2) = 11.2 from the
+    # flag centre → (±9.15, ∓6.1). The previous render oversized the trigrams (7.2×5.8) and pushed
+    # them to the corners, eating the top/bottom white margins — this one restores them.
     '<svg viewBox="0 0 36 24" width="1.15em" height="0.77em" role="img" aria-label="태극기 (South Korea)" '
     'style="vertical-align:-0.1em;margin-left:.14em;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.18)">'
     '<rect width="36" height="24" fill="#fff"/>'
     '<g transform="translate(36,0) scale(-1,1)"><circle cx="18" cy="12" r="6" fill="#cd2e3a"/>'
     '<path d="M18,6 a6,6 0 0,1 0,12 a3,3 0 0,1 0,-6 a3,3 0 0,0 0,-6 z" transform="rotate(33.69 18 12)" fill="#0047a0"/></g>'
     '<g fill="#000">'
-    '<g transform="translate(8,5) rotate(-55)"><rect x="-3.6" y="-2.9" width="7.2" height="1.2"/>'
-    '<rect x="-3.6" y="-0.6" width="7.2" height="1.2"/><rect x="-3.6" y="1.7" width="7.2" height="1.2"/></g>'
-    '<g transform="translate(28,5) rotate(55)"><rect x="-3.6" y="-2.9" width="3" height="1.2"/>'
-    '<rect x="0.6" y="-2.9" width="3" height="1.2"/><rect x="-3.6" y="-0.6" width="7.2" height="1.2"/>'
-    '<rect x="-3.6" y="1.7" width="3" height="1.2"/><rect x="0.6" y="1.7" width="3" height="1.2"/></g>'
-    '<g transform="translate(8,19) rotate(-125)"><rect x="-3.6" y="-2.9" width="7.2" height="1.2"/>'
-    '<rect x="-3.6" y="-0.6" width="3" height="1.2"/><rect x="0.6" y="-0.6" width="3" height="1.2"/>'
-    '<rect x="-3.6" y="1.7" width="7.2" height="1.2"/></g>'
-    '<g transform="translate(28,19) rotate(125)"><rect x="-3.6" y="-2.9" width="3" height="1.2"/>'
-    '<rect x="0.6" y="-2.9" width="3" height="1.2"/><rect x="-3.6" y="-0.6" width="3" height="1.2"/>'
-    '<rect x="0.6" y="-0.6" width="3" height="1.2"/><rect x="-3.6" y="1.7" width="3" height="1.2"/>'
-    '<rect x="0.6" y="1.7" width="3" height="1.2"/></g>'
+    '<g transform="translate(8.85,5.9) rotate(-56.31)">'
+    '<rect x="-3" y="-2.2" width="6" height="1.1"/><rect x="-3" y="-0.55" width="6" height="1.1"/>'
+    '<rect x="-3" y="1.1" width="6" height="1.1"/></g>'
+    '<g transform="translate(27.15,5.9) rotate(56.31)">'
+    '<rect x="-3" y="-2.2" width="2.55" height="1.1"/><rect x="0.45" y="-2.2" width="2.55" height="1.1"/>'
+    '<rect x="-3" y="-0.55" width="6" height="1.1"/>'
+    '<rect x="-3" y="1.1" width="2.55" height="1.1"/><rect x="0.45" y="1.1" width="2.55" height="1.1"/></g>'
+    '<g transform="translate(8.85,18.1) rotate(-123.69)">'
+    '<rect x="-3" y="-2.2" width="6" height="1.1"/>'
+    '<rect x="-3" y="-0.55" width="2.55" height="1.1"/><rect x="0.45" y="-0.55" width="2.55" height="1.1"/>'
+    '<rect x="-3" y="1.1" width="6" height="1.1"/></g>'
+    '<g transform="translate(27.15,18.1) rotate(123.69)">'
+    '<rect x="-3" y="-2.2" width="2.55" height="1.1"/><rect x="0.45" y="-2.2" width="2.55" height="1.1"/>'
+    '<rect x="-3" y="-0.55" width="2.55" height="1.1"/><rect x="0.45" y="-0.55" width="2.55" height="1.1"/>'
+    '<rect x="-3" y="1.1" width="2.55" height="1.1"/><rect x="0.45" y="1.1" width="2.55" height="1.1"/></g>'
     '</g></svg>'
 )
 
@@ -3149,8 +3156,8 @@ async def monitor_html(db_path: str | None = None, out_path: str = "monitor.html
  body{{font-family:'Montserrat','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',system-ui,-apple-system,sans-serif;color:#F7F2E8;margin:0;padding:28px 24px;
   background:radial-gradient(900px 480px at 10% -10%,rgba(233,196,106,.16),transparent 60%),radial-gradient(820px 460px at 100% 0%,rgba(217,164,65,.14),transparent 55%),#0D0B06;background-attachment:fixed}}
  h1{{margin:0 0 2px}} h2{{font-size:14px;color:#C2B7A3;margin:22px 0 8px}} .sub{{color:#C2B7A3;margin-bottom:18px;font-size:13px}}
- .cards{{display:flex;gap:12px;flex-wrap:wrap}} .card{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:14px;padding:13px 17px;min-width:120px;box-shadow:var(--gshadow)}}
- .card .v{{font-size:24px;font-weight:700}} .card .k{{color:#C2B7A3;font-size:12px}}
+ .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px}} .card{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:14px;padding:13px 15px;min-width:0;box-shadow:var(--gshadow)}}
+ .card .v{{font-size:20px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.01em}} .card .k{{color:#C2B7A3;font-size:12px}}
  .grid{{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}} .panel{{flex:1;min-width:300px}}
  table{{width:100%;border-collapse:collapse;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:14px;overflow:hidden;box-shadow:var(--gshadow)}}
  th,td{{padding:7px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}} th{{color:#C2B7A3;background:rgba(255,255,255,.06)}}
