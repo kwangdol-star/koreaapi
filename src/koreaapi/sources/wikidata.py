@@ -411,6 +411,19 @@ def parse_search(raw: dict) -> str | None:
     return hits[0].get("id")
 
 
+def parse_search_all(raw: dict) -> list[str]:
+    """Pure: ALL hit Q-ids from a `wbsearchentities` response, in rank order — fetch() walks them
+    under the type guard, so a same-name entity of another KIND never poisons the record."""
+    return [h["id"] for h in raw.get("search", []) if h.get("id")]
+
+
+def p31_of(raw: dict) -> set[str]:
+    """Pure: the entity's instance-of (P31) class Q-ids from a wbgetentities response."""
+    item = next(iter(raw.get("entities", {}).values()), {})
+    return {s.get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("id")
+            for s in item.get("claims", {}).get("P31", [])} - {None}
+
+
 def _norm(s: str | None) -> str:
     """Normalize a name for identity comparison: drop case and spaces (NewJeans == New Jeans)."""
     return (s or "").casefold().replace(" ", "")
@@ -517,7 +530,7 @@ class WikidataSource:
                 "language": "en",
                 "uselang": "en",
                 "type": "item",
-                "limit": 1,
+                "limit": 5,  # several candidates: the type guard in fetch() walks past same-name impostors
                 "format": "json",
             }
         )
@@ -526,36 +539,54 @@ class WikidataSource:
     def _http_get(self, url: str) -> dict:
         return _http_get_json(url, _UA)
 
-    async def resolve_qid(self, entity_id: str) -> str:
-        """entity_id -> Q-id. Curated pin, then a caller-supplied (SPARQL-discovered) qid, then
-        memoized live search."""
-        if entity_id in _QID:
-            return _QID[entity_id]
-        if entity_id in self._qids:  # discovered up front -> fetch that exact item (no search)
-            return self._qids[entity_id]
-        if entity_id in self._discovered:
-            return self._discovered[entity_id]
+    async def resolve_candidates(self, entity_id: str) -> list[str]:
+        """entity_id -> candidate Q-ids in preference order. A curated pin / injected qid / memoized
+        winner gives exactly one; otherwise the live search returns up to 5 — fetch() walks them under
+        the TYPE GUARD, so a same-name entity of another kind (the 1989 'Sweet Home' Capcom GAME vs
+        the webtoon) is skipped in favour of the right one instead of poisoning the record."""
+        for m in (_QID, self._qids, self._discovered):
+            if entity_id in m:
+                return [m[entity_id]]
         term = NAMES.get(entity_id) or self._aliases.get(entity_id) or entity_id.split(":", 1)[-1].strip()
         if not term:
             raise ValueError(f"cannot derive a search term from entity_id {entity_id!r}")
         raw = await asyncio.to_thread(self._http_get, self._search_url(term))
-        qid = parse_search(raw)
-        if not qid:
+        qids = parse_search_all(raw)
+        if not qids:
             raise ValueError(f"no Wikidata match for {entity_id!r} (searched {term!r})")
-        self._discovered[entity_id] = qid
-        return qid
+        return qids
+
+    async def resolve_qid(self, entity_id: str) -> str:
+        """entity_id -> the top candidate Q-id (curated pin, injected, memoized, else live search)."""
+        return (await self.resolve_candidates(entity_id))[0]
 
     async def fetch(self, entity_id: str, kind: str) -> dict:
-        qid = await self.resolve_qid(entity_id)
-        raw = await asyncio.to_thread(self._http_get, self._entity_url(qid))
-        payload = parse_entity(raw, entity_id, kind)
         expected = (
             _CURATED.get(entity_id)
             or ({"en": NAMES[entity_id]} if entity_id in NAMES else None)
             or ({"en": self._aliases[entity_id]} if entity_id in self._aliases else None)
         )
-        if expected:
-            _verify_identity(payload, expected)  # reject contradictory data (invariant 2)
+        ns = entity_id.split(":", 1)[0]
+        payload: dict | None = None
+        qid = ""
+        last_err: Exception | None = None
+        for qid in await self.resolve_candidates(entity_id):
+            raw = await asyncio.to_thread(self._http_get, self._entity_url(qid))
+            try:
+                cand = parse_entity(raw, entity_id, kind)
+                alien = _alien_class(ns, p31_of(raw))
+                if alien:  # positively typed as ANOTHER vertical's kind (game vs webtoon) -> not us
+                    raise ValueError(f"type guard: {qid} is a {alien} (another vertical), not {ns}")
+                if expected:
+                    _verify_identity(cand, expected)  # reject contradictory data (invariant 2)
+            except ValueError as e:
+                last_err = e
+                continue
+            payload = cand
+            self._discovered[entity_id] = qid  # memoize the candidate that actually passed
+            break
+        if payload is None:
+            raise last_err or ValueError(f"no acceptable Wikidata candidate for {entity_id!r}")
 
         # Resolve the 소속사/label anchor. P264 can list several labels (e.g. a foreign distribution
         # label alongside the primary 소속사); for a curated artist a hint picks the RIGHT one among
@@ -744,6 +775,39 @@ _DISCOVER_ALT = {
     "food":  [(["Q746549"], "P495", "Q884")],   # dish, origin = South Korea
     "brand": [(["Q431289"], "P495", "Q884")],   # brand, origin = South Korea
 }
+
+
+# --- Cross-vertical TYPE GUARD -------------------------------------------------------------------
+# A same-ENGLISH-name entity of a different KIND passes the name guard (the 1989 Capcom GAME 'Sweet
+# Home' vs the webtoon: both label 'Sweet Home') and then poisons the record with the wrong facts.
+# The entity's own P31 typing is the tell: if it is POSITIVELY typed as another vertical's class,
+# reject it (fetch then walks to the next search candidate). Fail-open on empty/unknown P31 — the
+# bilingual name guard still applies; this guard only acts on a positive foreign typing.
+_UNIVERSAL = {"Q5"}  # human — spans artist/sports/actor; never alien on its own
+
+_ADJACENT = {  # verticals whose classes legitimately co-occur on one item (dual-typed works)
+    "animation": {"film", "drama", "show"}, "film": {"animation", "drama"},
+    "drama": {"film", "animation", "show"}, "show": {"drama", "animation"},
+    "brand": {"company", "fashion"}, "company": {"brand", "fashion"},
+    "fashion": {"brand", "company"}, "book": {"classic"}, "classic": {"book"},
+}
+
+
+def _alien_class(ns: str, p31: set[str]) -> str | None:
+    """The offending P31 class if the entity is positively typed as ANOTHER vertical's kind;
+    None when it is our own kind, an adjacent kind, universally-typed (human), or untyped."""
+    own = set(_DISCOVER.get(ns, ((),))[0])
+    if p31 & own:
+        return None
+    probe = p31 - _UNIVERSAL
+    adj = _ADJACENT.get(ns, set())
+    for v, (classes, _prop, _val) in _DISCOVER.items():
+        if v == ns or v in adj:
+            continue
+        hit = probe & set(classes)
+        if hit:
+            return sorted(hit)[0]
+    return None
 
 
 def _search(classes: list[str], prop: str, val: str) -> str:

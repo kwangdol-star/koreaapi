@@ -515,7 +515,7 @@ _TITLES = {
 }
 
 
-def _clean_extract(text: str | None, *, cap: int = 600) -> str | None:
+def _clean_extract(text: str | None, *, cap: int = 1400) -> str | None:
     """Pure: tidy a MediaWiki plain-text extract — collapse whitespace, drop a trailing partial
     sentence if capped. None/blank -> None (the abstract is supplementary; a missing one is fine)."""
     if not text:
