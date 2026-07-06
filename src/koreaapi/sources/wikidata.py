@@ -696,7 +696,7 @@ def _cirrus_url(srsearch: str, *, limit: int, offset: int = 0) -> str:
     })
 
 
-def _discover_candidates(srsearch: str, *, limit: int) -> list[dict]:
+def _discover_candidates(srsearch: str, *, limit: int, offset: int = 0) -> list[dict]:
     """Live: CirrusSearch (`haswbstatement`) -> [{qid, en, ko, slug}], with labels resolved in
     batched wbgetentities calls — ALL on www.wikidata.org/w/api.php (NOT WDQS). Sync (call via
     asyncio.to_thread); raises on transport error (caller degrades gracefully).
@@ -706,7 +706,6 @@ def _discover_candidates(srsearch: str, *, limit: int) -> list[dict]:
     so discovery reaches the long tail and keeps growing run-over-run."""
     qids: list[str] = []
     page = 50  # CirrusSearch hard-caps srlimit at 50 per request for non-bot clients
-    offset = 0
     while len(qids) < limit:
         hits = (_http_get_json(_cirrus_url(srsearch, limit=page, offset=offset), _UA)
                 .get("query", {}).get("search", []))
@@ -856,7 +855,7 @@ def fetch_discover(vertical: str, *, limit: int = 400, offset: int = 0) -> list[
     merged: list[dict] = []
     seen: set[str] = set()
     for srsearch in build_discover_searches(vertical):
-        for c in _discover_candidates(srsearch, limit=limit):
+        for c in _discover_candidates(srsearch, limit=limit, offset=offset):
             if c["qid"] in seen or c["slug"] in seen:
                 continue
             seen.add(c["qid"])

@@ -214,8 +214,13 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
     }
     out: dict[str, dict] = {}
     for v in verticals:
+        # LADDER: start the CirrusSearch walk just before the count we've already ingested. The pool
+        # caps at `limit`, so once a vertical fills up every run re-reads the same first page and
+        # finds +0 forever (the SECOND plateau); starting ~100 back keeps dedup overlap while the
+        # walk reaches the unseen tail.
+        n_have = sum(1 for h in have if h.startswith(f"{v}:"))
         try:
-            cands = await asyncio.to_thread(fetch_discover, v, limit=limit)
+            cands = await asyncio.to_thread(fetch_discover, v, limit=limit, offset=max(0, n_have - 100))
         except Exception as e:  # surface WHY (endpoint error) vs an honest 0-results — for tuning
             out[v] = {"candidates": 0, "ingested": [], "error": f"{type(e).__name__}: {e}"[:120]}
             continue
@@ -223,7 +228,8 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
         seen: set[str] = set()
         for c in cands:
             eid = f"{v}:{c['slug']}"
-            if eid in have or c["qid"] in have_qids or c["slug"] in seen or c["qid"] in seen:
+            if (eid in have or c["qid"] in have_qids or c["slug"] in seen or c["qid"] in seen
+                    or eid in _PRUNE_DENYLIST):  # pruned-for-cause: never re-discover (no revolving door)
                 continue
             seen.add(c["slug"])
             seen.add(c["qid"])

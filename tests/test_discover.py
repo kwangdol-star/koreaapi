@@ -44,7 +44,7 @@ def test_fetch_discover_merges_and_dedups_across_axes(monkeypatch):
     # Candidates from every axis merge into one pool, deduped by qid AND slug, capped at limit.
     import koreaapi.sources.wikidata as wd
 
-    def fake(search: str, *, limit: int) -> list:
+    def fake(search: str, *, limit: int, offset: int = 0) -> list:
         if "P495" in search:  # the alt axis: one dup (Q2) + one new (Q3)
             return [{"qid": "Q2", "en": "Bulgogi", "ko": "불고기", "slug": "bulgogi"},
                     {"qid": "Q3", "en": "Naengmyeon", "ko": "냉면", "slug": "naengmyeon"}]
@@ -66,7 +66,7 @@ def test_fetch_discover_forwards_full_limit_not_clamped(monkeypatch):
 
     captured: dict = {}
 
-    def fake(search: str, *, limit: int) -> list:
+    def fake(search: str, *, limit: int, offset: int = 0) -> list:
         captured["limit"] = limit
         return []
 
@@ -116,3 +116,24 @@ if __name__ == "__main__":
     import pytest
 
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_discover_never_reingests_denylisted_ids(monkeypatch, tmp_path):
+    # The revolving door: prune deletes a denylisted id -> it leaves the dedup set -> discover
+    # re-ingests it next run. Denylisted ids must be skipped at DISCOVERY time too.
+    calls: list[str] = []
+
+    def fake_discover(v, *, limit=400, offset=0):
+        return [{"qid": "Q1", "en": "Burning Stage", "ko": None, "slug": "burningstage"},
+                {"qid": "Q2", "en": "Empress Chung", "ko": "왕후 심청", "slug": "empresschung"}]
+
+    async def fake_ingest(kind, eid, sources, db_path=None):
+        calls.append(eid)
+        return None
+
+    monkeypatch.setattr(admin, "fetch_discover", fake_discover)
+    monkeypatch.setattr(admin, "ingest_one", fake_ingest)
+    out = asyncio.run(admin.discover(["animation"], db_path=str(tmp_path / "t.db")))
+    assert "animation:burningstage" not in calls          # denylisted -> never re-attempted
+    assert "animation:empresschung" in calls              # legit candidate still flows
+    assert out["animation"]["candidates"] == 2
