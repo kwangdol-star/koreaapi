@@ -44,7 +44,7 @@ def test_parse_mb_rejects_same_name_drift():
 
 def test_mb_self_filters_to_artists():
     # for a non-artist vertical it raises immediately (no network) -> ingest drops it gracefully
-    with pytest.raises(ValueError, match="artists only"):
+    with pytest.raises(ValueError, match="artists & songs only"):
         asyncio.run(MusicBrainzSource().fetch("drama:squidgame", "facts"))
 
 

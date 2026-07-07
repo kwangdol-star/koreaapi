@@ -22,7 +22,13 @@ from .wikidata import _http_get_json, _name_match, _norm
 
 TMDB_API = "https://api.themoviedb.org/3/search/multi"
 _UA = {"User-Agent": "KoreaAPI/0.1 (https://github.com/kwangdol-star/koreaapi)"}
-_VIDEO = ("drama:", "film:", "animation:")
+# actor: rides the SAME /search/multi (it returns person hits alongside movie/tv) — a person hit
+# carries name + original_name (often the Hangul name for Korean actors), so the bilingual guard works.
+_COVERED = ("drama:", "film:", "animation:", "actor:")
+
+
+def _has_hangul(s: str | None) -> bool:
+    return bool(s) and any("가" <= c <= "힣" for c in s)
 
 
 def _hit_names(r: dict) -> set[str]:
@@ -38,11 +44,14 @@ def parse_tmdb(raw: dict, expected_en: str) -> dict:
     matches = [r for r in results if isinstance(r, dict) and _name_match(want, _hit_names(r))]
     if not matches:
         raise ValueError(f"TMDB identity mismatch: no title matches {expected_en!r}")
-    # prefer a Korean-origin title, then TMDB's own relevance order
-    hit = sorted(matches, key=lambda r: (0 if r.get("original_language") == "ko" else 1))[0]
+
+    def _is_ko(r: dict) -> bool:  # video: original_language='ko'; person: original_name in Hangul
+        return r.get("original_language") == "ko" or _has_hangul(r.get("original_name") or r.get("original_title"))
+    # prefer a Korean-origin hit, then TMDB's own relevance order
+    hit = sorted(matches, key=lambda r: (0 if _is_ko(r) else 1))[0]
     en = hit.get("name") or hit.get("title")
     orig = hit.get("original_name") or hit.get("original_title")
-    ko = orig if hit.get("original_language") == "ko" else None
+    ko = orig if _is_ko(hit) else None
     if not en:
         raise ValueError("TMDB hit has no English title")
     return {
@@ -75,8 +84,8 @@ class TMDBSource:
         return _http_get_json(url, _UA)
 
     async def fetch(self, entity_id: str, kind: str) -> dict:
-        if not entity_id.startswith(_VIDEO):
-            raise ValueError("TMDB covers drama/film/animation only")  # graceful drop
+        if not entity_id.startswith(_COVERED):
+            raise ValueError("TMDB covers drama/film/animation & actors only")  # graceful drop
         key = os.environ.get("TMDB_API_KEY")
         if not key:
             raise ValueError("TMDB_API_KEY not set")  # inert until a free key is added (graceful)

@@ -21,6 +21,7 @@ from ..roster import NAMES
 from .wikidata import _http_get_json, _name_match, _norm
 
 MB_API = "https://musicbrainz.org/ws/2/artist"
+MB_RECORDING = "https://musicbrainz.org/ws/2/recording"  # song: — a recording = a released track
 _UA = {
     "User-Agent": "KoreaAPI/0.1 (https://github.com/kwangdol-star/koreaapi) python-urllib"
 }
@@ -73,6 +74,45 @@ def parse_mb_artist(raw: dict, expected_en: str) -> dict:
     }
 
 
+def _rec_names(hit: dict) -> set[str]:
+    names = {hit.get("title")}
+    names.update(a.get("name") for a in hit.get("aliases") or [] if isinstance(a, dict))
+    return {_norm(n) for n in names if n}
+
+
+def parse_mb_recording(raw: dict, expected_en: str) -> dict:
+    """Pure: a MusicBrainz recording search response -> our payload, identity-guarded by the song
+    title (title / aliases, normalized). English-title corroboration + performing artist as an attr;
+    a title drift misses (never a wrong record). Recordings carry no country, so relevance order wins."""
+    hits = raw.get("recordings") or []
+    if not hits:
+        raise ValueError("no MusicBrainz recording in response")
+    want = _norm(expected_en)
+    matches = [h for h in hits if isinstance(h, dict) and _name_match(want, _rec_names(h))]
+    if not matches:
+        raise ValueError(f"MusicBrainz identity mismatch: no recording matches {expected_en!r}")
+    hit = matches[0]
+    title = hit.get("title")
+    if not title:
+        raise ValueError("MusicBrainz recording has no title")
+    ko = _ko_alias(hit)
+    artist = ", ".join(ac["name"] for ac in hit.get("artist-credit") or []
+                       if isinstance(ac, dict) and ac.get("name"))
+    out = {
+        "name_ko": ko or title,
+        "name_en_official": title,
+        "name_romanized": None,
+        "name_en_source": "official",
+        "name_en_confidence": "high",
+        "mbid": hit.get("id"),
+        "summary_en": f"{title} - song (MusicBrainz).",
+        "summary_ko": f"{ko or title} - 곡 (뮤직브레인즈).",
+    }
+    if artist:
+        out["attrs"] = {"Artist": artist}
+    return out
+
+
 class MusicBrainzSource:
     name = "MusicBrainz"
     is_fallback = False
@@ -83,19 +123,23 @@ class MusicBrainzSource:
     def _term(self, entity_id: str) -> str:
         return NAMES.get(entity_id) or self._aliases.get(entity_id) or entity_id.split(":", 1)[-1]
 
-    def _url(self, term: str) -> str:
+    def _url(self, term: str, base: str = MB_API) -> str:
         q = urllib.parse.urlencode({"query": term, "fmt": "json", "limit": "5"})
-        return f"{MB_API}/?{q}"
+        return f"{base}/?{q}"
 
     def _http_get(self, url: str) -> dict:
         return _http_get_json(url, _UA)
 
     async def fetch(self, entity_id: str, kind: str) -> dict:
-        if not entity_id.startswith("artist:"):
-            raise ValueError("MusicBrainz covers artists only")  # graceful drop for other verticals
+        ns = entity_id.split(":", 1)[0]
         term = self._term(entity_id)
-        raw = await asyncio.to_thread(self._http_get, self._url(term))
-        payload = parse_mb_artist(raw, term)
+        if ns == "artist":
+            raw = await asyncio.to_thread(self._http_get, self._url(term))
+            payload = parse_mb_artist(raw, term)
+        elif ns == "song":
+            raw = await asyncio.to_thread(self._http_get, self._url(term, MB_RECORDING))
+            payload = parse_mb_recording(raw, term)
+        else:
+            raise ValueError("MusicBrainz covers artists & songs only")  # graceful drop
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        mbid = payload.get("mbid") or "?"
-        return {"payload": payload, "citation": f"MusicBrainz {mbid} {ts}"}
+        return {"payload": payload, "citation": f"MusicBrainz {payload.get('mbid') or '?'} {ts}"}

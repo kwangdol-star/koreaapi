@@ -59,7 +59,7 @@ def test_tmdb_rejects_drift_self_filters_and_is_key_gated():
     with pytest.raises(ValueError, match="identity mismatch"):
         parse_tmdb({"results": [{"id": 9, "title": "Some Other Movie", "original_language": "en"}]},
                    "Squid Game")
-    with pytest.raises(ValueError, match="drama/film/animation only"):
+    with pytest.raises(ValueError, match="drama/film/animation & actors only"):
         asyncio.run(TMDBSource().fetch("artist:bts", "facts"))
     # video vertical but no key -> inert (graceful raise, dropped by ingest)
     os.environ.pop("TMDB_API_KEY", None)
@@ -125,3 +125,41 @@ def test_tourapi_covers_festivals_too():
         asyncio.run(TourAPISource().fetch("festival:boryeongmud", "facts"))
     with pytest.raises(ValueError, match="places"):
         asyncio.run(TourAPISource().fetch("artist:bts", "facts"))
+
+
+def test_tmdb_actor_person_hit_is_bilingual():
+    # Phase 2 Tier A: actor: rides /search/multi (person hits); Hangul original_name -> ko.
+    from koreaapi.sources.tmdb import parse_tmdb
+    raw = {"results": [{"media_type": "person", "name": "Song Kang-ho",
+                        "original_name": "송강호", "id": 20738}]}
+    p = parse_tmdb(raw, "Song Kang-ho")
+    assert p["name_en_official"] == "Song Kang-ho" and p["name_ko"] == "송강호" and p["tmdb_id"] == 20738
+
+
+def test_tmdb_gate_allows_actor_rejects_others():
+    import pytest as _pt
+    from koreaapi.sources.tmdb import TMDBSource
+    os.environ.pop("TMDB_API_KEY", None)
+    with _pt.raises(ValueError, match="not set"):     # actor passes the vertical gate, then needs a key
+        asyncio.run(TMDBSource().fetch("actor:songkangho", "facts"))
+    with _pt.raises(ValueError, match="drama/film/animation"):
+        asyncio.run(TMDBSource().fetch("place:gyeongbokgung", "facts"))
+
+
+def test_mb_recording_matches_title_and_carries_artist():
+    from koreaapi.sources.musicbrainz import parse_mb_recording
+    raw = {"recordings": [{"id": "abc", "title": "Gangnam Style",
+                           "artist-credit": [{"name": "PSY"}],
+                           "aliases": [{"locale": "ko", "name": "강남스타일"}]}]}
+    p = parse_mb_recording(raw, "Gangnam Style")
+    assert p["name_en_official"] == "Gangnam Style" and p["name_ko"] == "강남스타일"
+    assert p["attrs"]["Artist"] == "PSY" and p["mbid"] == "abc"
+
+
+def test_mb_recording_rejects_drift_and_gate_routes_verticals():
+    import pytest as _pt
+    from koreaapi.sources.musicbrainz import MusicBrainzSource, parse_mb_recording
+    with _pt.raises(ValueError, match="no recording matches"):
+        parse_mb_recording({"recordings": [{"id": "x", "title": "Unrelated"}]}, "Spring Day")
+    with _pt.raises(ValueError, match="artists & songs only"):
+        asyncio.run(MusicBrainzSource().fetch("drama:squidgame", "facts"))
