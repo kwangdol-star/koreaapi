@@ -36,7 +36,7 @@ Now that `koreaapi/` is the repo root, a few things that assumed the subdir must
   and `YOUTUBE_API_KEY` (same values).
 - **Pages**: Settings → Pages → Source: GitHub Actions. Deploying from `main` needs no
   `github-pages` environment branch restriction (that was only needed for the feature branch).
-- **Public URL changes** to `https://kwangdol-star.github.io/koreaapi/`. Update it in:
+- **Public URL changes** to `https://aiagentlabs.co.kr/`. Update it in:
   `README.md`, `llms.txt`, `docs/LAUNCH.md`, `docs/MCP_INSTALL.md`, the page meta/JSON-LD base
   in `admin.py`, and the digest URL in `admin.py` (`markdown_digest`).
 - **User-Agent contact** in the source adapters (`sources/wikidata.py`, `wikipedia.py`,

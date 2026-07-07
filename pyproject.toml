@@ -24,9 +24,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://kwangdol-star.github.io/koreaapi/"
+Homepage = "https://aiagentlabs.co.kr/"
 Repository = "https://github.com/kwangdol-star/koreaapi"
-"Open data (JSON)" = "https://kwangdol-star.github.io/koreaapi/latest.json"
+"Open data (JSON)" = "https://aiagentlabs.co.kr/latest.json"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-asyncio", "ruff"]

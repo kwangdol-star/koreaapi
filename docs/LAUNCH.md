@@ -3,7 +3,7 @@
 Ready-to-post copy for distribution. Goal of Phase-1 sharing: **earn citations + agent
 discovery** (not vanity reach). Lead with the verifiable angle, always link the public data.
 
-**Links:** data page <https://kwangdol-star.github.io/koreaapi/> · digest
+**Links:** data page <https://aiagentlabs.co.kr/> · digest
 `/korea-rising.md` · agents `/llms.txt` + [`docs/MCP_INSTALL.md`](./MCP_INSTALL.md)
 
 ---
@@ -31,7 +31,7 @@ discovery** (not vanity reach). Lead with the verifiable angle, always link the 
 > have: contradictory identities are rejected, and LLM-extracted data must appear verbatim in its
 > source or it's dropped (this caught a hallucinated chart #1 live). It exposes 5 MCP tools and
 > publishes Schema.org JSON-LD + /llms.txt so answer engines can cite it. Phase 1, open, early.
-> Verified data: https://kwangdol-star.github.io/koreaapi/
+> Verified data: https://aiagentlabs.co.kr/
 
 ## r/LocalLLaMA / agent-builder communities
 > Built an MCP server that returns **verified** Korean-culture data — each response has its
@@ -47,7 +47,7 @@ discovery** (not vanity reach). Lead with the verifiable angle, always link the 
    LLM-extracted entry not present verbatim in its source. (It caught a model inventing a stale
    chart #1 — and refused to ship it.)
 3/ Agent-native: 5 MCP tools, Schema.org JSON-LD + /llms.txt so answer engines can cite it.
-   Bilingual, append-only. Verified data, live: https://kwangdol-star.github.io/koreaapi/
+   Bilingual, append-only. Verified data, live: https://aiagentlabs.co.kr/
 
 ## Honesty note (keep us credible)
 Phase 1 / cold-start: real verified roster + agencies + Circle Chart #1 (via Wikipedia) + YouTube

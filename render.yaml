@@ -9,7 +9,7 @@ services:
     healthCheckPath: /healthz
     envVars:
       - key: KOREAAPI_DATA_URL
-        value: https://kwangdol-star.github.io/koreaapi/latest.json
+        value: https://aiagentlabs.co.kr/latest.json
       # To TURN ON x402 payments, set a receiving wallet + mainnet (otherwise the premium endpoint
       # is served free / dormant):
       # - key: X402_PAY_TO

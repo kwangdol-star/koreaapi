@@ -1005,7 +1005,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     return out_path
 
 
-_SITE_BASE = "https://kwangdol-star.github.io/koreaapi"
+_SITE_BASE = "https://aiagentlabs.co.kr"
 
 # Inline 태극기 (Korean flag) for the wordmark — an SVG renders identically EVERYWHERE (the emoji flag
 # 🇰🇷 shows as "KR" on Windows). Faithful geometry, screenshot-verified vs the official flag: taegeuk
@@ -3041,7 +3041,7 @@ async def markdown_digest(db_path: str | None = None, out_path: str = "data/kore
         "",
         "Every line is **cross-verified** (≥2 independent sources agree on the canonical name) and "
         "carries its source + Skill Score. Full data + Schema.org JSON-LD: "
-        "<https://kwangdol-star.github.io/koreaapi/> · via KoreaAPI (MCP).",
+        "<https://aiagentlabs.co.kr/> · via KoreaAPI (MCP).",
         "",
     ]
     chart = recs.get(("chart:circle-digital", "chart"))

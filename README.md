@@ -10,7 +10,7 @@ Anthropic's Model Context Protocol (MCP). Every response carries machine-readabl
 > **Status:** Phase 1 (cold-start). The locked spec is in [`SCOPE.md`](./SCOPE.md); what is
 > built / decided and why is in [`ROADMAP.md`](./ROADMAP.md).
 > **Live, verified, public data (Schema.org JSON-LD + `/llms.txt`):**
-> **https://kwangdol-star.github.io/koreaapi/**
+> **https://aiagentlabs.co.kr/**
 > **Repository:** [`kwangdol-star/koreaapi`](https://github.com/kwangdol-star/koreaapi) — a
 > standalone repo, split out from its incubation home with full git history preserved.
 

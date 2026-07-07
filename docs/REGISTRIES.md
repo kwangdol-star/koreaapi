@@ -54,7 +54,7 @@ https://github.com/punkpeye/awesome-mcp-servers
 **Categories/Tags**: `data` `knowledge` `korea` `k-pop` `entertainment` `verification` `aeo`
 
 **Repository**: https://github.com/kwangdol-star/koreaapi
-**Homepage**: https://kwangdol-star.github.io/koreaapi/
+**Homepage**: https://aiagentlabs.co.kr/
 **Install (stdio)**: `uvx --from koreaapi koreaapi-mcp`  (또는 `pip install koreaapi` 후 `koreaapi-mcp`)
 
 **Why it's trustworthy (심사 문구)**:

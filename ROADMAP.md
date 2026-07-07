@@ -29,7 +29,7 @@
 | AEO/GEO surface: JSON-LD in `report.html` (now incl. `recordLabel` = the verified artist→소속사 edge) + `citation` in MCP output + **`llms.txt` published at the site root** (`/llms.txt`, lists the 5 tools + verification story) | ✅ |
 | **Open data endpoint** — `/latest.json` published on the site (latest record per entity+kind, full records w/ provenance + Skill Score). Verified data is now callable **3 ways**: MCP (agents) · JSON-LD (answer engines) · plain `/latest.json` fetch (any dev/agent, no setup) | ✅ |
 | Cold-start data infra: `admin export` (JSONL + latest.json) + daily GitHub Actions collector | ✅ (collector runs on open-network runners → solves the sandbox egress block) |
-| **Public GEO page deployed (GitHub Pages, built from live data)** | ✅ **LIVE → https://kwangdol-star.github.io/koreaapi/** |
+| **Public GEO page deployed (GitHub Pages, built from live data)** | ✅ **LIVE → https://aiagentlabs.co.kr/** |
 | **Behavioral signal (engine ②)**: queries + buy-intent logged append-only; `korea_rising` ranks by observed demand; `admin signals` | ✅ |
 | **CI**: `.github/workflows/test.yml` runs `pytest` + `ruff` on push (the suite is now gated) | ✅ |
 | **MCP discovery prep** (distribution): `smithery.yaml` (registry start command) + `docs/MCP_INSTALL.md` (run + Claude-Desktop config + tools); server already packaged (`koreaapi-mcp` entry point, no secrets to serve) | ✅ ready to list (cleanest after the own-repo split) |
@@ -249,7 +249,7 @@ outcome-source decision is made.**
 ---
 
 ## GEO — public deploy (✅ LIVE)
-**Live: https://kwangdol-star.github.io/koreaapi/** — first verified, real Wikidata data
+**Live: https://aiagentlabs.co.kr/** — first verified, real Wikidata data
 published publicly (2026-06-02): BTS/NewJeans/aespa with Skill Score, provenance (correct
 Q-ids), and Schema.org JSON-LD (`sameAs` the Wikidata entity) + meta description. MCP output
 carries a matching `citation`. Built + deployed by **`.github/workflows/pages.yml`** on

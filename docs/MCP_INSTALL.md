@@ -6,11 +6,11 @@ a source + a Skill Score + a ready-to-cite line, so an agent can decide whether 
 cite it.
 
 Public, crawlable data (Schema.org JSON-LD + `/llms.txt`):
-**https://kwangdol-star.github.io/koreaapi/**
+**https://aiagentlabs.co.kr/**
 
 Prefer not to run a server? The verified data is also a plain JSON file you can fetch directly
 (latest snapshot per entity+kind, each with provenance + Skill Score):
-**https://kwangdol-star.github.io/koreaapi/latest.json**
+**https://aiagentlabs.co.kr/latest.json**
 
 ## Tools (11)
 
@@ -53,7 +53,7 @@ whatever is in the store (`KOREAAPI_DB`, default `koreaapi.db`).
 
 ```bash
 mkdir -p data
-curl -L -o data/latest.json https://kwangdol-star.github.io/koreaapi/latest.json
+curl -L -o data/latest.json https://aiagentlabs.co.kr/latest.json
 python -m koreaapi.admin load      # seeds koreaapi.db from the published verified snapshot
 ```
 
