@@ -84,8 +84,9 @@ class TourAPISource:
         return _http_get_json(url, _UA)
 
     async def fetch(self, entity_id: str, kind: str) -> dict:
-        if not entity_id.startswith("place:"):
-            raise ValueError("KTO TourAPI covers places only")  # graceful drop for other verticals
+        if entity_id.split(":", 1)[0] not in ("place", "festival"):
+            # KTO's keyword search also lists festivals (행사/축제) — same gov authority applies.
+            raise ValueError("KTO TourAPI covers places & festivals only")  # graceful drop otherwise
         key = os.environ.get("TOURAPI_KEY")
         if not key:
             raise ValueError("TOURAPI_KEY not set")  # inert until a free data.go.kr key is added

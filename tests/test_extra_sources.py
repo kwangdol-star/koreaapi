@@ -115,3 +115,13 @@ def test_tourapi_official_attrs_ride_along():
     # and a bare listing (no addr/tel/geo) carries NO attrs key at all
     assert "attrs" not in parse_tourapi(_tourapi_raw({"title": "Bukchon Hanok Village",
                                                       "contentid": "264386"}), "Bukchon Hanok Village")
+
+
+def test_tourapi_covers_festivals_too():
+    # Tier A-1: KTO's keyword search lists festivals as well — festival: passes the vertical gate
+    # (and without a key fails on the KEY, proving the gate let it through). Other verticals drop.
+    os.environ.pop("TOURAPI_KEY", None)
+    with pytest.raises(ValueError, match="not set"):
+        asyncio.run(TourAPISource().fetch("festival:boryeongmud", "facts"))
+    with pytest.raises(ValueError, match="places"):
+        asyncio.run(TourAPISource().fetch("artist:bts", "facts"))
