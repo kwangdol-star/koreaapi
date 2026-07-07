@@ -40,7 +40,7 @@ def test_nominatim_rejects_drift_and_self_filters():
     res = [{"osm_id": 1, "display_name": "Somewhere Else", "namedetails": {"name": "Somewhere Else"}}]
     with pytest.raises(ValueError, match="identity mismatch"):
         parse_nominatim(res, "Gyeongbokgung")
-    with pytest.raises(ValueError, match="places only"):
+    with pytest.raises(ValueError, match="places & festivals only"):
         asyncio.run(NominatimSource().fetch("artist:bts", "facts"))
 
 
@@ -91,7 +91,7 @@ def test_tourapi_rejects_drift_self_filters_and_is_key_gated():
         parse_tourapi(_tourapi_raw([{"title": "Somewhere Else", "contentid": "1"}]), "Gyeongbokgung")
     with pytest.raises(ValueError, match="no official listing"):  # empty results ("" body)
         parse_tourapi({"response": {"body": {"items": ""}}}, "Gyeongbokgung")
-    with pytest.raises(ValueError, match="places only"):
+    with pytest.raises(ValueError, match="places & festivals only"):
         asyncio.run(TourAPISource().fetch("artist:bts", "facts"))
     # place vertical but no key -> inert (graceful raise, dropped by ingest)
     os.environ.pop("TOURAPI_KEY", None)
