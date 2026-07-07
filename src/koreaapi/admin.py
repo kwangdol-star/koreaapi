@@ -920,8 +920,9 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  .wrap{{max-width:1180px;margin:0 auto}}
  .brand{{display:flex;align-items:center;gap:11px}}
  .brand h1{{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}}
- .dot{{width:11px;height:11px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FF6B5E,#E5484D 60%,#B42318);box-shadow:0 0 10px rgba(229,72,77,.75);animation:livepulse 2.6s ease-in-out infinite}}
- @keyframes livepulse{{0%,100%{{opacity:1;box-shadow:0 0 6px rgba(229,72,77,.45)}}50%{{opacity:.45;box-shadow:0 0 16px rgba(229,72,77,.9)}}}}
+ .dot{{width:12px;height:12px;border-radius:50%;background:conic-gradient(from 90deg,#cd2e3a 0deg,#e04a4f 110deg,#0047a0 180deg,#1a5fbf 300deg,#cd2e3a 360deg);box-shadow:0 0 8px rgba(205,46,58,.55);animation:taegeuk 3.6s linear infinite,dotglow 2.6s ease-in-out infinite}}
+ @keyframes taegeuk{{to{{transform:rotate(360deg)}}}}
+ @keyframes dotglow{{0%,100%{{box-shadow:0 0 6px rgba(205,46,58,.5)}}50%{{box-shadow:0 0 15px rgba(0,71,160,.7)}}}}
  .tag{{color:var(--mut);margin:11px 0 18px;font-size:15px;max-width:780px}}
  .pills{{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}}
  .pill{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.28)}}
