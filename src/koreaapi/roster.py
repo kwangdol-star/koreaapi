@@ -814,11 +814,36 @@ SONGS = {
     "song:iamthebest": "I Am the Best",
 }
 
+# Concept vertical: Korean cultural concepts & practices (문화 개념·정서) — the "what is nunchi?"
+# tier of global AEO demand. Every entry has a real Wikidata item + Wikipedia article, so the normal
+# cross-verification applies (individual proverbs/slang do NOT — they stay out until a source like
+# Wiktionary is adapted; the bar does not bend). Name-anchored like folklore.
+CONCEPTS = {
+    "concept:sasang": "Sasang typology",
+    "concept:nunchi": "Nunchi",
+    "concept:aegyo": "Aegyo",
+    "concept:mukbang": "Mukbang",
+    "concept:konglish": "Konglish",
+    "concept:koreanwave": "Korean Wave",
+    "concept:chimaek": "Chimaek",
+    "concept:noraebang": "Noraebang",
+    "concept:jjimjilbang": "Jjimjilbang",
+    "concept:pcbang": "PC bang",
+    "concept:hagwon": "Hagwon",
+    "concept:suneung": "College Scholastic Ability Test",
+    "concept:chuseok": "Chuseok",
+    "concept:seollal": "Seollal",
+    "concept:doljanchi": "Doljanchi",
+    "concept:hwabyeong": "Hwabyeong",
+    "concept:ajumma": "Ajumma",
+    "concept:jesa": "Jesa",
+}
+
 # Every verified entity across all verticals: id -> canonical name (search + identity term).
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
-         **SPORTS, **ACTORS, **SONGS}
+         **SPORTS, **ACTORS, **SONGS, **CONCEPTS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

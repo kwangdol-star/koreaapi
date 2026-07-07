@@ -144,8 +144,8 @@ def test_curated_anchors_are_bilingual():
 
 
 def test_roster_breadth():
-    # Guard the asset's breadth (24 verticals, 400+ entities) so a bad edit that drops rows is caught.
-    from koreaapi.roster import (ACTORS, ANIMATIONS, ARTISTS, BOOKS, BRANDS, CLASSICS, COMPANIES,
+    # Guard the asset's breadth (25 verticals, 400+ entities) so a bad edit that drops rows is caught.
+    from koreaapi.roster import (ACTORS, ANIMATIONS, ARTISTS, BOOKS, BRANDS, CLASSICS, COMPANIES, CONCEPTS,
                                  DRAMAS, FASHION, FESTIVALS, FILMS, FOLKLORE, FOODS, GAMES, HERITAGE,
                                  HISTORY, MEDICAL, NAMES, PLACES, REGION, SHOWS, SONGS, SPORTS,
                                  UNIVERSITIES, WEBTOONS)
@@ -156,12 +156,12 @@ def test_roster_breadth():
     assert len(MEDICAL) >= 6 and len(REGION) >= 15 and len(GAMES) >= 8
     assert len(SHOWS) >= 8 and len(ANIMATIONS) >= 6 and len(UNIVERSITIES) >= 8 and len(CLASSICS) >= 10
     assert len(FASHION) >= 6 and len(FESTIVALS) >= 6
-    assert len(SPORTS) >= 12 and len(ACTORS) >= 15 and len(SONGS) >= 8
+    assert len(SPORTS) >= 12 and len(ACTORS) >= 15 and len(SONGS) >= 8 and len(CONCEPTS) >= 12
     assert len(NAMES) >= 400
     assert len(NAMES) == sum(map(len, (ARTISTS, DRAMAS, FILMS, WEBTOONS, PLACES, FOODS, COMPANIES,
                                        BRANDS, BOOKS, HISTORY, HERITAGE, FOLKLORE, MEDICAL, REGION,
                                        GAMES, SHOWS, ANIMATIONS, UNIVERSITIES, CLASSICS, FASHION,
-                                       FESTIVALS, SPORTS, ACTORS, SONGS)))
+                                       FESTIVALS, SPORTS, ACTORS, SONGS, CONCEPTS)))
 
 
 def test_food_editorial_tags_cover_every_dish():

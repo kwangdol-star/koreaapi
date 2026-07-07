@@ -284,6 +284,8 @@ _NS_PROPS = {
     "actor": {"agency": None, "date": None, "members": None, "directors": None},
     # song: performer P175 as the org edge ("what else by BLACKPINK?"), release date P577.
     "song": {"agency": "P175", "date": "P577", "date2": "P571", "members": None, "directors": None},
+    # concept (문화 개념·정서 — nunchi/mukbang/sasang…): cross-verified by NAME only, like folklore.
+    "concept": {"agency": None, "date": None, "members": None, "directors": None},
 }
 
 # Per-vertical EXTRA structured attributes — depth BEYOND name/date/agency/people, so a verified page

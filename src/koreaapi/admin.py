@@ -919,7 +919,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  .wrap{{max-width:1180px;margin:0 auto}}
  .brand{{display:flex;align-items:center;gap:11px}}
  .brand h1{{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}}
- .dot{{width:11px;height:11px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 14px rgba(233,196,106,.6)}}
+ .dot{{width:11px;height:11px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FF6B5E,#E5484D 60%,#B42318);box-shadow:0 0 10px rgba(229,72,77,.75);animation:livepulse 2.6s ease-in-out infinite}}
+ @keyframes livepulse{{0%,100%{{opacity:1;box-shadow:0 0 6px rgba(229,72,77,.45)}}50%{{opacity:.45;box-shadow:0 0 16px rgba(229,72,77,.9)}}}}
  .tag{{color:var(--mut);margin:11px 0 18px;font-size:15px;max-width:780px}}
  .pills{{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}}
  .pill{{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--gbord);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.28)}}
@@ -1086,6 +1087,9 @@ _ICON = {
                    '5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'),
     # music note (songs)
     "song": _icon('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'),
+    # sparkle (culture concepts)
+    "concept": _icon('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>'
+                     '<path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>'),
     # tag (labels / agencies / networks)
     "label": _icon('<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 3 12.2V5a2 2 0 0 1 '
                    '2-2h7.2a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8z"/><circle cx="7.6" cy="7.6" r="1.3"/>'),
@@ -1786,6 +1790,7 @@ _VERTICALS = {
     "sports": ("Athletes & esports", "sports.html", _ICON["sports"], "Team"),
     "actor": ("Korean actors", "actors.html", _ICON["actor"], "Works"),
     "song": ("K-pop songs", "songs.html", _ICON["song"], "Performer"),
+    "concept": ("K-culture concepts", "concepts.html", _ICON["concept"], "Type"),
 }
 
 _HUB_STYLE = "<style>" + _AURORA + """
@@ -2139,6 +2144,7 @@ _KO_VERTICAL = {  # ns -> Korean hub label
     "medical": "병원·의료", "region": "한국·지역", "game": "한국 게임", "show": "예능·방송",
     "animation": "애니메이션", "university": "대학교", "classic": "고전·기록", "fashion": "한국 패션",
     "festival": "축제", "people": "인물", "sports": "스포츠 선수", "actor": "배우", "song": "K-pop 곡",
+    "concept": "문화 개념·정서",
 }
 
 
@@ -2839,6 +2845,7 @@ _CORPUS_VERTICALS = [
     ("show:", "Variety & TV shows"), ("animation:", "Animation"), ("university:", "Universities"),
     ("classic:", "Classics & records"), ("fashion:", "Korean fashion"), ("festival:", "Festivals"),
     ("sports:", "Athletes & esports"), ("actor:", "Korean actors"), ("song:", "K-pop songs"),
+    ("concept:", "K-culture concepts"),
 ]
 
 

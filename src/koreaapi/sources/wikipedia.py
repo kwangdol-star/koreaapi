@@ -512,6 +512,25 @@ _TITLES = {
     "song:sorrysorry": "Sorry, Sorry",
     "song:fantasticbaby": "Fantastic Baby",
     "song:iamthebest": "I Am the Best",
+    # concepts — Korean cultural concepts & practices (every one has a real article)
+    "concept:sasang": "Sasang typology",
+    "concept:nunchi": "Nunchi",
+    "concept:aegyo": "Aegyo",
+    "concept:mukbang": "Mukbang",
+    "concept:konglish": "Konglish",
+    "concept:koreanwave": "Korean Wave",
+    "concept:chimaek": "Chimaek",
+    "concept:noraebang": "Noraebang",
+    "concept:jjimjilbang": "Jjimjilbang",
+    "concept:pcbang": "PC bang",
+    "concept:hagwon": "Hagwon",
+    "concept:suneung": "College Scholastic Ability Test",
+    "concept:chuseok": "Chuseok",
+    "concept:seollal": "Seollal",
+    "concept:doljanchi": "Doljanchi",
+    "concept:hwabyeong": "Hwabyeong",
+    "concept:ajumma": "Ajumma",
+    "concept:jesa": "Jesa",
 }
 
 
