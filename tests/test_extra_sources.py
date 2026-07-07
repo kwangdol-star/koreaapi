@@ -40,7 +40,7 @@ def test_nominatim_rejects_drift_and_self_filters():
     res = [{"osm_id": 1, "display_name": "Somewhere Else", "namedetails": {"name": "Somewhere Else"}}]
     with pytest.raises(ValueError, match="identity mismatch"):
         parse_nominatim(res, "Gyeongbokgung")
-    with pytest.raises(ValueError, KEEP):
+    with pytest.raises(ValueError, match="places only"):
         asyncio.run(NominatimSource().fetch("artist:bts", "facts"))
 
 
