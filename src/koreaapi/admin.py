@@ -1372,7 +1372,8 @@ def _person_node(name: str, credits: list[dict], collaborators: list | None = No
          "url": f"{_SITE_BASE}/artist/{c['work_slug']}.html"}
         for c in credits
     ]
-    node = {"@type": "Person", "name": name, "knownFor": known}
+    node = {"@type": "Person", "name": name, "knownFor": known,
+            "creditText": LICENSE["attribution"]}  # structured attribution on the crawled Person node too
     if collaborators:
         node["colleague"] = [{"@type": "Person", "name": o, "url": f"{_SITE_BASE}/person/{s}.html"}
                              for o, s, _w in collaborators]

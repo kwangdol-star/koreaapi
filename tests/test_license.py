@@ -61,6 +61,11 @@ def test_crawled_jsonld_carries_reuse_terms():
     # dataset-level graph: the CC-BY license URL + creditText are both present
     doc = admin._jsonld([rec], "2026-07-07T00:00:00+00:00")
     assert LICENSE["url"] in doc and LICENSE["attribution"] in doc
+    # person nodes (directors/actors — major citation targets) carry the structured attribution too
+    pnode = admin._person_node("Bong Joon-ho", [{"kind": "film", "work_name": "Parasite",
+                                                 "work_slug": "parasite", "role": "director",
+                                                 "sources": ["Wikidata"], "asof": "2026-05-01"}])
+    assert pnode["creditText"] == LICENSE["attribution"]
 
 
 if __name__ == "__main__":
