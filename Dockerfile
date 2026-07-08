@@ -11,7 +11,7 @@ RUN uv sync --frozen --extra web
 COPY deploy/start.sh ./deploy/start.sh
 ENV PYTHONPATH=/app/src \
     KOREAAPI_DB=/app/koreaapi.db \
-    KOREAAPI_DATA_URL=https://kwangdol-star.github.io/koreaapi/latest.json \
+    KOREAAPI_DATA_URL=https://aiagentlabs.co.kr/latest.json \
     PORT=8000
 EXPOSE 8000
 CMD ["sh", "deploy/start.sh"]

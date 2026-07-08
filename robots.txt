@@ -7,4 +7,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://kwangdol-star.github.io/koreaapi/sitemap.xml
+Sitemap: https://aiagentlabs.co.kr/sitemap.xml
