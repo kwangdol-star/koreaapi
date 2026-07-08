@@ -93,6 +93,10 @@ async def changes(request: Request) -> JSONResponse:
     return JSONResponse(await service.recent_changes(int(request.query_params.get("limit", 50))))
 
 
+async def certified(request: Request) -> JSONResponse:
+    return JSONResponse(await service.certified())
+
+
 async def answer(request: Request) -> JSONResponse:
     """Answer Products (engine 3). No params -> the catalog. ?q= -> run ALL products on the query.
     ?product=&q= -> run one. Free; the underlying korea-rising signal is x402-metered separately."""
@@ -153,6 +157,7 @@ async def index(request: Request) -> JSONResponse:
             "GET /v1/calendar": "recent verified K-culture events",
             "GET /v1/buy-options/{item}": "where-to-buy (logs buy-intent)",
             "GET /v1/resolve/{query}": "resolve a name / external ID / id -> the canonical verified entity",
+            "GET /v1/certified": "entities officially certified by their rights-holder (the tier above cross-verification)",
             "GET /v1/answer": "Answer Products catalog; ?product=&q= runs one decision, ?q= runs all",
         },
         "premium_x402": {
@@ -180,6 +185,7 @@ routes = [
     Route("/v1/resolve/{query}", resolve),
     Route("/v1/history/{entity_id}", history),
     Route("/v1/changes", changes),
+    Route("/v1/certified", certified),
     Route("/v1/answer", answer),
     Route("/v1/korea-rising", korea_rising),
     Route("/billing/stripe/checkout", stripe_checkout, methods=["POST"]),

@@ -29,6 +29,7 @@ EXPECTED_TOOLS = {
     "get_verified",
     "get_history",         # the time moat: append-only timeline + change events
     "get_changes",         # the freshness feed, queryable
+    "get_certified",       # the supply-side lock: official rights-holder certifications
     "get_resolve",
     "get_buy_options",
     "list_answer_products",  # engine 3: the Answer Products catalog

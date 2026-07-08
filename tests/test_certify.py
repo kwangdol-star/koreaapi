@@ -9,7 +9,7 @@ import json
 import tempfile
 from datetime import datetime, timezone
 
-from koreaapi import admin
+from koreaapi import admin, service
 from koreaapi.models import Name, Provenance, Record
 
 
@@ -71,6 +71,24 @@ def test_certify_in_sitemap_and_manifest(tmp_path):
     asyncio.run(admin.sitemap(db_path=db, out_path=sm))
     assert "/certify.html" in open(sm, encoding="utf-8").read()
     assert "certified_feed" in admin._agents_manifest()["data"]
+    assert any(t[0] == "get_certified" for t in admin._MCP_TOOLS)  # advertised as an agent tool
+
+
+def test_get_certified_registry_queryable(monkeypatch):
+    # Symmetry with get_history / get_changes: the certified registry is an agent-queryable feed. Inert
+    # (empty) by default; self-populates when a real rights-holder certifies.
+    db = tempfile.mktemp(suffix=".db")
+    _seed(db)
+    empty = asyncio.run(service.certified(db_path=db))
+    assert empty["count"] == 0 and empty["certified"] == [] and empty["license"]["id"] == "CC-BY-4.0"
+    assert empty["how_to_certify"].endswith("/certify.html")
+    monkeypatch.setitem(admin.CERTIFIED, "artist:newjeans",
+                        {"by": "ADOR", "date": "2026-06-01", "url": "https://ador.example/verify"})
+    out = asyncio.run(service.certified(db_path=db))
+    assert out["count"] == 1
+    c = out["certified"][0]
+    assert c["entity_id"] == "artist:newjeans" and c["certified_by"] == "ADOR"
+    assert c["name"]["en_official"] == "NewJeans" and c["in_store"] is True and c["tier"] == "certified"
 
 
 if __name__ == "__main__":

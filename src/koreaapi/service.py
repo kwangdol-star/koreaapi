@@ -366,6 +366,31 @@ async def recent_changes(limit: int = 50, *, db_path: str | None = None) -> dict
             "note": "verified change events across KoreaAPI — timestamped, newest first (a latecomer cannot backfill)"}
 
 
+async def certified(*, db_path: str | None = None) -> dict:
+    """The CERTIFIED registry — entities an official rights-holder has vouched for (the tier ABOVE
+    cross-verification), queryable by agents. Non-replicable: a latecomer can copy data, not an
+    institution's signature or its date. Ships INERT (empty) until the first institution claims in; this
+    completes the symmetry with get_history / get_changes — three verified feeds on the agent surface."""
+    await _log("query", "certified", db_path)
+    out: list[dict] = []
+    for eid, c in CERTIFIED.items():
+        rec = await store.latest(eid, "facts", db_path=db_path)
+        name = ({"ko": rec.name.ko, "en_official": rec.name.en_official, "romanized": rec.name.romanized}
+                if rec is not None else None)
+        out.append({"entity_id": eid, "name": name, "certified_by": c.get("by"),
+                    "certified_date": c.get("date"), "url": c.get("url"),
+                    "tier": c.get("tier", "certified"), "in_store": rec is not None})
+    out.sort(key=lambda x: (x["certified_date"] or ""), reverse=True)
+    return {
+        "count": len(out),
+        "certified": out,
+        "license": LICENSE,
+        "how_to_certify": "https://aiagentlabs.co.kr/certify.html",
+        "note": ("official rights-holder certifications — the tier above cross-verification (an institution "
+                 "vouched; a latecomer cannot forge or backdate it). Empty until the first institution claims in."),
+    }
+
+
 def _resolved(entity_id: str, rec, matched_by: str) -> dict:
     """Shape a resolved entity for the `resolve` tool — canonical id + verification + external IDs."""
     p = rec.provenance

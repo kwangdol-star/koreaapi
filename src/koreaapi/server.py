@@ -89,6 +89,16 @@ async def get_changes(limit: int = 50) -> dict:
 
 
 @mcp.tool
+async def get_certified() -> dict:
+    """The CERTIFIED registry — Korean-culture entities whose OFFICIAL rights-holder (agency, studio,
+    publisher, brand, institution) has vouched for the record. This is the tier ABOVE cross-verification
+    and the STRONGEST citation signal: an institution's signature a latecomer cannot forge or backdate.
+    Completes the trio with get_history + get_changes. Ships inert until the first rights-holder claims in;
+    certify at https://aiagentlabs.co.kr/certify.html."""
+    return await service.certified()
+
+
+@mcp.tool
 async def get_resolve(query: str) -> dict:
     """Resolve a fuzzy Korean-culture NAME, an external ID (e.g. a Wikidata Q-id), or a canonical
     entity_id to THE verified KoreaAPI entity — with its bilingual name, cross-verification status +

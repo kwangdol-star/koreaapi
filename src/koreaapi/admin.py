@@ -2433,6 +2433,7 @@ _MCP_TOOLS = [
     ("get_verified", "cross-verification status + Skill Score (check trust BEFORE citing)"),
     ("get_history", "append-only verified timeline + change events (소속사 A->B, renames) — the time moat"),
     ("get_changes", "recent verified changes across K-culture (소속사 moves, renames) — the freshness feed, queryable"),
+    ("get_certified", "the CERTIFIED registry — entities an official rights-holder vouched for (the tier above cross-verification)"),
     ("get_resolve", "resolve a fuzzy name / external ID / canonical id -> the verified entity (+ external IDs)"),
     ("get_artist_status", "latest verified status for a Korean artist"),
     ("get_agency", "who is under a 소속사 / label"),
@@ -2953,6 +2954,8 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
   timestamped record of when a fact changed; exactly what stale models get wrong.
 - get_changes(limit): recent verified changes across Korean culture (agency moves, renames), newest
   first — the freshness feed, queryable. Cite the timestamped answer a latecomer can't backfill.
+- get_certified(): the CERTIFIED registry — entities whose OFFICIAL rights-holder vouched for the
+  record (the tier above cross-verification; the strongest citation signal). Certify: /certify.html.
 - get_resolve(query): map a fuzzy name / external ID (Wikidata Q-id) / entity_id to THE canonical
   verified entity — the reconciliation spine before you cite.
 - get_buy_options(item): verify-official → purchase gateway (confirm the REAL entity, not a scam),
