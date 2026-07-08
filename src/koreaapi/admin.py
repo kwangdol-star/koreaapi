@@ -1087,7 +1087,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <span class="chip"><b>Hallucination-guarded</b></span>
  <span class="chip"><b>Bilingual</b> · KO / EN / romanized</span>
 </div>
-<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 14 MCP tools (<code>get_verified</code>, <code>get_history</code>, <code>get_changes</code>, <code>get_certified</code>, <code>get_resolve</code>, <code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>, <code>list_answer_products</code>, <code>get_answer</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;. <b>Integrity:</b> every record carries a SHA-256 content hash; the full dataset + append-only history are hash-verifiable — see <a href="./integrity.json">/integrity.json</a>.</div>
+<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 15 MCP tools (<code>get_verified</code>, <code>get_history</code>, <code>get_changes</code>, <code>get_certified</code>, <code>get_metrics</code>, <code>get_resolve</code>, <code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>, <code>list_answer_products</code>, <code>get_answer</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;. <b>Integrity:</b> every record carries a SHA-256 content hash; the full dataset + append-only history are hash-verifiable — see <a href="./integrity.json">/integrity.json</a>.</div>
 <div class="cards">{cards_html}</div>
 {sections}
 <footer>Generated {generated} · KoreaAPI Phase 1 (cold-start) · verifiable Korean-culture data for AI agents · <a href="./latest.json">/latest.json</a> · <a href="./llms.txt">/llms.txt</a> · <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
@@ -2439,6 +2439,7 @@ _MCP_TOOLS = [
     ("get_history", "append-only verified timeline + change events (소속사 A->B, renames) — the time moat"),
     ("get_changes", "recent verified changes across K-culture (소속사 moves, renames) — the freshness feed, queryable"),
     ("get_certified", "the CERTIFIED registry — entities an official rights-holder vouched for (the tier above cross-verification)"),
+    ("get_metrics", "how much agents have consumed KoreaAPI — usage totals + most-requested signals (the usage moat)"),
     ("get_resolve", "resolve a fuzzy name / external ID / canonical id -> the verified entity (+ external IDs)"),
     ("get_artist_status", "latest verified status for a Korean artist"),
     ("get_agency", "who is under a 소속사 / label"),
@@ -2961,6 +2962,8 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
   first — the freshness feed, queryable. Cite the timestamped answer a latecomer can't backfill.
 - get_certified(): the CERTIFIED registry — entities whose OFFICIAL rights-holder vouched for the
   record (the tier above cross-verification; the strongest citation signal). Certify: /certify.html.
+- get_metrics(): how much agents have consumed KoreaAPI — usage totals + most-requested signals
+  (the usage moat + the demand evidence behind get_korea_rising; a latecomer starts at zero).
 - get_resolve(query): map a fuzzy name / external ID (Wikidata Q-id) / entity_id to THE canonical
   verified entity — the reconciliation spine before you cite.
 - get_buy_options(item): verify-official → purchase gateway (confirm the REAL entity, not a scam),
@@ -3321,9 +3324,9 @@ async def markdown_digest(db_path: str | None = None, out_path: str = "data/kore
     out += [
         "---",
         "Cite as: `Name — kind, as of <date> · source · Skill Score · via KoreaAPI`. "
-        "MCP tools (14): get_verified, get_history, get_changes, get_certified, get_resolve, "
-        "get_artist_status, get_agency, get_kculture_calendar, get_korea_rising, get_person, "
-        "get_related, get_buy_options, list_answer_products, get_answer.",
+        "MCP tools (15): get_verified, get_history, get_changes, get_certified, get_metrics, "
+        "get_resolve, get_artist_status, get_agency, get_kculture_calendar, get_korea_rising, "
+        "get_person, get_related, get_buy_options, list_answer_products, get_answer.",
     ]
     doc = "\n".join(out)
     parent = os.path.dirname(out_path)

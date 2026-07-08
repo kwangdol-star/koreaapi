@@ -84,6 +84,27 @@ def test_korea_rising_counts_namespaced_query_signals():
     assert top["queries"] >= 6 and top["demand_signal"] >= 6
 
 
+def test_metrics_rolls_up_agent_consumption():
+    # The usage moat made legible: every read + buy-intent is counted; metrics() rolls it up WITHOUT
+    # logging a query of its own (measuring consumption must never inflate it).
+    db = _tmp_db()
+
+    async def run():
+        await service.artist_status("artist:bts", db_path=db)   # a read -> query signal
+        await service.artist_status("artist:bts", db_path=db)   # same -> count 2
+        await service.verified("artist:aespa", db_path=db)      # a read (namespaced query signal)
+        await store.log_signal("buy_intent", "BTS lightstick", db_path=db)
+        return await service.metrics(db_path=db)
+
+    m = asyncio.run(run())
+    assert m["total_queries"] == 3 and m["total_buy_intent"] == 1 and m["total_agent_pulls"] == 4
+    assert m["top_queries"][0] == {"signal": "artist:bts", "count": 2}   # most-requested first
+    assert m["top_buy_intent"][0] == {"item": "BTS lightstick", "count": 1}
+    assert m["license"]["id"] == "CC-BY-4.0"
+    # metrics() logs no query of its own -> calling it again does not bump the count
+    assert asyncio.run(service.metrics(db_path=db))["total_queries"] == 3
+
+
 if __name__ == "__main__":
     import pytest
 

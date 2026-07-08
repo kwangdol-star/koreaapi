@@ -426,6 +426,30 @@ async def certified(*, db_path: str | None = None) -> dict:
     }
 
 
+async def metrics(*, top: int = 10, db_path: str | None = None) -> dict:
+    """How much agents have CONSUMED the verified layer — the usage signal rolled up. Every read logs a
+    query and every buy-intent logs a buy signal (append-only), so this reports total pulls, distinct
+    signals, and the most-requested queries + buy-intents. This is the usage moat made legible: a
+    latecomer starts this counter at zero, and it's the demand evidence behind korea-rising. Read-only —
+    it does NOT log a query of its own (so measuring consumption never inflates it)."""
+    q = await store.top_signals(100000, kind="query", db_path=db_path)
+    b = await store.top_signals(100000, kind="buy_intent", db_path=db_path)
+    total_q = sum(s["count"] for s in q)
+    total_b = sum(s["count"] for s in b)
+    return {
+        "total_agent_pulls": total_q + total_b,
+        "total_queries": total_q,
+        "total_buy_intent": total_b,
+        "distinct_query_signals": len(q),
+        "distinct_buy_signals": len(b),
+        "top_queries": [{"signal": s["key"], "count": s["count"]} for s in q[:top]],
+        "top_buy_intent": [{"item": s["key"], "count": s["count"]} for s in b[:top]],
+        "license": LICENSE,
+        "note": ("agent consumption of the verified layer — every read + buy-intent is appended "
+                 "(append-only); the usage moat, and a latecomer starts this counter at zero."),
+    }
+
+
 def _resolved(entity_id: str, rec, matched_by: str) -> dict:
     """Shape a resolved entity for the `resolve` tool — canonical id + verification + external IDs."""
     p = rec.provenance

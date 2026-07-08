@@ -99,6 +99,15 @@ async def get_certified() -> dict:
 
 
 @mcp.tool
+async def get_metrics() -> dict:
+    """How much AGENTS have consumed KoreaAPI — the usage signal rolled up: total pulls (reads +
+    buy-intent), distinct signals, and the most-requested queries + buy-intents. The demand evidence
+    behind get_korea_rising and the usage moat (a latecomer starts this counter at zero). Read-only:
+    calling it does NOT itself count as a pull."""
+    return await service.metrics()
+
+
+@mcp.tool
 async def get_resolve(query: str) -> dict:
     """Resolve a fuzzy Korean-culture NAME, an external ID (e.g. a Wikidata Q-id), or a canonical
     entity_id to THE verified KoreaAPI entity — with its bilingual name, cross-verification status +
