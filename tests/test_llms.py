@@ -49,6 +49,21 @@ def test_llms_coverage_reflects_live_roster_and_graph():
     assert "/person/<slug>.html" in text and "/sitemap.xml" in text       # discovery pointers
 
 
+def test_llms_head_declares_license_and_attribution():
+    # The crawled index must state the reuse terms so an answer engine reading /llms.txt knows the
+    # data is free to cite WITH attribution ("via KoreaAPI") — the citation-share flywheel as a term.
+    db = tempfile.mktemp(suffix=".db")
+    out = tempfile.mktemp(suffix=".txt")
+    _seed(db)
+    asyncio.run(admin.llms_txt(db_path=db, out_path=out))
+    text = open(out, encoding="utf-8").read()
+    assert "## License & attribution" in text
+    assert "creativecommons.org/licenses/by/4.0" in text  # CC-BY reuse terms, machine-visible
+    assert "via KoreaAPI" in text                          # the attribution term
+    # the new moat tools are advertised on the crawled surface too
+    assert "get_history(" in text and "get_changes(" in text
+
+
 def test_llms_empty_store_keeps_static_file():
     # A blocked pull (empty store) must NOT overwrite the committed static llms.txt with zeros.
     sentinel = tempfile.mktemp(suffix=".txt")

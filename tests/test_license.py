@@ -43,6 +43,26 @@ def test_verified_and_resolve_carry_license():
     assert r["found"] and r["license"] == LICENSE
 
 
+def _record() -> Record:
+    now = datetime(2026, 7, 7, tzinfo=timezone.utc)
+    return Record(
+        entity_id="artist:bts", kind="facts", name=Name(ko="방탄소년단", en_official="BTS"),
+        snapshot_at=now, summary_en="BTS", data={}, provenance=Provenance(
+            sources=["Wikidata Q13580495", "Wikipedia BTS"], fetched_at=now,
+            skill_score=1.0, confidence="high", agreeing_sources=2))
+
+
+def test_crawled_jsonld_carries_reuse_terms():
+    # The reuse terms must live on the CRAWLED surface answer engines parse (JSON-LD), not only on the
+    # API / agents.json responses — otherwise "via KoreaAPI" never travels into the formed citation.
+    rec = _record()
+    # per-entity node: creditText stamped ON the structure an engine lifts to answer "who/what is X"
+    assert admin._entity_node(rec)["creditText"] == LICENSE["attribution"]
+    # dataset-level graph: the CC-BY license URL + creditText are both present
+    doc = admin._jsonld([rec], "2026-07-07T00:00:00+00:00")
+    assert LICENSE["url"] in doc and LICENSE["attribution"] in doc
+
+
 if __name__ == "__main__":
     import pytest
 
