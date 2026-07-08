@@ -259,6 +259,8 @@ _NS_PROPS = {
     # festival / cultural event (축제): location P276 (the host city/place) as the org edge, inception
     # P571 (else point-in-time P585), no people edge.
     "festival": {"agency": "P276", "date": "P571", "date2": "P585", "members": None, "directors": None},
+    # award ceremony (시상식): inception P571 (else first-conferred P585); no hub / people edge.
+    "award": {"agency": None, "date": "P571", "date2": "P585", "members": None, "directors": None},
     # region: country / administrative division — name-anchored (capital/population not modelled here).
     "region": {"agency": None, "date": None, "members": None, "directors": None},
     # game (Korean-developed video game): developer P178 as the studio edge, publication date P577.

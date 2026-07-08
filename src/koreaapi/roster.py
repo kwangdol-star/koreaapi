@@ -744,6 +744,19 @@ FESTIVALS = {
     "festival:andongmask": "Andong Mask Dance Festival",
 }
 
+# Award vertical: Korean film / music award ceremonies (시상식) — high query demand ("who won best
+# actor at Baeksang?") and strongly cross-verifiable (every major award carries Wikidata + Wikipedia).
+# `award:` -> inception (P571); no single hub edge. Distinctive names (low collision).
+AWARDS = {
+    "award:baeksang": "Baeksang Arts Awards",
+    "award:bluedragonfilm": "Blue Dragon Film Awards",
+    "award:grandbell": "Grand Bell Awards",
+    "award:mama": "Mnet Asian Music Awards",
+    "award:goldendisc": "Golden Disc Awards",
+    "award:melon": "Melon Music Awards",
+    "award:seoulmusic": "Seoul Music Awards",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -843,7 +856,7 @@ CONCEPTS = {
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
-         **SPORTS, **ACTORS, **SONGS, **CONCEPTS}
+         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

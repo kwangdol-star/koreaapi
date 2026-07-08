@@ -460,6 +460,13 @@ _TITLES = {
     "festival:hwacheonice": "Hwacheon Sancheoneo Ice Festival",
     "festival:lotuslantern": "Lotus Lantern Festival",
     "festival:andongmask": "Andong Mask Dance Festival",
+    "award:baeksang": "Baeksang Arts Awards",
+    "award:bluedragonfilm": "Blue Dragon Film Awards",
+    "award:grandbell": "Grand Bell Awards",
+    "award:mama": "Mnet Asian Music Awards",
+    "award:goldendisc": "Golden Disc Awards",
+    "award:melon": "Melon Music Awards",
+    "award:seoulmusic": "Seoul Music Awards",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)
