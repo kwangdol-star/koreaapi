@@ -73,3 +73,15 @@ def test_export_writes_changes_feed(tmp_path):
     assert feed["license"]["id"] == "CC-BY-4.0"
     # and the manifest advertises the feed
     assert "changes_feed" in admin._agents_manifest()["data"]
+
+
+def test_recent_changes_store_wide(tmp_path):
+    # store-wide freshness query: a 소속사 move surfaces in recent_changes (newest-first).
+    db = tempfile.mktemp(suffix=".db")
+    _snap(db, 1, "ADOR")
+    _snap(db, 9, "HYBE")
+    out = asyncio.run(service.recent_changes(db_path=db))
+    assert out["count"] == 1
+    c = out["changes"][0]
+    assert c["entity_id"] == "artist:newjeans" and c["to"] == "HYBE"
+    assert out["license"]["id"] == "CC-BY-4.0"

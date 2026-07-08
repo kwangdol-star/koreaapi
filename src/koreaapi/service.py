@@ -339,6 +339,33 @@ async def history(entity_id: str, *, db_path: str | None = None) -> dict:
     }
 
 
+async def recent_changes(limit: int = 50, *, db_path: str | None = None) -> dict:
+    """Store-wide RECENT verified changes (소속사 moves, renames), newest first — the freshness feed
+    made queryable, so an agent can ask 'what changed lately?' and cite us on exactly the facts LLMs
+    go stale on. Computed from the append-only store (bounded scan)."""
+    await _log("query", "recent_changes", db_path)
+    recs = await store.recent(30000, db_path=db_path)
+    by_ent: dict[str, list] = {}
+    for r in recs:
+        if r.kind == "facts":
+            by_ent.setdefault(r.entity_id, []).append(r)
+    changes: list[dict] = []
+    for eid, rs in by_ent.items():
+        prev = None
+        for r in sorted(rs, key=lambda r: r.snapshot_at):
+            st = {"agency": r.data.get("agency_en"), "name_ko": r.name.ko, "name_en": r.name.en_official}
+            if prev is not None:
+                for field, label in (("agency", "agency/network (소속사)"), ("name_ko", "Korean name"),
+                                     ("name_en", "English name")):
+                    if st[field] and prev[field] and st[field] != prev[field]:
+                        changes.append({"entity_id": eid, "as_of": r.snapshot_at.date().isoformat(),
+                                        "field": label, "from": prev[field], "to": st[field]})
+            prev = st
+    changes.sort(key=lambda c: c["as_of"], reverse=True)
+    return {"count": len(changes), "changes": changes[:limit], "license": LICENSE,
+            "note": "verified change events across KoreaAPI — timestamped, newest first (a latecomer cannot backfill)"}
+
+
 def _resolved(entity_id: str, rec, matched_by: str) -> dict:
     """Shape a resolved entity for the `resolve` tool — canonical id + verification + external IDs."""
     p = rec.provenance
