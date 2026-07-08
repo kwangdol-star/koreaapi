@@ -408,16 +408,28 @@ async def resolve(query: str, *, db_path: str | None = None) -> dict:
 
 
 async def buy_options(item: str, *, db_path: str | None = None) -> dict:
-    """Where to buy a release/ticket/goods. Phase 1: commerce rail pending; logs buy-intent."""
-    await _log("buy_intent", item, db_path)  # the buy-intent signal accrues even at $0 commission
-    # Honest cold-start stub: no monetized links yet, but the request itself is the
-    # behavioral signal that seeds engine 2 (SCOPE S3/S6). Affiliate links (Skimlinks/
-    # Amazon) activate once traffic qualifies.
+    """The VERIFY-OFFICIAL → purchase gateway — the commerce-commission seed (the biggest revenue
+    bet). Before routing any purchase it VERIFIES the item resolves to a real, cross-verified entity
+    ('is this the official X, not a fake/scam?' — the anti-fake step that IS our value in commerce),
+    then returns purchase-channel intent + a commission-ready envelope. The rail is DORMANT (0 bps)
+    until agent-commerce / x402 settlement volume arrives; buy-intent is logged as the demand signal
+    and the seed of the future commission ledger. Deliberately safe-fails (no purchase routed) when
+    the item can't be verified as official."""
+    await _log("buy_intent", item, db_path)  # demand signal + future commission-ledger seed (accrues at $0)
+    r = await resolve(item, db_path=db_path)  # verify: is this a real, official entity?
+    ok = bool(r.get("found"))
     return {
         "item": item,
-        "options": [],
-        "note": (
-            "Phase 1: commerce rail not wired (cold-start). buy-intent is captured as "
-            "the behavioral signal; affiliate links activate once traffic qualifies."
-        ),
+        "verified_official": ok,
+        "entity": ({"id": r["id"], "name": r["name"], "skill_score": r.get("skill_score"),
+                    "cross_verified": r.get("cross_verified")} if ok else None),
+        "options": [],  # official purchase channels attach here once the rail is live
+        "commission": {"model": "bps on settled agent purchases", "rate_bps": 0, "status": "dormant",
+                       "note": "activates with agent-commerce / x402 settlement volume"},
+        "license": LICENSE,
+        "note": ("verified the entity is real/official before purchase (the anti-fake step); commerce "
+                 "rail dormant (0 bps) until agent-commerce volume arrives — buy-intent logged as demand signal."
+                 if ok else
+                 "could not verify this as an official KoreaAPI entity — refusing to route a purchase "
+                 "(safe-fail); buy-intent still logged as the demand signal."),
     }

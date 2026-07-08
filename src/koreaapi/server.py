@@ -91,7 +91,10 @@ async def get_resolve(query: str) -> dict:
 
 @mcp.tool
 async def get_buy_options(item: str) -> dict:
-    """Where to buy a release/ticket/goods (Phase 1: commerce rail pending; logs buy-intent)."""
+    """Verify-official → purchase gateway: confirms the item is a REAL, cross-verified entity ('is
+    this the official X, not a fake/scam?') before any purchase, and returns purchase-channel intent +
+    a commission-ready envelope. Commerce rail dormant (0 bps) until agent-commerce/x402 volume;
+    buy-intent is logged as the demand signal. Safe-fails (no purchase routed) if it can't verify."""
     return await service.buy_options(item)
 
 

@@ -2349,7 +2349,7 @@ _MCP_TOOLS = [
     ("get_related", "entities sharing a 소속사 / network"),
     ("get_kculture_calendar", "upcoming K-culture events"),
     ("get_korea_rising", "what is rising in Korea now (premium signal)"),
-    ("get_buy_options", "where to buy a release / ticket / goods (logs buy-intent)"),
+    ("get_buy_options", "verify-official -> purchase gateway (is this the real X?) — the commerce-commission seed"),
     ("list_answer_products", "list the Answer Products — named, citable decisions over the verified store"),
     ("get_answer", "run an Answer Product -> {signal, action, score, rationale, answer, evidence}"),
 ]
