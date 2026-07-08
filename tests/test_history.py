@@ -57,3 +57,19 @@ if __name__ == "__main__":
     import pytest
 
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_export_writes_changes_feed(tmp_path):
+    # The store-wide freshness feed: a 소속사 move must show up in changes.json (newest-first).
+    import json
+    db = tempfile.mktemp(suffix=".db")
+    _snap(db, 1, "ADOR")
+    _snap(db, 9, "HYBE")   # agency moved
+    asyncio.run(admin.export(db_path=db, out_dir=str(tmp_path)))
+    feed = json.load(open(tmp_path / "changes.json", encoding="utf-8"))
+    assert feed["count"] == 1
+    c = feed["changes"][0]
+    assert c["entity_id"] == "artist:newjeans" and c["from"] == "ADOR" and c["to"] == "HYBE"
+    assert feed["license"]["id"] == "CC-BY-4.0"
+    # and the manifest advertises the feed
+    assert "changes_feed" in admin._agents_manifest()["data"]

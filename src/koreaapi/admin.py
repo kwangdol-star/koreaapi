@@ -336,6 +336,33 @@ async def load_latest(in_path: str = "data/latest.json", *, db_path: str | None 
     return n
 
 
+_CHANGE_FIELDS = (("agency", "agency/network (소속사)"), ("name_ko", "Korean name"),
+                  ("name_en", "English name"))
+
+
+def _compute_changes(recs: list) -> list[dict]:
+    """Verified CHANGE EVENTS (소속사 move, rename) across the store — the freshness grind made
+    visible, and exactly the stale facts LLMs miss. Computed from the in-memory snapshot list in one
+    pass (recs are newest-first); returned newest-first."""
+    by_ent: dict[str, list] = {}
+    for r in recs:
+        if r.kind == "facts":
+            by_ent.setdefault(r.entity_id, []).append(r)
+    out: list[dict] = []
+    for eid, rs in by_ent.items():
+        prev = None
+        for r in sorted(rs, key=lambda r: r.snapshot_at):  # oldest -> newest
+            st = {"agency": r.data.get("agency_en"), "name_ko": r.name.ko, "name_en": r.name.en_official}
+            if prev is not None:
+                for field, label in _CHANGE_FIELDS:
+                    if st[field] and prev[field] and st[field] != prev[field]:
+                        out.append({"entity_id": eid, "as_of": r.snapshot_at.date().isoformat(),
+                                    "field": label, "from": prev[field], "to": st[field]})
+            prev = st
+    out.sort(key=lambda c: c["as_of"], reverse=True)
+    return out
+
+
 async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
     """Write the data asset as committable text - the cold-start 'database' before Postgres.
 
@@ -362,6 +389,13 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
         rec["content_hash"] = integrity.record_fingerprint(rec)
     with open(os.path.join(out_dir, "latest.json"), "w", encoding="utf-8") as f:
         json.dump(latest_list, f, ensure_ascii=False, indent=2)
+    # changes.json — the freshness grind made visible: verified change events (소속사 moves, renames)
+    # across the store, the stale facts LLMs miss. A GEO magnet + proof the operational grind works.
+    changes = _compute_changes(recs)
+    with open(os.path.join(out_dir, "changes.json"), "w", encoding="utf-8") as f:
+        json.dump({"count": len(changes), "changes": changes[:300], "license": LICENSE,
+                   "note": "verified change events across KoreaAPI — timestamped, a latecomer cannot backfill"},
+                  f, ensure_ascii=False, indent=2)
     # Publish the integrity manifest: the whole-dataset fingerprint + the append-only history chain head.
     dh = integrity.dataset_hash(latest_list)
     head, n_chain = integrity.chain_head(os.path.join(out_dir, "snapshots.jsonl"))
@@ -2340,6 +2374,7 @@ def _agents_manifest() -> dict:
         },
         "data": {
             "open_json": f"{_SITE_BASE}/latest.json",
+            "changes_feed": f"{_SITE_BASE}/changes.json",  # verified change events (소속사 moves, renames)
             "llms_txt": f"{_SITE_BASE}/llms.txt",
             "llms_full_txt": f"{_SITE_BASE}/llms-full.txt",
             "feed_rss": f"{_SITE_BASE}/feed.xml",
