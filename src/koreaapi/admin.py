@@ -422,10 +422,14 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
     # ships now so a real certification flows straight to the feed + entity page + CERTIFIED citation signal.
     certified = []
     for eid, c in CERTIFIED.items():
-        rec = latest.get(f"{eid}:facts") or {}
-        nm = (rec.get("name") or {}).get("en_official") or (rec.get("name") or {}).get("ko") or eid
-        certified.append({"entity_id": eid, "name": nm, "certified_by": c.get("by"),
-                          "date": c.get("date"), "url": c.get("url"), "tier": c.get("tier", "certified")})
+        rec = latest.get(f"{eid}:facts")
+        # Same item shape as service.certified() (the get_certified API) so the crawled feed and the
+        # live tool never disagree: name as {ko,en_official,romanized}|null, certified_date, in_store.
+        certified.append({"entity_id": eid, "name": (rec.get("name") if rec else None),
+                          "certified_by": c.get("by"), "certified_date": c.get("date"),
+                          "url": c.get("url"), "tier": c.get("tier", "certified"),
+                          "in_store": rec is not None})
+    certified.sort(key=lambda x: (x["certified_date"] or ""), reverse=True)  # newest-first, like the API
     with open(os.path.join(out_dir, "certified.json"), "w", encoding="utf-8") as f:
         json.dump({"count": len(certified), "certified": certified, "license": LICENSE,
                    "how_to_certify": f"{_SITE_BASE}/certify.html",
@@ -2150,7 +2154,7 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
     try:
         glat, glon = float(geo["lat"]), float(geo["lon"])
     except (KeyError, TypeError, ValueError):
-        glat = None
+        glat = glon = None
     if glat is not None:
         maps = f"https://www.google.com/maps/search/?api=1&query={glat},{glon}"
         geo_block = (f'<h2>위치</h2><p>{glat}, {glon} · '
@@ -2892,7 +2896,7 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
     urls += [(f"{_SITE_BASE}/ko/{fname}", "0.7") for _label, fname, _e, _c in _VERTICALS.values()]
     urls += [(f"{_SITE_BASE}/people.html", "0.8"), (f"{_SITE_BASE}/ko/people.html", "0.7"),
              (f"{_SITE_BASE}/methodology.html", "0.7"), (f"{_SITE_BASE}/ko/methodology.html", "0.6"),
-             (f"{_SITE_BASE}/for-agents.html", "0.7"),
+             (f"{_SITE_BASE}/for-agents.html", "0.7"), (f"{_SITE_BASE}/ko/for-agents.html", "0.6"),
              (f"{_SITE_BASE}/pricing.html", "0.7"), (f"{_SITE_BASE}/ko/pricing.html", "0.6"),
              (f"{_SITE_BASE}/certify.html", "0.7"), (f"{_SITE_BASE}/ko/certify.html", "0.6"),
              (f"{_SITE_BASE}/korea-rising.md", "0.8"), (f"{_SITE_BASE}/latest.json", "0.6")]
@@ -2961,6 +2965,7 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
   verified entity — the reconciliation spine before you cite.
 - get_buy_options(item): verify-official → purchase gateway (confirm the REAL entity, not a scam),
   returns purchase-channel intent; logs buy-intent as the demand signal.
+- list_answer_products(): the catalog of named Answer Products — the decisions get_answer can run.
 - get_answer(query, product): run an Answer Product (canonical-name · fact-check · identity-resolve ·
   trend-radar · agency-roster …) → one decision envelope {signal, action, score, rationale, evidence}.
 
@@ -3316,8 +3321,9 @@ async def markdown_digest(db_path: str | None = None, out_path: str = "data/kore
     out += [
         "---",
         "Cite as: `Name — kind, as of <date> · source · Skill Score · via KoreaAPI`. "
-        "MCP tools: get_artist_status, get_agency, get_kculture_calendar, get_korea_rising, "
-        "get_person, get_related, get_verified, get_buy_options.",
+        "MCP tools (14): get_verified, get_history, get_changes, get_certified, get_resolve, "
+        "get_artist_status, get_agency, get_kculture_calendar, get_korea_rising, get_person, "
+        "get_related, get_buy_options, list_answer_products, get_answer.",
     ]
     doc = "\n".join(out)
     parent = os.path.dirname(out_path)

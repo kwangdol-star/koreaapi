@@ -67,6 +67,23 @@ def test_korea_rising_ranks_by_demand_signal():
     assert out["items"][0]["demand_signal"] >= 5
 
 
+def test_korea_rising_counts_namespaced_query_signals():
+    # The demand fix: namespaced query signals (verified:/history:/related:) fold back onto the
+    # entity_id, so demand reflects EVERY way an agent reached an entity — not only artist_status.
+    db = _tmp_db()
+
+    async def run():
+        await seed(db_path=db)  # bts/newjeans (skill ~1.0), aespa (0.7, single-source)
+        for _ in range(6):  # reach low-skill aespa ONLY via get_verified (a namespaced signal)
+            await service.verified("artist:aespa", db_path=db)
+        return await service.korea_rising(db_path=db)
+
+    out = asyncio.run(run())
+    top = out["items"][0]
+    assert top["name"]["en_official"] == "aespa"          # namespaced demand still outranks Skill Score
+    assert top["queries"] >= 6 and top["demand_signal"] >= 6
+
+
 if __name__ == "__main__":
     import pytest
 

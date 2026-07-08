@@ -91,7 +91,7 @@ async def artist_status(artist_id: str, *, db_path: str | None = None) -> dict:
         if best is None or rec.provenance.skill_score > best[0]:
             best = (rec.provenance.skill_score, cand)
     name = best[1] if best else None
-    return {"artist_id": artist_id, "found": True, "name": name, "status": items}
+    return {"artist_id": artist_id, "found": True, "name": name, "status": items, "license": LICENSE}
 
 
 async def kculture_calendar(window_days: int = 30, *, db_path: str | None = None) -> dict:
@@ -109,6 +109,7 @@ async def kculture_calendar(window_days: int = 30, *, db_path: str | None = None
         "count": len(items),
         "items": items,
         "note": "Recent verified events; window_days is advisory at Phase 1 (not yet a hard filter).",
+        "license": LICENSE,
     }
 
 
@@ -145,7 +146,7 @@ async def agency(name: str, *, db_path: str | None = None) -> dict:
             if (ag_en and ag_en.startswith(target)) or (ag_ko and ag_ko.startswith(target)):
                 seen.add(e["entity_id"])
                 members.append(_item(rec))
-    return {"agency": name, "count": len(members), "members": members}
+    return {"agency": name, "count": len(members), "members": members, "license": LICENSE}
 
 
 async def korea_rising(category: str = "all", limit: int = 10, *, db_path: str | None = None) -> dict:
@@ -157,14 +158,35 @@ async def korea_rising(category: str = "all", limit: int = 10, *, db_path: str |
     recs = await store.recent(500, db_path=db_path)
     if category and category != "all":  # drill into one vertical (was previously ignored)
         recs = [r for r in recs if r.entity_id.startswith(f"{category}:")]
-    queries = {s["key"]: s["count"] for s in await store.top_signals(1000, kind="query", db_path=db_path)}
+    # Query signals are logged under heterogeneous keys: a bare entity_id (artist_status) or
+    # "<verb>:<entity_id>" (verified/history/related). Fold the entity-addressed verbs back onto the
+    # entity_id so demand reflects EVERY way an agent reached an entity, not only artist_status.
+    _entity_verbs = ("verified:", "history:", "related:")
+
+    def _demand_key(k: str) -> str:
+        for v in _entity_verbs:
+            if k.startswith(v):
+                return k[len(v):]
+        return k
+
+    queries: dict[str, int] = {}
+    for s in await store.top_signals(1000, kind="query", db_path=db_path):
+        dk = _demand_key(s["key"])
+        queries[dk] = queries.get(dk, 0) + s["count"]
     buys = {s["key"]: s["count"] for s in await store.top_signals(1000, kind="buy_intent", db_path=db_path)}
 
     def demand(eid: str) -> int:  # buy-intent is a stronger signal than a lookup -> weight it 3x
         return queries.get(eid, 0) + 3 * buys.get(eid, 0)
 
+    # Collapse to one row per entity (best-verified snapshot) so the top-N isn't filled with duplicate
+    # snapshots/kinds of the same entity all carrying its identical demand score.
+    best: dict = {}
+    for r in recs:
+        cur = best.get(r.entity_id)
+        if cur is None or (r.provenance.skill_score, r.snapshot_at) > (cur.provenance.skill_score, cur.snapshot_at):
+            best[r.entity_id] = r
     ranked = sorted(
-        recs,
+        best.values(),
         key=lambda r: (demand(r.entity_id), r.provenance.skill_score, r.snapshot_at),
         reverse=True,
     )
@@ -183,6 +205,7 @@ async def korea_rising(category: str = "all", limit: int = 10, *, db_path: str |
             "Ranked by observed demand (queries + 3×buy-intent) then Skill Score; only verified "
             "snapshots surfaced. category drills into one vertical or 'all'."
         ),
+        "license": LICENSE,
     }
 
 
@@ -234,6 +257,7 @@ async def person(name: str, *, db_path: str | None = None) -> dict:
     return {
         "query": name, "found": True, "name": display, "count": len(credits),
         "credits": credits, "provenance": {"sources": sorted(sources)}, "citation": cite,
+        "license": LICENSE,
     }
 
 
@@ -269,6 +293,7 @@ async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None
         "entity_id": entity_id, "found": True,
         "related_by": ("agency" if is_artist else "network" if _family(entity_id) == "video" else "hub"),
         "key": label, "count": len(out), "related": out[:limit],
+        "license": LICENSE,
     }
 
 

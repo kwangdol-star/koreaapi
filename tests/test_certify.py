@@ -58,7 +58,8 @@ def test_certification_flows_to_feed_and_page(tmp_path, monkeypatch):
     assert feed["count"] == 1
     c = feed["certified"][0]
     assert c["entity_id"] == "artist:newjeans" and c["certified_by"] == "ADOR"
-    assert c["name"] == "NewJeans" and c["tier"] == "certified"
+    assert c["name"]["en_official"] == "NewJeans" and c["tier"] == "certified"  # shape matches get_certified API
+    assert c["certified_date"] == "2026-06-01" and c["in_store"] is True
     asyncio.run(admin.entity_pages(db_path=db, out_dir=str(tmp_path / "site")))
     page = (tmp_path / "site" / "artist" / "newjeans.html").read_text(encoding="utf-8")
     assert "officially certified by ADOR" in page and "Official certification" in page
