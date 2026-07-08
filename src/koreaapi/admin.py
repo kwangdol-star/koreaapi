@@ -417,6 +417,21 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
         json.dump({"count": len(changes), "changes": changes[:300], "license": LICENSE,
                    "note": "verified change events across KoreaAPI — timestamped, a latecomer cannot backfill"},
                   f, ensure_ascii=False, indent=2)
+    # certified.json — the supply-side lock made queryable: entities an official rights-holder has
+    # CERTIFIED (the tier above cross-verification). Empty until the first institution claims in; the rail
+    # ships now so a real certification flows straight to the feed + entity page + CERTIFIED citation signal.
+    certified = []
+    for eid, c in CERTIFIED.items():
+        rec = latest.get(f"{eid}:facts") or {}
+        nm = (rec.get("name") or {}).get("en_official") or (rec.get("name") or {}).get("ko") or eid
+        certified.append({"entity_id": eid, "name": nm, "certified_by": c.get("by"),
+                          "date": c.get("date"), "url": c.get("url"), "tier": c.get("tier", "certified")})
+    with open(os.path.join(out_dir, "certified.json"), "w", encoding="utf-8") as f:
+        json.dump({"count": len(certified), "certified": certified, "license": LICENSE,
+                   "how_to_certify": f"{_SITE_BASE}/certify.html",
+                   "note": ("official rights-holder certifications — the tier above cross-verification; an "
+                            "institution vouched (a latecomer cannot forge or backdate it)")},
+                  f, ensure_ascii=False, indent=2)
     # Publish the integrity manifest: the whole-dataset fingerprint + the append-only history chain head.
     dh = integrity.dataset_hash(latest_list)
     head, n_chain = integrity.chain_head(os.path.join(out_dir, "snapshots.jsonl"))
@@ -1058,6 +1073,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./for-agents.html">/for-agents · integrate</a>
  <a class="pill" href="./reconcile.json">/reconcile.json · resolve</a>
  <a class="pill" href="./pricing.html">/pricing · access</a>
+ <a class="pill" href="./certify.html">/certify · official record</a>
  <a class="pill" href="./status.json">/status.json · health</a>
  <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
@@ -2450,6 +2466,7 @@ def _agents_manifest() -> dict:
         "data": {
             "open_json": f"{_SITE_BASE}/latest.json",
             "changes_feed": f"{_SITE_BASE}/changes.json",  # verified change events (소속사 moves, renames)
+            "certified_feed": f"{_SITE_BASE}/certified.json",  # official rights-holder certifications (supply-side)
             "llms_txt": f"{_SITE_BASE}/llms.txt",
             "llms_full_txt": f"{_SITE_BASE}/llms-full.txt",
             "feed_rss": f"{_SITE_BASE}/feed.xml",
@@ -2625,6 +2642,79 @@ def _write_pricing(out_dir: str) -> None:
                                         "url": f"{_SITE_BASE}/ko/pricing.html"}))
 
 
+def _write_certify(out_dir: str) -> None:
+    """The supply-side storefront (/certify + /ko/certify) — the front door for an official rights-holder
+    to CERTIFY their own record (the tier above cross-verification). The endgame moat: certification is
+    non-replicable (a latecomer can copy data, not an institution's signature). Free now to win adoption
+    → lock-in; a managed/paid tier is named but dormant (position first, monetize with leverage)."""
+    repo = "https://github.com/kwangdol-star/koreaapi"
+    en_body = (
+        "<h2>What certification is</h2><p>Certification is the tier <b>above</b> cross-verification. "
+        "Cross-verification means independent databases agreed; <b>certification</b> means the "
+        "<b>official rights-holder</b> — the agency (소속사), studio, publisher, brand, or institution "
+        "behind the entity — has <b>vouched for the record itself</b>. A latecomer can copy today's data; "
+        "it cannot forge an institution's signature or backdate it. A certified record shows a 🏅 badge on "
+        "its page, flows into <a href=\"./certified.json\">/certified.json</a>, and raises the citation "
+        "signal an answer engine reads to <code>CERTIFIED</code>.</p>"
+        "<h2>Who can certify</h2><p>The official operator or rights-holder of an entity: the label for an "
+        "artist, the studio / network for a drama or film, the publisher for a webtoon or book, the company "
+        "for a brand, the institution for a place or heritage item. New entity not in KoreaAPI yet? Claim it "
+        "in the same request.</p>"
+        "<h2>How it works</h2><ol>"
+        "<li><b>Claim</b> your entity — tell us which record is yours.</li>"
+        "<li><b>Prove</b> you speak for it — from an official domain / verified channel.</li>"
+        "<li>We mark it <b>certified</b> — your name + date + a public source URL, shown on the entity page, "
+        "in the open data, and in <code>get_verified</code> (<code>officially_certified: true</code>).</li></ol>"
+        "<h2>Price</h2><p><b>Free for official rights-holders.</b> The point is a trustworthy, agent-citable "
+        "record of Korean culture — the more official records, the stronger it is for everyone. A "
+        "<b>managed tier</b> (priority re-verification, change SLAs, a managed record you edit) is planned for "
+        "operators who want more than the free badge — <i>not</i> required to be certified.</p>"
+        "<h2>Why it matters to you</h2><p>Agents and answer engines increasingly cite <b>structured, verified "
+        "data — not prose</b>. Your official record is what they quote for your artist / title / brand. "
+        "Certification makes <b>your</b> canonical Korean + English name, <b>your</b> agency, <b>your</b> facts "
+        "the ones that win — controlled by you, dated, and defensible.</p>"
+        f"<h2>Claim it</h2><p>Open a request on <a href=\"{repo}/issues\" rel=\"nofollow noopener\">GitHub "
+        "Issues</a>. Machine-readable registry: <a href=\"./certified.json\">/certified.json</a> · trust model: "
+        "<a href=\"./methodology.html\">/methodology</a>.</p>")
+    _write_hub_html(out_dir, "certify.html", "🏅", "Certify your record",
+                    "The tier above cross-verification — an official rights-holder vouches for the record. "
+                    "Free for rights-holders; the citation an answer engine trusts most.",
+                    en_body,
+                    _escape_jsonld({"@context": "https://schema.org", "@type": "WebPage",
+                                    "name": "KoreaAPI — certify your record (official rights-holders)",
+                                    "inLanguage": "en", "url": f"{_SITE_BASE}/certify.html"}))
+    ko_body = (
+        "<h2>공식 인증이란</h2><p>인증은 교차검증의 <b>한 단계 위</b> 등급입니다. 교차검증은 독립 DB들이 일치했다는 "
+        "뜻이고, <b>인증</b>은 그 엔티티의 <b>공식 권리자</b> — 소속사·스튜디오·출판사·브랜드·기관 — 가 "
+        "<b>기록 자체를 보증</b>했다는 뜻입니다. 후발주자는 오늘의 데이터를 복사할 순 있어도 기관의 서명을 위조하거나 "
+        "소급할 수 없습니다. 인증 기록은 페이지에 🏅 뱃지로 표시되고, <a href=\"./certified.json\">/certified.json</a>"
+        "으로 흐르며, 답변엔진이 읽는 인용 시그널을 <code>CERTIFIED</code>로 올립니다.</p>"
+        "<h2>누가 인증할 수 있나</h2><p>엔티티의 공식 운영자·권리자: 아티스트의 소속사, 드라마·영화의 스튜디오·채널, "
+        "웹툰·도서의 출판사, 브랜드의 회사, 장소·문화유산의 기관. KoreaAPI에 아직 없는 엔티티라면 같은 요청에서 함께 "
+        "등록 신청하세요.</p>"
+        "<h2>절차</h2><ol>"
+        "<li><b>클레임</b> — 어떤 기록이 귀사의 것인지 알려주세요.</li>"
+        "<li><b>증빙</b> — 공식 도메인 / 검증된 채널에서 대표성을 확인합니다.</li>"
+        "<li><b>인증 표시</b> — 귀사명 + 날짜 + 공개 출처 URL을 엔티티 페이지·공개 데이터·"
+        "<code>get_verified</code>(<code>officially_certified: true</code>)에 반영합니다.</li></ol>"
+        "<h2>가격</h2><p><b>공식 권리자에게 무료.</b> 목적은 에이전트가 인용할 수 있는 신뢰 가능한 한국문화 기록이며, "
+        "공식 기록이 많을수록 모두에게 더 강해집니다. <b>관리형 등급</b>(우선 재검증·변경 SLA·직접 편집하는 관리형 기록)은 "
+        "무료 뱃지 이상을 원하는 운영자를 위해 예정 — 인증에 <i>필수 아님</i>.</p>"
+        "<h2>왜 중요한가</h2><p>에이전트와 답변엔진은 점점 <b>산문이 아니라 구조화·검증된 데이터</b>를 인용합니다. "
+        "귀사의 공식 기록이 귀사 아티스트·작품·브랜드에 대해 인용되는 바로 그 기록입니다. 인증은 <b>귀사의</b> 공식 "
+        "한글·영문명, <b>귀사의</b> 소속사, <b>귀사의</b> 사실이 이기게 만듭니다 — 귀사가 통제하고, 날짜가 찍히고, "
+        "방어 가능하게.</p>"
+        f"<h2>신청</h2><p><a href=\"{repo}/issues\" rel=\"nofollow noopener\">GitHub Issues</a>로 요청하세요. "
+        "기계 판독 레지스트리: <a href=\"./certified.json\">/certified.json</a> · 신뢰 모델: "
+        "<a href=\"./methodology.html\">/methodology</a>.</p>")
+    _write_ko_list_page(out_dir, "certify.html", "공식 인증 (블루체크)",
+                        "교차검증 위 등급 — 공식 권리자가 기록을 보증. 권리자에게 무료이며, 답변엔진이 가장 신뢰하는 인용.",
+                        ko_body,
+                        _escape_jsonld({"@context": "https://schema.org", "@type": "WebPage",
+                                        "name": "KoreaAPI — 공식 인증", "inLanguage": "ko",
+                                        "url": f"{_SITE_BASE}/ko/certify.html"}))
+
+
 async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dict:
     """Citable answer-pages — the AEO citation-surface multiplier — for BOTH entities and people.
 
@@ -2683,6 +2773,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     _write_methodology(out_dir)  # /methodology + /ko/methodology — the trust model (E-E-A-T)
     _write_for_agents(out_dir)   # /for-agents (+ /ko) + /agents.json — the agent-operator surface
     _write_pricing(out_dir)      # /pricing (+ /ko) — the offer, legible for an operator
+    _write_certify(out_dir)      # /certify (+ /ko) — the supply-side storefront (official-record blue-check)
 
     # Person pages — the graph hubs. Dedup by slug (rare name->slug collisions: richest wins).
     # First index works -> the people credited on them, so each person can link their collaborators.
@@ -2801,6 +2892,7 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
              (f"{_SITE_BASE}/methodology.html", "0.7"), (f"{_SITE_BASE}/ko/methodology.html", "0.6"),
              (f"{_SITE_BASE}/for-agents.html", "0.7"),
              (f"{_SITE_BASE}/pricing.html", "0.7"), (f"{_SITE_BASE}/ko/pricing.html", "0.6"),
+             (f"{_SITE_BASE}/certify.html", "0.7"), (f"{_SITE_BASE}/ko/certify.html", "0.6"),
              (f"{_SITE_BASE}/korea-rising.md", "0.8"), (f"{_SITE_BASE}/latest.json", "0.6")]
     by_entity = await _load_by_entity(db_path=db_path)
     seen: set[str] = set()
@@ -2963,6 +3055,8 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Full LLM-ingestible corpus (every verified entity, one citable block each): {_SITE_BASE}/llms-full.txt
 - Integrity (tamper-evident): per-record content_hash + dataset_hash + append-only chain head — {_SITE_BASE}/integrity.json
 - Reconciliation (name / external-ID -> canonical entity, with sameAs): {_SITE_BASE}/reconcile.json
+- Certification (official rights-holders vouch for their own record — the tier above cross-verification):
+  certify at {_SITE_BASE}/certify.html · machine-readable registry {_SITE_BASE}/certified.json
 - Agent (MCP) + crawlable digest: /llms.txt · /llms-full.txt · /korea-rising.md · /sitemap.xml
 """
     with open(out_path, "w", encoding="utf-8") as f:
