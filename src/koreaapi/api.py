@@ -28,6 +28,15 @@ from .payments import stripe, x402
 PREMIUM_DESC = "KoreaAPI korea-rising — verified Korean-culture demand signal (queries + buy-intent)"
 
 
+def _int(request: Request, name: str, default: int) -> int:
+    """Parse an int query param, falling back to `default` on missing/garbage — so a bad `?limit=abc`
+    is a clean default, not an unhandled ValueError → HTTP 500 (this API has no exception handler)."""
+    try:
+        return int(request.query_params.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
 async def _gate(request: Request, price_usd: str, description: str):
     """x402 premium gate. Returns one of:
       • JSONResponse(402)  -> block (payment required / invalid)
@@ -73,8 +82,7 @@ async def agency(request: Request) -> JSONResponse:
 
 
 async def calendar(request: Request) -> JSONResponse:
-    days = int(request.query_params.get("window_days", 30))
-    return JSONResponse(await service.kculture_calendar(days))
+    return JSONResponse(await service.kculture_calendar(_int(request, "window_days", 30)))
 
 
 async def buy_options(request: Request) -> JSONResponse:
@@ -90,7 +98,7 @@ async def history(request: Request) -> JSONResponse:
 
 
 async def changes(request: Request) -> JSONResponse:
-    return JSONResponse(await service.recent_changes(int(request.query_params.get("limit", 50))))
+    return JSONResponse(await service.recent_changes(_int(request, "limit", 50)))
 
 
 async def certified(request: Request) -> JSONResponse:
@@ -115,8 +123,7 @@ async def korea_rising(request: Request) -> JSONResponse:
     if isinstance(gate, JSONResponse):
         return gate  # 402: blocked
     category = request.query_params.get("category", "all")
-    limit = int(request.query_params.get("limit", 10))
-    resp = JSONResponse(await service.korea_rising(category, limit))
+    resp = JSONResponse(await service.korea_rising(category, _int(request, "limit", 10)))
     if isinstance(gate, str) and gate:  # paid -> echo the settlement receipt
         resp.headers["X-PAYMENT-RESPONSE"] = gate
     return resp
@@ -157,6 +164,8 @@ async def index(request: Request) -> JSONResponse:
             "GET /v1/calendar": "recent verified K-culture events",
             "GET /v1/buy-options/{item}": "where-to-buy (logs buy-intent)",
             "GET /v1/resolve/{query}": "resolve a name / external ID / id -> the canonical verified entity",
+            "GET /v1/history/{entity_id}": "append-only verified timeline + change events (the time moat)",
+            "GET /v1/changes": "recent verified changes across K-culture (소속사 moves, renames) — the freshness feed",
             "GET /v1/certified": "entities officially certified by their rights-holder (the tier above cross-verification)",
             "GET /v1/answer": "Answer Products catalog; ?product=&q= runs one decision, ?q= runs all",
         },

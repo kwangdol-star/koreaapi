@@ -118,6 +118,15 @@ def test_resolve_route_is_wired(monkeypatch, tmp_path):
     assert r.status_code == 200 and r.json()["found"] is False
 
 
+def test_bad_int_query_param_does_not_500(monkeypatch, tmp_path):
+    # A non-numeric ?limit / ?window_days must fall back to the default, not raise ValueError -> 500
+    # (this API registers no exception handler).
+    monkeypatch.delenv("X402_PAY_TO", raising=False)
+    c = _client(monkeypatch, tmp_path)
+    assert c.get("/v1/changes?limit=abc").status_code == 200
+    assert c.get("/v1/calendar?window_days=xyz").status_code == 200
+
+
 def test_premium_is_free_when_dormant(monkeypatch, tmp_path):
     monkeypatch.delenv("X402_PAY_TO", raising=False)
     r = _client(monkeypatch, tmp_path).get("/v1/korea-rising")

@@ -1083,7 +1083,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <span class="chip"><b>Hallucination-guarded</b></span>
  <span class="chip"><b>Bilingual</b> · KO / EN / romanized</span>
 </div>
-<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 9 MCP tools (<code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_verified</code>, <code>get_resolve</code>, <code>get_buy_options</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;. <b>Integrity:</b> every record carries a SHA-256 content hash; the full dataset + append-only history are hash-verifiable — see <a href="./integrity.json">/integrity.json</a>.</div>
+<div class="note">Every row is <b>verified</b> — cross-checked across independent sources (Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB), identity- and hallucination-guarded, stamped with a transparent <b>Skill Score</b> + <b>provenance</b>, and anchored to its <b>소속사 (agency)</b>. <b>Agents</b> call 14 MCP tools (<code>get_verified</code>, <code>get_history</code>, <code>get_changes</code>, <code>get_certified</code>, <code>get_resolve</code>, <code>get_artist_status</code>, <code>get_agency</code>, <code>get_kculture_calendar</code>, <code>get_korea_rising</code>, <code>get_person</code>, <code>get_related</code>, <code>get_buy_options</code>, <code>list_answer_products</code>, <code>get_answer</code>); <b>answer engines</b> get Schema.org JSON-LD + <a href="./llms.txt">/llms.txt</a>. <b>Cite a row as:</b> &ldquo;Name — kind, as of date · source · Skill Score · via KoreaAPI&rdquo;. <b>Integrity:</b> every record carries a SHA-256 content hash; the full dataset + append-only history are hash-verifiable — see <a href="./integrity.json">/integrity.json</a>.</div>
 <div class="cards">{cards_html}</div>
 {sections}
 <footer>Generated {generated} · KoreaAPI Phase 1 (cold-start) · verifiable Korean-culture data for AI agents · <a href="./latest.json">/latest.json</a> · <a href="./llms.txt">/llms.txt</a> · <a href="https://github.com/kwangdol-star/koreaapi">GitHub</a></footer>
@@ -1706,7 +1706,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     for s in primary.provenance.sources:
         label, persp = _source_meta(s)
         u = _one_source_url(s)
-        link = f' · <a href="{u}" rel="nofollow noopener" target="_blank">view ↗</a>' if u else ""
+        link = f' · <a href="{html.escape(u)}" rel="nofollow noopener" target="_blank">view ↗</a>' if u else ""
         src_rows += (f"<li><b>{html.escape(label)}</b> "
                      f"<span class=rom>— {html.escape(persp)}</span>{link}</li>")
     sources_block = (f"<h2>Cross-checked by {len(primary.provenance.sources)} source(s)"
@@ -2167,7 +2167,7 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
     for s in primary.provenance.sources:
         label, _persp = _source_meta(s)
         u = _one_source_url(s)
-        link = f' · <a href="{u}" rel="nofollow noopener" target="_blank">보기 ↗</a>' if u else ""
+        link = f' · <a href="{html.escape(u)}" rel="nofollow noopener" target="_blank">보기 ↗</a>' if u else ""
         srows += f"<li><b>{html.escape(label)}</b>{link}</li>"
     sources_block = (f"<h2>교차검증 출처 {len(primary.provenance.sources)}곳"
                      f"{' · ✓✓✓ 3중검증' if n_agree >= 3 else ''}</h2>"

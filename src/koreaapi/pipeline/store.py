@@ -155,9 +155,12 @@ async def history(entity_id: str, kind: str, *, limit: int = 5000,
     def _do() -> list[str]:
         conn = _connect(db_path)
         try:
+            # Fetch the NEWEST `limit` snapshots (DESC), then reverse to oldest→newest below. If an
+            # entity ever exceeds the cap, we keep the recent timeline (correct current/last_verified)
+            # rather than freezing at the oldest rows an ASC LIMIT would return.
             rows = conn.execute(
                 "SELECT record_json FROM snapshots WHERE entity_id = ? AND kind = ? "
-                "ORDER BY snapshot_at ASC, id ASC LIMIT ?",
+                "ORDER BY snapshot_at DESC, id DESC LIMIT ?",
                 (entity_id, kind, limit),
             ).fetchall()
             return [r[0] for r in rows]
@@ -165,6 +168,7 @@ async def history(entity_id: str, kind: str, *, limit: int = 5000,
             conn.close()
 
     raws = await asyncio.to_thread(_do)
+    raws.reverse()  # DESC fetch -> oldest→newest for the append-only timeline contract
     return [Record.model_validate_json(r) for r in raws]
 
 

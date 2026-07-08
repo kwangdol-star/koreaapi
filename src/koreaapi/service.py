@@ -116,6 +116,14 @@ def _norm_name(s: str | None) -> str:
     return (s or "").casefold().replace(" ", "")
 
 
+def _family(eid: str) -> str:
+    """The relatedness family that legitimately shares the `agency_en` hub slot: artists (소속사),
+    video (drama+film share a network/platform), and every other vertical only with its OWN kind —
+    so `related('place:…')` (region slot) never returns a university/hospital that reused the slot."""
+    kind = eid.split(":", 1)[0]
+    return "video" if kind in ("drama", "film") else kind
+
+
 async def agency(name: str, *, db_path: str | None = None) -> dict:
     """Artists verified under a 소속사/label - the agency HUB made queryable. `name` matches the
     agency recorded on each artist (Wikidata P264 label), e.g. 'JYP Entertainment' or 'JYP'.
@@ -247,8 +255,8 @@ async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None
     seen: set[str] = set()
     for e in await store.entities(db_path=db_path):
         oid = e["entity_id"]
-        # keep related within the same family (artist↔artist, video↔video); dedupe by entity_id
-        if oid == entity_id or oid in seen or oid.startswith("artist:") != is_artist:
+        # keep related within the same family (artist↔artist, drama↔film, place↔place …); dedupe
+        if oid == entity_id or oid in seen or _family(oid) != _family(entity_id):
             continue
         r = await store.latest(oid, "facts", db_path=db_path)
         if r is None:
@@ -259,7 +267,7 @@ async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None
     out.sort(key=lambda it: (it["name"]["en_official"] or it["name"]["ko"] or "").lower())
     return {
         "entity_id": entity_id, "found": True,
-        "related_by": "agency" if is_artist else "network",
+        "related_by": ("agency" if is_artist else "network" if _family(entity_id) == "video" else "hub"),
         "key": label, "count": len(out), "related": out[:limit],
     }
 
@@ -286,13 +294,13 @@ async def verified(entity_id: str, *, db_path: str | None = None) -> dict:
         "cross_verified": n >= 2,
         "triple_verified": n >= 3,
         "officially_certified": bool(cert),
-        "certified_by": cert["by"] if cert else None,
+        "certified_by": cert.get("by") if cert else None,
         "certified_date": cert.get("date") if cert else None,
         "sources": p.sources,
         "license": LICENSE,
         "as_of": rec.snapshot_at.date().isoformat(),
         "citation": _citation(rec),
-        "note": (f"officially certified by {cert['by']} — the tier above cross-verification" if cert
+        "note": (f"officially certified by {cert.get('by')} — the tier above cross-verification" if cert
                  else "triple cross-verified — ≥3 independent sources agreed" if n >= 3
                  else "cross-verified — ≥2 independent sources agreed" if n >= 2
                  else "single-source / uncorroborated — Skill Score capped at 0.7"),
@@ -301,7 +309,8 @@ async def verified(entity_id: str, *, db_path: str | None = None) -> dict:
 
 def _hist_state(rec) -> dict:
     return {"name_ko": rec.name.ko, "name_en": rec.name.en_official,
-            "agency": rec.data.get("agency_en"), "skill_score": rec.provenance.skill_score}
+            "agency": rec.data.get("agency_en") or rec.data.get("agency_ko"),
+            "skill_score": rec.provenance.skill_score}
 
 
 async def history(entity_id: str, *, db_path: str | None = None) -> dict:
@@ -353,7 +362,8 @@ async def recent_changes(limit: int = 50, *, db_path: str | None = None) -> dict
     for eid, rs in by_ent.items():
         prev = None
         for r in sorted(rs, key=lambda r: r.snapshot_at):
-            st = {"agency": r.data.get("agency_en"), "name_ko": r.name.ko, "name_en": r.name.en_official}
+            st = {"agency": r.data.get("agency_en") or r.data.get("agency_ko"),
+                  "name_ko": r.name.ko, "name_en": r.name.en_official}
             if prev is not None:
                 for field, label in (("agency", "agency/network (소속사)"), ("name_ko", "Korean name"),
                                      ("name_en", "English name")):

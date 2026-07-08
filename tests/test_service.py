@@ -172,6 +172,32 @@ def test_related_without_edge_is_empty_not_error():
     assert out["found"] is True and out["count"] == 0
 
 
+def test_related_stays_within_non_artist_family():
+    # A place sharing the region slot (agency_en) with a university must NOT be returned as related to
+    # the place — different verticals reuse the same hub slot; only the SAME family should match.
+    import tempfile
+    from datetime import datetime, timezone
+
+    from koreaapi import admin
+    from koreaapi.models import Name, Provenance, Record
+    db = tempfile.mktemp(suffix=".db")
+    now = datetime(2026, 5, 1, tzinfo=timezone.utc)
+
+    def seed(eid: str, ko: str, en: str) -> None:
+        asyncio.run(admin.store.append_record(Record(
+            entity_id=eid, kind="facts", name=Name(ko=ko, en_official=en), snapshot_at=now,
+            summary_en=en, data={"agency_en": "Seoul"},
+            provenance=Provenance(sources=["Wikidata Q1", "Wikipedia x"], fetched_at=now,
+                                  skill_score=1.0, confidence="high", agreeing_sources=2)), db_path=db))
+
+    seed("place:gyeongbokgung", "경복궁", "Gyeongbokgung")
+    seed("place:namsan", "남산", "Namsan")
+    seed("university:snu", "서울대학교", "Seoul National University")
+    out = asyncio.run(service.related("place:gyeongbokgung", db_path=db))
+    assert {m["name"]["en_official"] for m in out["related"]} == {"Namsan"}  # NOT the university
+    assert out["related_by"] == "hub"
+
+
 def test_buy_options_phase1_stub_is_honest():
     db = _seeded_db()
     out = asyncio.run(service.buy_options("BTS album", db_path=db))
