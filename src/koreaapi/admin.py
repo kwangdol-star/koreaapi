@@ -2034,6 +2034,9 @@ _KO_PEOPLE_HEAD = {  # vertical -> the Korean label for its people list
     "drama": "출연", "film": "출연", "show": "출연", "animation": "출연",
     "webtoon": "작가", "book": "저자", "classic": "저자", "fashion": "디자이너",
 }
+_KO_CHANGE_LABEL = {  # tracked change field -> its Korean label, for the /ko verification-history block
+    "agency/network (소속사)": "소속사", "Korean name": "한국어명", "English name": "영문명",
+}
 
 
 _KO_DEBUT = {  # vertical -> the Korean noun for its "first date", used particle-safely as "{n} 시기는…"
@@ -2094,7 +2097,7 @@ def _entity_qa_ko(primary) -> list[tuple[str, str]]:
     return qas
 
 
-def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None:
+def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, history: dict | None = None) -> None:
     """Korean-led answer page (/ko/artist/<slug>.html) for Naver / 국내 질의: Korean h1 + summary_ko +
     Korean headings/cite, hreflang-paired with the English page. Reuses the verified record and the
     language-neutral Schema.org node (identity is the same; language targeting is via lang + hreflang)."""
@@ -2152,6 +2155,23 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None
     sources_block = (f"<h2>교차검증 출처 {len(primary.provenance.sources)}곳"
                      f"{' · ✓✓✓ 3중검증' if n_agree >= 3 else ''}</h2>"
                      f"<ul class=people>{srows}</ul>") if srows else ""
+    # 검증 이력 — 시간해자를 한국어 표면에도 노출(영문 페이지와 동일): 최초검증 깊이 + 검증된 변경(소속사 이동·개명).
+    history_block_ko = ""
+    if history and (history.get("count", 0) >= 2 or history.get("changes")):
+        first = history["first"].strftime("%Y-%m-%d")
+        rows = "".join(
+            f"<li><b>{html.escape(_KO_CHANGE_LABEL.get(c['field'], c['field']))}</b>: "
+            f"{html.escape(str(c['from']))} → {html.escape(str(c['to']))} "
+            f"<span class=rom>— {html.escape(c['as_of'])} 기준</span></li>"
+            for c in history.get("changes", []))
+        changes_ul = f"<ul class=people>{rows}</ul>" if rows else ""
+        history_block_ko = (
+            f"<h2>검증 이력</h2>"
+            f"<p><b>{first}</b>부터 추적 · 검증 스냅샷 {history['count']}개."
+            f"{' 기록된 변경:' if rows else ''}</p>{changes_ul}"
+            f"<p class=rom>추가 전용(append-only)·타임스탬프 — 사실이 <b>언제</b> 바뀌었는지의 기록으로, "
+            f"후발주자가 backfill 불가. 전체 피드: <a href=\"../../changes.json\">/changes.json</a> · "
+            f"기계 판독: get_history(&quot;{html.escape(primary.entity_id)}&quot;).</p>")
     summary_ko = html.escape(primary.summary_ko or primary.summary_en or "")
     cite = html.escape(f"{ko_raw or en_raw} ({en_raw}) — 검증됨, {asof} 기준 · {'; '.join(primary.provenance.sources)} "
                        f"· Skill {sc:.2f} · via KoreaAPI")
@@ -2180,6 +2200,7 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary) -> None
 {ppl}
 {dirb}
 {sources_block}
+{history_block_ko}
 {qa_block}
 <div class=cite><b>이렇게 인용하세요:</b> {cite}<br><span class=rom>{ko_url}</span><br><span class=rom>SHA-256: {content_hash} · <a href="../../integrity.json">/integrity.json</a>에서 검증</span></div>
 <footer>출처(provenance): {src} · Skill Score {sc:.2f} · <a href="../../latest.json">/latest.json</a> &middot; <a href="../../llms.txt">/llms.txt</a></footer>
@@ -2652,7 +2673,8 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
                            entity_slugs=entity_slugs, linked=linked, related=related, label_url=label_url,
                            history=histories.get(entity_id))
-        _write_entity_html_ko(out_dir, slug, url, primary)  # Korean-led counterpart (/ko/artist/…)
+        _write_entity_html_ko(out_dir, slug, url, primary,  # Korean-led counterpart (/ko/artist/…)
+                              history=histories.get(entity_id))
         ko_written.append((slug, primary.name.ko or name))
         written.append({"slug": slug, "name": name, "url": url})
 

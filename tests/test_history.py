@@ -109,3 +109,16 @@ def test_entity_page_hides_history_without_depth(tmp_path):
     asyncio.run(admin.entity_pages(db_path=db, out_dir=str(tmp_path / "site")))
     page = (tmp_path / "site" / "artist" / "newjeans.html").read_text(encoding="utf-8")
     assert "Verification history" not in page
+
+
+def test_ko_entity_page_renders_verification_history(tmp_path):
+    # hreflang parity: the Korean answer page (/ko, for Naver / 국내 질의) surfaces the same time moat.
+    db = tempfile.mktemp(suffix=".db")
+    _snap(db, 1, "ADOR")
+    _snap(db, 8, "HYBE")   # 소속사 이동
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=str(tmp_path / "site")))
+    page = (tmp_path / "site" / "ko" / "artist" / "newjeans.html").read_text(encoding="utf-8")
+    assert "검증 이력" in page
+    assert "부터 추적" in page and "2026-05-01" in page              # 최초검증 기준점
+    assert "소속사" in page and "ADOR → HYBE" in page and "2026-05-08 기준" in page  # 변경 이벤트
+    assert "get_history(&quot;artist:newjeans&quot;)" in page       # 기계 판독 포인터
