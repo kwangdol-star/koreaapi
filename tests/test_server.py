@@ -27,6 +27,7 @@ EXPECTED_TOOLS = {
     "get_person",
     "get_related",
     "get_verified",
+    "get_history",         # the time moat: append-only timeline + change events
     "get_resolve",
     "get_buy_options",
     "list_answer_products",  # engine 3: the Answer Products catalog

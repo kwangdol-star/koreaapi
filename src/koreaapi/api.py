@@ -85,6 +85,10 @@ async def resolve(request: Request) -> JSONResponse:
     return JSONResponse(await service.resolve(request.path_params["query"]))
 
 
+async def history(request: Request) -> JSONResponse:
+    return JSONResponse(await service.history(request.path_params["entity_id"]))
+
+
 async def answer(request: Request) -> JSONResponse:
     """Answer Products (engine 3). No params -> the catalog. ?q= -> run ALL products on the query.
     ?product=&q= -> run one. Free; the underlying korea-rising signal is x402-metered separately."""
@@ -170,6 +174,7 @@ routes = [
     Route("/v1/calendar", calendar),
     Route("/v1/buy-options/{item}", buy_options),
     Route("/v1/resolve/{query}", resolve),
+    Route("/v1/history/{entity_id}", history),
     Route("/v1/answer", answer),
     Route("/v1/korea-rising", korea_rising),
     Route("/billing/stripe/checkout", stripe_checkout, methods=["POST"]),

@@ -299,6 +299,46 @@ async def verified(entity_id: str, *, db_path: str | None = None) -> dict:
     }
 
 
+def _hist_state(rec) -> dict:
+    return {"name_ko": rec.name.ko, "name_en": rec.name.en_official,
+            "agency": rec.data.get("agency_en"), "skill_score": rec.provenance.skill_score}
+
+
+async def history(entity_id: str, *, db_path: str | None = None) -> dict:
+    """The append-only verified TIMELINE of one entity — the time moat made queryable. Returns first/
+    last verified dates, snapshot count, and the CHANGE EVENTS (소속사 move, rename …) detected between
+    consecutive verified states — exactly the stale facts LLMs get wrong, and a record a latecomer
+    cannot backfill. entity_id e.g. 'artist:bts'."""
+    await _log("query", f"history:{entity_id}", db_path)
+    recs = await store.history(entity_id, "facts", db_path=db_path)
+    if not recs:
+        return {"entity_id": entity_id, "found": False, "note": "no verified history for this entity yet"}
+    tracked = [("agency", "agency/network (소속사)"), ("name_ko", "Korean name"), ("name_en", "English name")]
+    changes: list[dict] = []
+    prev = None
+    for rec in recs:
+        st = _hist_state(rec)
+        if prev is not None:
+            for field, label in tracked:
+                if st[field] and prev[field] and st[field] != prev[field]:
+                    changes.append({"as_of": rec.snapshot_at.date().isoformat(), "field": label,
+                                    "from": prev[field], "to": st[field]})
+        prev = st
+    return {
+        "entity_id": entity_id,
+        "found": True,
+        "first_verified": recs[0].snapshot_at.date().isoformat(),
+        "last_verified": recs[-1].snapshot_at.date().isoformat(),
+        "snapshots": len(recs),
+        "changes": changes,
+        "current": _hist_state(recs[-1]),
+        "license": LICENSE,
+        "note": (f"append-only verified history — {len(changes)} tracked change(s) recorded; "
+                 "timestamped snapshots a latecomer cannot backfill." if changes
+                 else "append-only verified history — no tracked changes yet; the timestamped depth is the asset."),
+    }
+
+
 def _resolved(entity_id: str, rec, matched_by: str) -> dict:
     """Shape a resolved entity for the `resolve` tool — canonical id + verification + external IDs."""
     p = rec.provenance

@@ -2307,6 +2307,7 @@ def _write_methodology(out_dir: str) -> None:
 # The MCP tools (mirrors server.py) — published in the agent manifest + the operator quickstart.
 _MCP_TOOLS = [
     ("get_verified", "cross-verification status + Skill Score (check trust BEFORE citing)"),
+    ("get_history", "append-only verified timeline + change events (소속사 A->B, renames) — the time moat"),
     ("get_resolve", "resolve a fuzzy name / external ID / canonical id -> the verified entity (+ external IDs)"),
     ("get_artist_status", "latest verified status for a Korean artist"),
     ("get_agency", "who is under a 소속사 / label"),

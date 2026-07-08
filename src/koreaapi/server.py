@@ -71,6 +71,16 @@ async def get_verified(entity_id: str) -> dict:
 
 
 @mcp.tool
+async def get_history(entity_id: str) -> dict:
+    """The append-only verified TIMELINE of an entity — the time moat made queryable. Returns
+    first/last verified dates, snapshot count, and the CHANGE EVENTS between consecutive verified
+    states (e.g. 소속사 A → B, a rename) — exactly the stale facts LLMs get wrong, and a timestamped
+    record a latecomer cannot backfill. Use it to answer 'when did this change?' entity_id e.g.
+    'artist:bts'."""
+    return await service.history(entity_id)
+
+
+@mcp.tool
 async def get_resolve(query: str) -> dict:
     """Resolve a fuzzy Korean-culture NAME, an external ID (e.g. a Wikidata Q-id), or a canonical
     entity_id to THE verified KoreaAPI entity — with its bilingual name, cross-verification status +

@@ -147,6 +147,27 @@ async def latest(entity_id: str, kind: str, *, db_path: str | None = None) -> Re
     return Record.model_validate_json(raw) if raw else None
 
 
+async def history(entity_id: str, kind: str, *, limit: int = 5000,
+                  db_path: str | None = None) -> list[Record]:
+    """Every snapshot for an entity+kind, oldest → newest — the append-only timeline (the time moat).
+    A latecomer can copy today's row but cannot reconstruct these timestamped past states."""
+
+    def _do() -> list[str]:
+        conn = _connect(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT record_json FROM snapshots WHERE entity_id = ? AND kind = ? "
+                "ORDER BY snapshot_at ASC, id ASC LIMIT ?",
+                (entity_id, kind, limit),
+            ).fetchall()
+            return [r[0] for r in rows]
+        finally:
+            conn.close()
+
+    raws = await asyncio.to_thread(_do)
+    return [Record.model_validate_json(r) for r in raws]
+
+
 async def count(entity_id: str, kind: str, *, db_path: str | None = None) -> int:
     """Count snapshots for an entity+kind. Used to prove append-only accumulation."""
 
