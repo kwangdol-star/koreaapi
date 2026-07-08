@@ -15,6 +15,7 @@ import json
 import re
 
 from . import integrity
+from .license import LICENSE
 from .pipeline import store
 from .reconcile import external_ids, match_score, name_keys
 from .roster import CERTIFIED
@@ -288,6 +289,7 @@ async def verified(entity_id: str, *, db_path: str | None = None) -> dict:
         "certified_by": cert["by"] if cert else None,
         "certified_date": cert.get("date") if cert else None,
         "sources": p.sources,
+        "license": LICENSE,
         "as_of": rec.snapshot_at.date().isoformat(),
         "citation": _citation(rec),
         "note": (f"officially certified by {cert['by']} — the tier above cross-verification" if cert
@@ -315,6 +317,7 @@ def _resolved(entity_id: str, rec, matched_by: str) -> dict:
         "content_hash": integrity.record_fingerprint(json.loads(rec.model_dump_json())),
         "ids": external_ids(p.sources),
         "sources": p.sources,
+        "license": LICENSE,
         "as_of": rec.snapshot_at.date().isoformat(),
         "citation": _citation(rec),
     }

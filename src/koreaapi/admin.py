@@ -42,6 +42,7 @@ import sys
 from datetime import datetime, timezone
 
 from . import answers, integrity
+from .license import LICENSE
 from .models import Record
 from .payments.stripe import PLANS as _PRICING_PLANS
 from .pipeline import store
@@ -2329,10 +2330,11 @@ def _agents_manifest() -> dict:
         "homepage": f"{_SITE_BASE}/",
         "repository": "https://github.com/kwangdol-star/koreaapi",
         "languages": ["en", "ko"],
+        "license": LICENSE,  # machine-readable reuse terms — free to use & cite WITH attribution
         "mcp": {
             "transport": "stdio",
             "command": "python -m koreaapi.server",
-            "install": "pip install 'git+https://github.com/kwangdol-star/koreaapi'  (or clone + uv sync)",
+            "install": "pip install koreaapi  (or: uvx --from koreaapi koreaapi-mcp)",
             "tools": [{"name": n, "description": d} for n, d in _MCP_TOOLS],
         },
         "data": {
