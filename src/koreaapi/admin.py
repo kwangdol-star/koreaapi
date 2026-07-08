@@ -363,6 +363,27 @@ def _compute_changes(recs: list) -> list[dict]:
     return out
 
 
+def _entity_histories(recs: list) -> dict:
+    """Per-entity verification history for the crawled entity pages — the time moat made VISIBLE +
+    citable. From the full snapshot list: first-verified datetime, verified-snapshot count, and the
+    change events (reusing _compute_changes, newest-first). Keyed by entity_id."""
+    facts = [r for r in recs if r.kind == "facts"]
+    hist: dict[str, dict] = {}
+    for r in facts:
+        h = hist.get(r.entity_id)
+        if h is None:
+            hist[r.entity_id] = {"first": r.snapshot_at, "count": 1, "changes": []}
+        else:
+            h["count"] += 1
+            if r.snapshot_at < h["first"]:
+                h["first"] = r.snapshot_at
+    for c in _compute_changes(facts):  # already newest-first; group under its entity
+        h = hist.get(c["entity_id"])
+        if h is not None:
+            h["changes"].append(c)
+    return hist
+
+
 async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
     """Write the data asset as committable text - the cold-start 'database' before Postgres.
 
@@ -1601,7 +1622,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
                        qas: list[tuple[str, str]], jsonld: str, *,
                        entity_slugs: set | None = None, linked: set | None = None,
                        related: list[tuple[str, str]] | None = None,
-                       label_url: str | None = None) -> None:
+                       label_url: str | None = None, history: dict | None = None) -> None:
     entity_slugs, linked, related = entity_slugs or set(), linked or set(), related or []
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
     content_hash = integrity.record_fingerprint(json.loads(primary.model_dump_json()))  # checkable row id
@@ -1674,6 +1695,24 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     sources_block = (f"<h2>Cross-checked by {len(primary.provenance.sources)} source(s)"
                      f"{' · ✓✓✓ triple-verified' if n_agree >= 3 else ''}</h2>"
                      f"<ul class=people>{src_rows}</ul>") if primary.provenance.sources else ""
+    # Verification history — the time moat made VISIBLE: how long we've tracked this entity (timestamped
+    # depth a latecomer can't backfill) + the verified CHANGE EVENTS (소속사 move, rename) that are exactly
+    # what stale models get wrong. Rendered only with real temporal depth (≥2 snapshots or a change).
+    history_block = ""
+    if history and (history.get("count", 0) >= 2 or history.get("changes")):
+        first = history["first"].strftime("%Y-%m-%d")
+        rows = "".join(
+            f"<li><b>{html.escape(c['field'])}</b>: {html.escape(str(c['from']))} → "
+            f"{html.escape(str(c['to']))} <span class=rom>— as of {html.escape(c['as_of'])}</span></li>"
+            for c in history.get("changes", []))
+        changes_ul = f"<ul class=people>{rows}</ul>" if rows else ""
+        history_block = (
+            f"<h2>Verification history</h2>"
+            f"<p>Verified &amp; tracked since <b>{first}</b> · {history['count']} verified snapshots."
+            f"{' Recorded changes:' if rows else ''}</p>{changes_ul}"
+            f"<p class=rom>Append-only, timestamped — the record of WHEN a fact changed, which a "
+            f"latecomer cannot backfill. Full feed: <a href=\"../changes.json\">/changes.json</a> · "
+            f"machine-readable: get_history(&quot;{html.escape(primary.entity_id)}&quot;).</p>")
     # Institutional certification — the tier ABOVE cross-verification (an org vouched; non-replicable).
     cert = CERTIFIED.get(primary.entity_id)
     cert_badge = f" · 🏅 officially certified by {html.escape(cert['by'])}" if cert else ""
@@ -1744,6 +1783,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {qa_block}
 {cert_block}
 {sources_block}
+{history_block}
 {rel_block}
 <div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span><br><span class=rom>SHA-256: {content_hash} · verify at <a href="../integrity.json">/integrity.json</a></span></div>
 <footer>Provenance: {src} · Skill Score {sc:.2f} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
@@ -2574,6 +2614,9 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     so an answer engine can land on a specific entity OR person and quote it.
     """
     by_entity = await _load_by_entity(db_path)
+    # Full snapshot list (one scan) -> per-entity verification history, so each entity page can render
+    # the time moat (first-verified + change events) without a per-entity DB query.
+    histories = _entity_histories(await store.recent(100000, db_path=db_path))
     people = _collect_credits(by_entity)
     entity_slugs = {_slug(eid) for eid in by_entity}
     linked = _linked_person_slugs(people, entity_slugs)
@@ -2607,7 +2650,8 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         ag_slug = _person_slug(ag) if ag else ""
         label_url = f"../label/{ag_slug}.html" if ag_slug in label_slugs else None  # link to label hub
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
-                           entity_slugs=entity_slugs, linked=linked, related=related, label_url=label_url)
+                           entity_slugs=entity_slugs, linked=linked, related=related, label_url=label_url,
+                           history=histories.get(entity_id))
         _write_entity_html_ko(out_dir, slug, url, primary)  # Korean-led counterpart (/ko/artist/…)
         ko_written.append((slug, primary.name.ko or name))
         written.append({"slug": slug, "name": name, "url": url})

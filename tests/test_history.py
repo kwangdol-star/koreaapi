@@ -85,3 +85,27 @@ def test_recent_changes_store_wide(tmp_path):
     c = out["changes"][0]
     assert c["entity_id"] == "artist:newjeans" and c["to"] == "HYBE"
     assert out["license"]["id"] == "CC-BY-4.0"
+
+
+def test_entity_page_renders_verification_history(tmp_path):
+    # The time moat, made VISIBLE + citable on the CRAWLED entity page: the first-verified depth + the
+    # 소속사 change event an answer engine can lift ("when did NewJeans' agency change?").
+    db = tempfile.mktemp(suffix=".db")
+    _snap(db, 1, "ADOR")
+    _snap(db, 8, "HYBE")   # 소속사 moved -> a change event on the timeline
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=str(tmp_path / "site")))
+    page = (tmp_path / "site" / "artist" / "newjeans.html").read_text(encoding="utf-8")
+    assert "Verification history" in page
+    assert "tracked since" in page and "2026-05-01" in page        # first-verified anchor
+    assert "ADOR → HYBE" in page and "as of 2026-05-08" in page    # the timestamped change event
+    assert "get_history(&quot;artist:newjeans&quot;)" in page      # machine-readable pointer
+    assert "/changes.json" in page                                 # full feed link
+
+
+def test_entity_page_hides_history_without_depth(tmp_path):
+    # A single verified snapshot (no temporal depth, no change) must NOT render a thin history section.
+    db = tempfile.mktemp(suffix=".db")
+    _snap(db, 1, "ADOR")
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=str(tmp_path / "site")))
+    page = (tmp_path / "site" / "artist" / "newjeans.html").read_text(encoding="utf-8")
+    assert "Verification history" not in page
