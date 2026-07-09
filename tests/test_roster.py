@@ -155,8 +155,8 @@ def test_roster_breadth():
     assert len(HERITAGE) >= 8 and len(FOLKLORE) >= 8
     assert len(MEDICAL) >= 6 and len(REGION) >= 15 and len(GAMES) >= 8
     assert len(SHOWS) >= 8 and len(ANIMATIONS) >= 6 and len(UNIVERSITIES) >= 8 and len(CLASSICS) >= 10
-    assert len(FASHION) >= 6 and len(FESTIVALS) >= 6 and len(AWARDS) >= 6 and len(HOLIDAYS) >= 6
-    assert len(LIQUORS) >= 6 and len(PARKS) >= 6 and len(MUSICALS) >= 6
+    assert len(FASHION) >= 6 and len(FESTIVALS) >= 6 and len(AWARDS) >= 12 and len(HOLIDAYS) >= 12
+    assert len(LIQUORS) >= 12 and len(PARKS) >= 20 and len(MUSICALS) >= 6
     assert len(SPORTS) >= 12 and len(ACTORS) >= 15 and len(SONGS) >= 8 and len(CONCEPTS) >= 12
     assert len(NAMES) >= 400
     assert len(NAMES) == sum(map(len, (ARTISTS, DRAMAS, FILMS, WEBTOONS, PLACES, FOODS, COMPANIES,

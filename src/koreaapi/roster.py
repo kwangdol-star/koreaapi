@@ -755,6 +755,14 @@ AWARDS = {
     "award:goldendisc": "Golden Disc Awards",
     "award:melon": "Melon Music Awards",
     "award:seoulmusic": "Seoul Music Awards",
+    "award:buil": "Buil Film Awards",
+    "award:chunsa": "Chunsa Film Art Awards",
+    "award:koreandrama": "Korea Drama Awards",
+    "award:asiaartist": "Asia Artist Awards",
+    "award:genie": "Genie Music Awards",
+    "award:kbsdrama": "KBS Drama Awards",
+    "award:mbcdrama": "MBC Drama Awards",
+    "award:circlechart": "Circle Chart Music Awards",
 }
 
 # Holiday vertical: Korean holidays & traditional observances (명절·기념일) — evergreen demand ("when is
@@ -769,6 +777,11 @@ HOLIDAYS = {
     "holiday:samiljeol": "Independence Movement Day",
     "holiday:gwangbokjeol": "National Liberation Day of Korea",
     "holiday:gaecheonjeol": "National Foundation Day",
+    "holiday:memorialday": "Memorial Day",
+    "holiday:hansik": "Hansik",
+    "holiday:dongji": "Dongji",
+    "holiday:chilseok": "Chilseok",
+    "holiday:sambok": "Sambok",
 }
 
 # Liquor vertical: Korean traditional liquor / drinks (전통주) — high demand ("what is makgeolli / soju?")
@@ -783,6 +796,12 @@ LIQUORS = {
     "liquor:munbaeju": "Munbaeju",
     "liquor:dongdongju": "Dongdongju",
     "liquor:baekseju": "Baekseju",
+    "liquor:yakju": "Yakju",
+    "liquor:insamju": "Insam-ju",
+    "liquor:maesilju": "Maesil-ju",
+    "liquor:jindohongju": "Jindo Hongju",
+    "liquor:igangju": "Igangju",
+    "liquor:gyodongbeopju": "Gyeongju Gyodong Beopju",
 }
 
 # National-park vertical: Korea's national parks (국립공원) — high tourist/hiking demand and strongly
@@ -797,6 +816,20 @@ PARKS = {
     "park:gyeongju": "Gyeongju National Park",
     "park:odaesan": "Odaesan National Park",
     "park:sobaeksan": "Sobaeksan National Park",
+    "park:gyeryongsan": "Gyeryongsan National Park",
+    "park:hallyeohaesang": "Hallyeohaesang National Park",
+    "park:songnisan": "Songnisan National Park",
+    "park:gayasan": "Gayasan National Park",
+    "park:deogyusan": "Deogyusan National Park",
+    "park:juwangsan": "Juwangsan National Park",
+    "park:taeanhaean": "Taeanhaean National Park",
+    "park:dadohaehaesang": "Dadohaehaesang National Park",
+    "park:chiaksan": "Chiaksan National Park",
+    "park:woraksan": "Woraksan National Park",
+    "park:byeonsanbando": "Byeonsanbando National Park",
+    "park:wolchulsan": "Wolchulsan National Park",
+    "park:mudeungsan": "Mudeungsan National Park",
+    "park:taebaeksan": "Taebaeksan National Park",
 }
 
 # Musical vertical: Korean original musical theater (뮤지컬) — a large domestic scene distinct from
