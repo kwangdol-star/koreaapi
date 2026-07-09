@@ -405,6 +405,11 @@ async def ingest_one(
                       + (f" Since {year}." if year else ""))
         summary_ko = (f"{name.ko} — 검증된 한국 시상식 (영화·음악 시상 행사)."
                       + (f" {year}년~." if year else ""))
+    elif kind == "facts" and entity_id.startswith("holiday:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        summary_en = f"{disp}{ko_part} — verified Korean holiday / traditional observance (명절·기념일)."
+        summary_ko = f"{name.ko} — 검증된 한국 명절 / 전통 기념일."
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

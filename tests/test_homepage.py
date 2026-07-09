@@ -96,8 +96,8 @@ def test_vertical_hub_pages_with_itemlist(tmp_path):
                                                     "food", "company", "brand", "book", "history",
                                                     "heritage", "folklore", "medical", "region",
                                                     "game", "show", "animation", "university",
-                                                    "classic", "fashion", "festival", "award", "people",
-                                                    "sports", "actor", "song", "concept"}
+                                                    "classic", "fashion", "festival", "award", "holiday",
+                                                    "people", "sports", "actor", "song", "concept"}
     films = (tmp_path / "site" / "films.html").read_text(encoding="utf-8")
     assert '"@type": "ItemList"' in films and '"@type": "BreadcrumbList"' in films
     assert "artist/parasite.html" in films          # hub links into the per-entity pages

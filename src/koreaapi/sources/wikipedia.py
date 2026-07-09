@@ -467,6 +467,14 @@ _TITLES = {
     "award:goldendisc": "Golden Disc Awards",
     "award:melon": "Melon Music Awards",
     "award:seoulmusic": "Seoul Music Awards",
+    "holiday:seollal": "Korean New Year",
+    "holiday:chuseok": "Chuseok",
+    "holiday:hangeulday": "Hangul Day",
+    "holiday:daeboreum": "Daeboreum",
+    "holiday:dano": "Dano (Korean festival)",
+    "holiday:samiljeol": "Independence Movement Day",
+    "holiday:gwangbokjeol": "National Liberation Day of Korea",
+    "holiday:gaecheonjeol": "National Foundation Day",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)

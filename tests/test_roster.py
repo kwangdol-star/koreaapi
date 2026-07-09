@@ -147,21 +147,21 @@ def test_roster_breadth():
     # Guard the asset's breadth (25 verticals, 400+ entities) so a bad edit that drops rows is caught.
     from koreaapi.roster import (ACTORS, ANIMATIONS, ARTISTS, AWARDS, BOOKS, BRANDS, CLASSICS, COMPANIES,
                                  CONCEPTS, DRAMAS, FASHION, FESTIVALS, FILMS, FOLKLORE, FOODS, GAMES,
-                                 HERITAGE, HISTORY, MEDICAL, NAMES, PLACES, REGION, SHOWS, SONGS, SPORTS,
-                                 UNIVERSITIES, WEBTOONS)
+                                 HERITAGE, HISTORY, HOLIDAYS, MEDICAL, NAMES, PLACES, REGION, SHOWS, SONGS,
+                                 SPORTS, UNIVERSITIES, WEBTOONS)
     assert len(ARTISTS) >= 50 and len(DRAMAS) >= 18 and len(FILMS) >= 15
     assert len(WEBTOONS) >= 5 and len(PLACES) >= 10 and len(FOODS) >= 12
     assert len(COMPANIES) >= 8 and len(BRANDS) >= 8 and len(BOOKS) >= 6 and len(HISTORY) >= 8
     assert len(HERITAGE) >= 8 and len(FOLKLORE) >= 8
     assert len(MEDICAL) >= 6 and len(REGION) >= 15 and len(GAMES) >= 8
     assert len(SHOWS) >= 8 and len(ANIMATIONS) >= 6 and len(UNIVERSITIES) >= 8 and len(CLASSICS) >= 10
-    assert len(FASHION) >= 6 and len(FESTIVALS) >= 6 and len(AWARDS) >= 6
+    assert len(FASHION) >= 6 and len(FESTIVALS) >= 6 and len(AWARDS) >= 6 and len(HOLIDAYS) >= 6
     assert len(SPORTS) >= 12 and len(ACTORS) >= 15 and len(SONGS) >= 8 and len(CONCEPTS) >= 12
     assert len(NAMES) >= 400
     assert len(NAMES) == sum(map(len, (ARTISTS, DRAMAS, FILMS, WEBTOONS, PLACES, FOODS, COMPANIES,
                                        BRANDS, BOOKS, HISTORY, HERITAGE, FOLKLORE, MEDICAL, REGION,
                                        GAMES, SHOWS, ANIMATIONS, UNIVERSITIES, CLASSICS, FASHION,
-                                       FESTIVALS, AWARDS, SPORTS, ACTORS, SONGS, CONCEPTS)))
+                                       FESTIVALS, AWARDS, HOLIDAYS, SPORTS, ACTORS, SONGS, CONCEPTS)))
 
 
 def test_food_editorial_tags_cover_every_dish():

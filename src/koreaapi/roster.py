@@ -757,6 +757,20 @@ AWARDS = {
     "award:seoulmusic": "Seoul Music Awards",
 }
 
+# Holiday vertical: Korean holidays & traditional observances (명절·기념일) — evergreen demand ("when is
+# Chuseok 2026?", "what is Seollal?") and strongly cross-verifiable (all carry Wikidata + Wikipedia).
+# `holiday:` -> name-anchored (recurring calendar day; no hub edge). Distinctive names (low collision).
+HOLIDAYS = {
+    "holiday:seollal": "Korean New Year",
+    "holiday:chuseok": "Chuseok",
+    "holiday:hangeulday": "Hangul Day",
+    "holiday:daeboreum": "Daeboreum",
+    "holiday:dano": "Dano",
+    "holiday:samiljeol": "Independence Movement Day",
+    "holiday:gwangbokjeol": "National Liberation Day of Korea",
+    "holiday:gaecheonjeol": "National Foundation Day",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -856,7 +870,7 @@ CONCEPTS = {
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
-         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS}
+         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

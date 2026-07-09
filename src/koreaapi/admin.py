@@ -693,6 +693,13 @@ def _entity_node_core(r) -> dict:
         if r.data.get("debut"):  # inception -> citable "when did X start?"
             node["foundingDate"] = r.data["debut"]
         return node
+    if r.entity_id.startswith("holiday:"):
+        # a Korean holiday / observance (명절·기념일): name-anchored, verified bilingual name + sameAs.
+        node = {"@type": "Thing", "name": name, "alternateName": alt,
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        return node
     if r.entity_id.startswith("medical:"):
         node = {"@type": "Hospital", "name": name, "alternateName": alt,
                 "description": desc, "dateModified": r.snapshot_at.isoformat()}
@@ -1909,6 +1916,7 @@ _VERTICALS = {
     "fashion": ("Korean fashion", "fashion.html", _ICON["fashion"], "Designer / owner"),
     "festival": ("Festivals", "festivals.html", _ICON["heritage"], "Location"),
     "award": ("Awards & ceremonies", "awards.html", _ICON["show"], "Type"),
+    "holiday": ("Holidays & observances", "holidays.html", _ICON["heritage"], "Type"),
     "sports": ("Athletes & esports", "sports.html", _ICON["sports"], "Team"),
     "actor": ("Korean actors", "actors.html", _ICON["actor"], "Works"),
     "song": ("K-pop songs", "songs.html", _ICON["song"], "Performer"),
@@ -2286,8 +2294,8 @@ _KO_VERTICAL = {  # ns -> Korean hub label
     "book": "한국 도서", "history": "한국사", "heritage": "문화유산·전통", "folklore": "설화·신화",
     "medical": "병원·의료", "region": "한국·지역", "game": "한국 게임", "show": "예능·방송",
     "animation": "애니메이션", "university": "대학교", "classic": "고전·기록", "fashion": "한국 패션",
-    "festival": "축제", "award": "시상식", "people": "인물", "sports": "스포츠 선수", "actor": "배우",
-    "song": "K-pop 곡", "concept": "문화 개념·정서",
+    "festival": "축제", "award": "시상식", "holiday": "명절·기념일", "people": "인물",
+    "sports": "스포츠 선수", "actor": "배우", "song": "K-pop 곡", "concept": "문화 개념·정서",
 }
 
 
@@ -3096,7 +3104,7 @@ _CORPUS_VERTICALS = [
     ("medical:", "Hospitals & medical"), ("region:", "Korea & regions"), ("game:", "Korean games"),
     ("show:", "Variety & TV shows"), ("animation:", "Animation"), ("university:", "Universities"),
     ("classic:", "Classics & records"), ("fashion:", "Korean fashion"), ("festival:", "Festivals"),
-    ("award:", "Awards & ceremonies"),
+    ("award:", "Awards & ceremonies"), ("holiday:", "Holidays & observances"),
     ("sports:", "Athletes & esports"), ("actor:", "Korean actors"), ("song:", "K-pop songs"),
     ("concept:", "K-culture concepts"),
 ]
