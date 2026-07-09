@@ -1112,6 +1112,16 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./universities.html">{_ICON['university']} Universities</a>
  <a class="pill" href="./classics.html">{_ICON['classic']} Classics</a>
  <a class="pill" href="./fashion.html">{_ICON['fashion']} Fashion</a>
+ <a class="pill" href="./festivals.html">{_ICON['heritage']} Festivals</a>
+ <a class="pill" href="./awards.html">{_ICON['show']} Awards</a>
+ <a class="pill" href="./holidays.html">{_ICON['heritage']} Holidays</a>
+ <a class="pill" href="./liquors.html">{_ICON['food']} Liquor</a>
+ <a class="pill" href="./parks.html">{_ICON['place']} Parks</a>
+ <a class="pill" href="./musicals.html">{_ICON['show']} Musicals</a>
+ <a class="pill" href="./sports.html">{_ICON['sports']} Athletes</a>
+ <a class="pill" href="./actors.html">{_ICON['actor']} Actors</a>
+ <a class="pill" href="./songs.html">{_ICON['song']} Songs</a>
+ <a class="pill" href="./concepts.html">{_ICON['concept']} Concepts</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
