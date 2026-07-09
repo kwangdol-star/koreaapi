@@ -940,15 +940,23 @@ def _report_row(entity_id: str, rec) -> str:
     )
 
 
-def _report_section(title: str, col2: str, items: list[tuple[str, object]]) -> str:
-    """A per-vertical table section (empty -> omitted, e.g. when a deploy's pull found none)."""
+def _report_section(title: str, col2: str, items: list[tuple[str, object]],
+                    *, more_url: str | None = None, cap: int = 18) -> str:
+    """A per-vertical table section (empty -> omitted). Capped to `cap` rows — the homepage is a
+    browsable PREVIEW, with a 'see all' link to the full hub page. This keeps the homepage light
+    (5000+ rows in one page stutters the browser) while the COMPLETE, crawlable list still lives on
+    /<vertical>.html + the sitemap + latest.json, so answer engines lose nothing."""
     if not items:
         return ""
-    rows = "".join(_report_row(eid, rec) for eid, rec in items)
+    rows = "".join(_report_row(eid, rec) for eid, rec in items[:cap])
+    more = ""
+    if more_url and len(items) > cap:
+        more = (f'<tr class=more><td colspan=6><a href="{more_url}">'
+                f'→ see all {len(items)} → {more_url}</a></td></tr>')
     return (f"<h2 class=sec>{title}</h2><div class=tablewrap><table>"
             f"<tr><th>Name (EN / KO / rom)</th><th>{col2}</th><th>Skill Score</th>"
             f"<th>Fresh</th><th>Sources (provenance)</th><th>Summary (EN)</th></tr>"
-            f"{rows}</table></div>")
+            f"{rows}{more}</table></div>")
 
 
 async def report_html(db_path: str | None = None, out_path: str = "report.html") -> str:
@@ -979,7 +987,9 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     person_nodes = [_person_node(name, people[name]["credits"]) for name, _s in ppl]
     people_block = ""
     if ppl:
-        chips = "".join(f'<a class="pchip" href="person/{s}.html">{html.escape(n)}</a>' for n, s in ppl)
+        chips = "".join(f'<a class="pchip" href="person/{s}.html">{html.escape(n)}</a>' for n, s in ppl[:72])
+        if len(ppl) > 72:  # preview only — the full person index is /people.html
+            chips += f'<a class="pchip" href="people.html">→ all {len(ppl)} people →</a>'
         people_block = f"<h2 class=sec>{_ICON['people']} Verified people ({len(ppl)})</h2><div class=pchips>{chips}</div>"
 
     # Labels & networks (the agency-hub axis) — chips to each /label/ hub.
@@ -990,7 +1000,9 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     labels_block = ""
     if label_items:
         lchips = "".join(f'<a class="pchip" href="label/{s}.html">{html.escape(n)} ({c})</a>'
-                         for n, s, c in label_items)
+                         for n, s, c in label_items[:60])
+        if len(label_items) > 60:  # preview only — every label hub is in the sitemap
+            lchips += f'<a class="pchip" href="sitemap.xml">→ all {len(label_items)} labels →</a>'
         labels_block = (f"<h2 class=sec>{_ICON['label']} Labels &amp; networks ({len(label_items)})</h2>"
                         f"<div class=pchips>{lchips}</div>")
 
@@ -999,8 +1011,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
     # one catalogue section per vertical (data-driven from _VERTICALS — adding a vertical needs no
     # edit here); the per-vertical count rides in each section header.
     sections = "".join(
-        _report_section(f"{emoji} {label} ({len(groups[ns])})", col2, groups[ns])
-        for ns, (label, _fname, emoji, col2) in _VERTICALS.items()
+        _report_section(f"{emoji} {label} ({len(groups[ns])})", col2, groups[ns], more_url=f"./{fname}")
+        for ns, (label, fname, emoji, col2) in _VERTICALS.items()
     ) + people_block + labels_block
 
     def _card(v: object, k: str) -> str:

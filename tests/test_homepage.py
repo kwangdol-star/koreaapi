@@ -43,6 +43,22 @@ def test_homepage_groups_by_vertical_and_surfaces_people():
     assert '"@type": "WebSite"' in t and '"@type": "Organization"' in t
 
 
+def test_homepage_caps_sections_to_a_preview():
+    # The homepage is a PREVIEW: each vertical section caps its rows and links to the full hub, so
+    # 5000+ entities don't stutter the browser (the complete crawlable list lives on /<vertical>.html).
+    import re
+    db = tempfile.mktemp(suffix=".db")
+    for i in range(20):
+        p = {"name_ko": f"가수{i}", "name_en_official": f"Artist {i:02d}", "name_en_source": "official"}
+        asyncio.run(ingest_one("facts", f"artist:test{i:02d}",
+                               [MockSource("Wikidata", p), MockSource("Wikipedia", p)], db_path=db))
+    out = tempfile.mktemp(suffix=".html")
+    asyncio.run(admin.report_html(db_path=db, out_path=out))
+    t = open(out, encoding="utf-8").read()
+    assert len(re.findall(r"artist/test\d\d\.html", t)) == 18   # capped preview (not all 20)
+    assert "see all 20" in t and "./artists.html" in t          # links to the full hub
+
+
 def test_entity_and_person_pages_have_social_meta_and_breadcrumb(tmp_path):
     db = tempfile.mktemp(suffix=".db")
     _seed(db)
