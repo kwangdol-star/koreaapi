@@ -263,6 +263,10 @@ _NS_PROPS = {
     "award": {"agency": None, "date": "P571", "date2": "P585", "members": None, "directors": None},
     # holiday / observance (명절·기념일): name-anchored (recurring calendar day; no hub / date edge).
     "holiday": {"agency": None, "date": None, "members": None, "directors": None},
+    # traditional liquor / drink (전통주): name-anchored + Wikidata sameAs (no hub / people edge).
+    "liquor": {"agency": None, "date": None, "members": None, "directors": None},
+    # national park (국립공원): located-in P131 (region) + designated P571 + coordinates P625 (map).
+    "park": {"agency": "P131", "date": "P571", "members": None, "directors": None},
     # region: country / administrative division — name-anchored (capital/population not modelled here).
     "region": {"agency": None, "date": None, "members": None, "directors": None},
     # game (Korean-developed video game): developer P178 as the studio edge, publication date P577.
@@ -382,7 +386,7 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         payload["attrs"] = extra_attrs
     if extra_label_qids:
         payload["extra_label_qids"] = extra_label_qids
-    if ns in ("place", "medical", "university"):  # physical locations -> coordinates (map + geo JSON-LD)
+    if ns in ("place", "medical", "university", "park"):  # physical locations -> coordinates (map + geo JSON-LD)
         coord = _claim_coord(item, "P625")
         if coord:
             payload["geo"] = {"lat": coord[0], "lon": coord[1]}

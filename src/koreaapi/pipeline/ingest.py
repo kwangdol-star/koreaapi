@@ -410,6 +410,22 @@ async def ingest_one(
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
         summary_en = f"{disp}{ko_part} — verified Korean holiday / traditional observance (명절·기념일)."
         summary_ko = f"{name.ko} — 검증된 한국 명절 / 전통 기념일."
+    elif kind == "facts" and entity_id.startswith("liquor:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        summary_en = f"{disp}{ko_part} — verified Korean traditional liquor / drink (전통주)."
+        summary_ko = f"{name.ko} — 검증된 한국 전통주 / 전통 음료."
+    elif kind == "facts" and entity_id.startswith("park:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        region = chosen.get("agency_en") or chosen.get("agency_ko")  # located-in (P131)
+        year = chosen.get("debut")  # designated (P571)
+        summary_en = (f"{disp}{ko_part} — verified Korean national park (국립공원)."
+                      + (f" In {region}." if region else "")
+                      + (f" Designated {year}." if year else ""))
+        summary_ko = (f"{name.ko} — 검증된 대한민국 국립공원."
+                      + (f" 위치: {region}." if region else "")
+                      + (f" {year}년 지정." if year else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

@@ -771,6 +771,34 @@ HOLIDAYS = {
     "holiday:gaecheonjeol": "National Foundation Day",
 }
 
+# Liquor vertical: Korean traditional liquor / drinks (전통주) — high demand ("what is makgeolli / soju?")
+# and cross-verifiable (Wikidata + Wikipedia). `liquor:` -> name-anchored (no hub edge). Distinct from
+# food: (dishes). Distinctive names (low collision).
+LIQUORS = {
+    "liquor:soju": "Soju",
+    "liquor:makgeolli": "Makgeolli",
+    "liquor:cheongju": "Cheongju",
+    "liquor:bokbunjaju": "Bokbunja-ju",
+    "liquor:andongsoju": "Andong soju",
+    "liquor:munbaeju": "Munbaeju",
+    "liquor:dongdongju": "Dongdongju",
+    "liquor:baekseju": "Baekseju",
+}
+
+# National-park vertical: Korea's national parks (국립공원) — high tourist/hiking demand and strongly
+# cross-verifiable (all carry Wikidata + Wikipedia + coordinates). `park:` -> located-in region (P131)
+# + established (P571) + coordinates (P625, map). Distinctive names (low collision).
+PARKS = {
+    "park:seoraksan": "Seoraksan National Park",
+    "park:jirisan": "Jirisan National Park",
+    "park:hallasan": "Hallasan National Park",
+    "park:bukhansan": "Bukhansan National Park",
+    "park:naejangsan": "Naejangsan National Park",
+    "park:gyeongju": "Gyeongju National Park",
+    "park:odaesan": "Odaesan National Park",
+    "park:sobaeksan": "Sobaeksan National Park",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -870,7 +898,7 @@ CONCEPTS = {
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
-         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS}
+         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
