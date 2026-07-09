@@ -832,17 +832,14 @@ PARKS = {
     "park:taebaeksan": "Taebaeksan National Park",
 }
 
-# Musical vertical: Korean original musical theater (뮤지컬) — a large domestic scene distinct from
-# drama/film. `musical:` -> premiere (P1191); name-anchored. Cross-verifiable where an English
-# Wikidata/Wikipedia entity exists (originals with thinner EN coverage simply drop on the live pull).
+# Musical vertical: Korean original musical theater (뮤지컬). English name-search is UNSAFE — Korean
+# musicals collide with same-English-name WESTERN musicals (Hero -> an Australian rock musical) AND with
+# same-name Korean FILMS (김종욱 찾기, 서편제 the 1993 film), so an unpinned seed verifies the WRONG entity.
+# Each entry must be pinned by a verified musical Q-id in sources/wikidata.py (_CURATED) — or have a
+# collision-free English name (Maybe Happy Ending). Grow this ONLY with verified musical Q-ids.
 MUSICALS = {
-    "musical:thelastempress": "The Last Empress",
-    "musical:hero": "Hero",
-    "musical:seopyeonje": "Seopyeonje",
-    "musical:frankenstein": "Frankenstein",
-    "musical:gwanghwamun": "Gwanghwamun Sonata",
-    "musical:ppallae": "Ppallae",
-    "musical:maybe": "Maybe Happy Ending",
+    "musical:thelastempress": "The Last Empress",   # pinned _CURATED -> Q7745739 (verified musical)
+    "musical:maybe": "Maybe Happy Ending",           # collision-free name (어쩌면 해피엔딩; Broadway 2024)
 }
 
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,

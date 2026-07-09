@@ -525,11 +525,6 @@ _TITLES = {
     "park:mudeungsan": "Mudeungsan National Park",
     "park:taebaeksan": "Taebaeksan National Park",
     "musical:thelastempress": "The Last Empress (musical)",
-    "musical:hero": "Hero (musical)",
-    "musical:seopyeonje": "Seopyeonje (musical)",
-    "musical:frankenstein": "Frankenstein (2014 musical)",
-    "musical:gwanghwamun": "Gwanghwamun Sonata",
-    "musical:ppallae": "Ppallae",
     "musical:maybe": "Maybe Happy Ending",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",

@@ -91,10 +91,11 @@ _CURATED = {
     # to 기생충 the organism (which shares both names). A wrong qid would be caught by the guard -> miss.
     "film:parasite": {"qid": "Q61448040", "ko": "기생충", "en": "Parasite"},
     "film:oldboy": {"ko": "올드보이", "en": "Oldboy"},
-    # Musicals collide with the same-named FILM/novel (김종욱 찾기 the film, 프랑켄슈타인 the novel, 서편제 the
-    # 1993 film) — pin the MUSICAL by VERIFIED Q-id so live search can't drift to the film. (These two
-    # Q-ids are confirmed to resolve to the musical; add more here as their musical Q-ids are verified.)
-    "musical:hero": {"qid": "Q5742606", "ko": "영웅", "en": "Hero"},
+    # Musicals: English name-search is UNSAFE — Korean musicals collide with same-English-name WESTERN
+    # musicals (Hero -> an Australian rock musical, Q5742606) AND same-name Korean FILMS/novels (김종욱 찾기
+    # the film, 서편제 the 1993 film). So each MUST be pinned by a VERIFIED musical Q-id here. Only The Last
+    # Empress is confirmed so far (Wikipedia abstract: "a Korean musical about Empress Myeongseong"); add
+    # more ONLY with a verified musical Q-id (not the film/novel/foreign-musical of the same name).
     "musical:thelastempress": {"qid": "Q7745739", "ko": "명성황후", "en": "The Last Empress"},
     # Batch 2 — collision-prone names (a real word / real person shares the English): bilingual pin so
     # the strict KO guard rejects the impostor. No qid -> resolved live by search, then guarded.
