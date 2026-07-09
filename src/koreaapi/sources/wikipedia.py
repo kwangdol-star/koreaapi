@@ -530,7 +530,7 @@ _TITLES = {
     "musical:frankenstein": "Frankenstein (2014 musical)",
     "musical:gwanghwamun": "Gwanghwamun Sonata",
     "musical:ppallae": "Ppallae",
-    "musical:findingmrdestiny": "Finding Mr. Destiny",
+    "musical:maybe": "Maybe Happy Ending",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)

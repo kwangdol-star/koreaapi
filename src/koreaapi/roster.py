@@ -842,7 +842,7 @@ MUSICALS = {
     "musical:frankenstein": "Frankenstein",
     "musical:gwanghwamun": "Gwanghwamun Sonata",
     "musical:ppallae": "Ppallae",
-    "musical:findingmrdestiny": "Finding Mr. Destiny",
+    "musical:maybe": "Maybe Happy Ending",
 }
 
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
