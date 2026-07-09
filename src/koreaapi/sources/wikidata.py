@@ -267,6 +267,8 @@ _NS_PROPS = {
     "liquor": {"agency": None, "date": None, "members": None, "directors": None},
     # national park (국립공원): located-in P131 (region) + designated P571 + coordinates P625 (map).
     "park": {"agency": "P131", "date": "P571", "members": None, "directors": None},
+    # musical (뮤지컬): premiere P1191 (else publication P577); name-anchored, no hub / people edge.
+    "musical": {"agency": None, "date": "P1191", "date2": "P577", "members": None, "directors": None},
     # region: country / administrative division — name-anchored (capital/population not modelled here).
     "region": {"agency": None, "date": None, "members": None, "directors": None},
     # game (Korean-developed video game): developer P178 as the studio edge, publication date P577.

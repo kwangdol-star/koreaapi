@@ -652,6 +652,15 @@ def _entity_node_core(r) -> dict:
         if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
             node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
         return node
+    if r.entity_id.startswith("musical:"):
+        # a Korean musical (뮤지컬): CreativeWork + sameAs + premiere date.
+        node = {"@type": "CreativeWork", "name": name, "alternateName": alt,
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        if r.data.get("debut"):  # premiere -> citable "when did X premiere?"
+            node["datePublished"] = r.data["debut"]
+        return node
     if r.entity_id.startswith("company:"):
         node = {"@type": "Organization", "name": name, "alternateName": alt,
                 "description": desc, "dateModified": r.snapshot_at.isoformat()}
@@ -1939,6 +1948,7 @@ _VERTICALS = {
     "holiday": ("Holidays & observances", "holidays.html", _ICON["heritage"], "Type"),
     "liquor": ("Traditional liquor", "liquors.html", _ICON["food"], "Type"),
     "park": ("National parks", "parks.html", _ICON["place"], "Region"),
+    "musical": ("Musicals", "musicals.html", _ICON["show"], "Premiere"),
     "sports": ("Athletes & esports", "sports.html", _ICON["sports"], "Team"),
     "actor": ("Korean actors", "actors.html", _ICON["actor"], "Works"),
     "song": ("K-pop songs", "songs.html", _ICON["song"], "Performer"),
@@ -2317,7 +2327,8 @@ _KO_VERTICAL = {  # ns -> Korean hub label
     "medical": "병원·의료", "region": "한국·지역", "game": "한국 게임", "show": "예능·방송",
     "animation": "애니메이션", "university": "대학교", "classic": "고전·기록", "fashion": "한국 패션",
     "festival": "축제", "award": "시상식", "holiday": "명절·기념일", "liquor": "전통주", "park": "국립공원",
-    "people": "인물", "sports": "스포츠 선수", "actor": "배우", "song": "K-pop 곡", "concept": "문화 개념·정서",
+    "musical": "뮤지컬", "people": "인물", "sports": "스포츠 선수", "actor": "배우", "song": "K-pop 곡",
+    "concept": "문화 개념·정서",
 }
 
 
@@ -3127,7 +3138,7 @@ _CORPUS_VERTICALS = [
     ("show:", "Variety & TV shows"), ("animation:", "Animation"), ("university:", "Universities"),
     ("classic:", "Classics & records"), ("fashion:", "Korean fashion"), ("festival:", "Festivals"),
     ("award:", "Awards & ceremonies"), ("holiday:", "Holidays & observances"),
-    ("liquor:", "Traditional liquor"), ("park:", "National parks"),
+    ("liquor:", "Traditional liquor"), ("park:", "National parks"), ("musical:", "Musicals"),
     ("sports:", "Athletes & esports"), ("actor:", "Korean actors"), ("song:", "K-pop songs"),
     ("concept:", "K-culture concepts"),
 ]

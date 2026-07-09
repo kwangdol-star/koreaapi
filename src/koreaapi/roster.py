@@ -799,6 +799,19 @@ PARKS = {
     "park:sobaeksan": "Sobaeksan National Park",
 }
 
+# Musical vertical: Korean original musical theater (뮤지컬) — a large domestic scene distinct from
+# drama/film. `musical:` -> premiere (P1191); name-anchored. Cross-verifiable where an English
+# Wikidata/Wikipedia entity exists (originals with thinner EN coverage simply drop on the live pull).
+MUSICALS = {
+    "musical:thelastempress": "The Last Empress",
+    "musical:hero": "Hero",
+    "musical:seopyeonje": "Seopyeonje",
+    "musical:frankenstein": "Frankenstein",
+    "musical:gwanghwamun": "Gwanghwamun Sonata",
+    "musical:ppallae": "Ppallae",
+    "musical:findingmrdestiny": "Finding Mr. Destiny",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -898,7 +911,7 @@ CONCEPTS = {
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
-         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS}
+         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS, **MUSICALS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
