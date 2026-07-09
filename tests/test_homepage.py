@@ -59,6 +59,21 @@ def test_homepage_caps_sections_to_a_preview():
     assert "see all 20" in t and "./artists.html" in t          # links to the full hub
 
 
+def test_entity_page_has_embeddable_verified_badge(tmp_path):
+    # The citation flywheel as a viral artifact: a static SVG badge per entity + a copy-paste embed
+    # snippet on the page (backlink + via-KoreaAPI mark that spreads the citation standard).
+    import os
+    db = tempfile.mktemp(suffix=".db")
+    _seed(db)
+    out_dir = str(tmp_path / "site")
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
+    assert os.path.exists(os.path.join(out_dir, "badge", "parasite.svg"))   # static badge written
+    svg = open(os.path.join(out_dir, "badge", "parasite.svg"), encoding="utf-8").read()
+    assert svg.startswith("<svg") and "KoreaAPI" in svg
+    page = (tmp_path / "site" / "artist" / "parasite.html").read_text(encoding="utf-8")
+    assert "Verified badge" in page and "/badge/parasite.svg" in page       # inline + embed snippet
+
+
 def test_entity_and_person_pages_have_social_meta_and_breadcrumb(tmp_path):
     db = tempfile.mktemp(suffix=".db")
     _seed(db)

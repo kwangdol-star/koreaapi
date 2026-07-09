@@ -42,6 +42,7 @@ import sys
 from datetime import datetime, timezone
 
 from . import answers, integrity
+from .badge import badge_svg, tier_of
 from .license import LICENSE
 from .models import Record
 from .payments.stripe import PLANS as _PRICING_PLANS
@@ -1736,7 +1737,8 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
                        qas: list[tuple[str, str]], jsonld: str, *,
                        entity_slugs: set | None = None, linked: set | None = None,
                        related: list[tuple[str, str]] | None = None,
-                       label_url: str | None = None, history: dict | None = None) -> None:
+                       label_url: str | None = None, history: dict | None = None,
+                       badge: str | None = None) -> None:
     entity_slugs, linked, related = entity_slugs or set(), linked or set(), related or []
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
     content_hash = integrity.record_fingerprint(json.loads(primary.model_dump_json()))  # checkable row id
@@ -1827,6 +1829,19 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
             f"<p class=rom>Append-only, timestamped — the record of WHEN a fact changed, which a "
             f"latecomer cannot backfill. Full feed: <a href=\"../changes.json\">/changes.json</a> · "
             f"machine-readable: get_history(&quot;{html.escape(primary.entity_id)}&quot;).</p>")
+    # Embeddable trust badge (SVG written per entity) — shown inline + a copy-paste embed snippet, so any
+    # site / rights-holder can display "Verified by KoreaAPI": every embed is a backlink + a via-KoreaAPI
+    # citation that spreads the citation standard (and a certified rights-holder's visible blue check).
+    badge_block = ""
+    if badge:
+        bsvg = f"{_SITE_BASE}/badge/{slug}.svg"
+        embed_html = html.escape(f'<a href="{url}"><img src="{bsvg}" alt="Verified by KoreaAPI"></a>')
+        embed_md = html.escape(f'[![Verified by KoreaAPI]({bsvg})]({url})')
+        badge_block = (
+            f"<h2>Verified badge</h2><p>{badge}</p>"
+            f"<p class=rom>Embed it — the badge shows this entity’s verification tier + Skill Score and links "
+            f"back here (a “via KoreaAPI” citation):</p>"
+            f"<pre class=embed>{embed_html}</pre><pre class=embed>{embed_md}</pre>")
     # Institutional certification — the tier ABOVE cross-verification (an org vouched; non-replicable).
     cert = CERTIFIED.get(primary.entity_id)
     cert_badge = f" · 🏅 officially certified by {html.escape(cert['by'])}" if cert else ""
@@ -1898,6 +1913,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {cert_block}
 {sources_block}
 {history_block}
+{badge_block}
 {rel_block}
 <div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span><br><span class=rom>SHA-256: {content_hash} · verify at <a href="../integrity.json">/integrity.json</a></span></div>
 <footer>Provenance: {src} · Skill Score {sc:.2f} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
@@ -2847,6 +2863,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     os.makedirs(os.path.join(out_dir, "label"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "ko", "artist"), exist_ok=True)  # Korean answer pages (hreflang)
     os.makedirs(os.path.join(out_dir, "ko", "person"), exist_ok=True)
+    os.makedirs(os.path.join(out_dir, "badge"), exist_ok=True)  # embeddable "Verified by KoreaAPI" SVG badges
     written: list[dict] = []
     written_slugs: set[str] = set()
     ko_written: list[tuple[str, str]] = []  # (slug, ko_name) for the Korean home + counts
@@ -2868,9 +2885,15 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         ag = primary.data.get("agency_en") or primary.data.get("agency_ko")
         ag_slug = _person_slug(ag) if ag else ""
         label_url = f"../label/{ag_slug}.html" if ag_slug in label_slugs else None  # link to label hub
+        # Embeddable "Verified by KoreaAPI" badge (SVG) — the citation flywheel as a viral artifact:
+        # every embed is a backlink + a via-KoreaAPI mark; certified rights-holders get a visible check.
+        tier = tier_of(getattr(primary.provenance, "agreeing_sources", 0), bool(CERTIFIED.get(entity_id)))
+        svg = badge_svg(tier, primary.provenance.skill_score)
+        with open(os.path.join(out_dir, "badge", f"{slug}.svg"), "w", encoding="utf-8") as bf:
+            bf.write(svg)
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
                            entity_slugs=entity_slugs, linked=linked, related=related, label_url=label_url,
-                           history=histories.get(entity_id))
+                           history=histories.get(entity_id), badge=svg)
         _write_entity_html_ko(out_dir, slug, url, primary,  # Korean-led counterpart (/ko/artist/…)
                               history=histories.get(entity_id))
         ko_written.append((slug, primary.name.ko or name))

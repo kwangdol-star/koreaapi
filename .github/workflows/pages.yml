@@ -93,6 +93,7 @@ jobs:
           cp CNAME _site/CNAME   # bind the custom domain (aiagentlabs.co.kr) on every deploy — the GEO authority host
           cp googleb476fa8c4c3cccf0.html _site/   # Google Search Console site verification (file method)
           cp -r site/artist _site/artist   # per-entity citable answer pages (/artist/<slug>.html)
+          cp -r site/badge _site/badge   # embeddable "Verified by KoreaAPI" SVG badges (/badge/<slug>.svg)
           cp -r site/ko _site/ko   # Korean-led answer pages + /ko/ home (hreflang, 네이버/국내 질의)
           cp site/methodology.html site/for-agents.html site/agents.json site/pricing.html site/certify.html _site/   # trust + quickstart + manifest + pricing + certify storefront
           cp -r site/person _site/person   # per-person credit pages (/person/<slug>.html)
