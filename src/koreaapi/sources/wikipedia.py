@@ -524,8 +524,6 @@ _TITLES = {
     "park:wolchulsan": "Wolchulsan National Park",
     "park:mudeungsan": "Mudeungsan National Park",
     "park:taebaeksan": "Taebaeksan National Park",
-    "musical:thelastempress": "The Last Empress (musical)",
-    "musical:maybe": "Maybe Happy Ending",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)

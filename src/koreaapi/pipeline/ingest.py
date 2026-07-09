@@ -426,14 +426,6 @@ async def ingest_one(
         summary_ko = (f"{name.ko} — 검증된 대한민국 국립공원."
                       + (f" 위치: {region}." if region else "")
                       + (f" {year}년 지정." if year else ""))
-    elif kind == "facts" and entity_id.startswith("musical:"):
-        disp = name.en_official or name.ko
-        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
-        year = chosen.get("debut")  # premiere (P1191)
-        summary_en = (f"{disp}{ko_part} — verified Korean musical (뮤지컬)."
-                      + (f" Premiered {year}." if year else ""))
-        summary_ko = (f"{name.ko} — 검증된 한국 창작 뮤지컬."
-                      + (f" {year}년 초연." if year else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""

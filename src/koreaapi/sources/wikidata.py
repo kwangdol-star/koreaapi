@@ -91,12 +91,6 @@ _CURATED = {
     # to 기생충 the organism (which shares both names). A wrong qid would be caught by the guard -> miss.
     "film:parasite": {"qid": "Q61448040", "ko": "기생충", "en": "Parasite"},
     "film:oldboy": {"ko": "올드보이", "en": "Oldboy"},
-    # Musicals: English name-search is UNSAFE — Korean musicals collide with same-English-name WESTERN
-    # musicals (Hero -> an Australian rock musical, Q5742606) AND same-name Korean FILMS/novels (김종욱 찾기
-    # the film, 서편제 the 1993 film). So each MUST be pinned by a VERIFIED musical Q-id here. Only The Last
-    # Empress is confirmed so far (Wikipedia abstract: "a Korean musical about Empress Myeongseong"); add
-    # more ONLY with a verified musical Q-id (not the film/novel/foreign-musical of the same name).
-    "musical:thelastempress": {"qid": "Q7745739", "ko": "명성황후", "en": "The Last Empress"},
     # Batch 2 — collision-prone names (a real word / real person shares the English): bilingual pin so
     # the strict KO guard rejects the impostor. No qid -> resolved live by search, then guarded.
     "artist:kissoflife": {"ko": "키스오브라이프", "en": "Kiss of Life", "agency": "S2"},
@@ -273,8 +267,6 @@ _NS_PROPS = {
     "liquor": {"agency": None, "date": None, "members": None, "directors": None},
     # national park (국립공원): located-in P131 (region) + designated P571 + coordinates P625 (map).
     "park": {"agency": "P131", "date": "P571", "members": None, "directors": None},
-    # musical (뮤지컬): premiere P1191 (else publication P577); name-anchored, no hub / people edge.
-    "musical": {"agency": None, "date": "P1191", "date2": "P577", "members": None, "directors": None},
     # region: country / administrative division — name-anchored (capital/population not modelled here).
     "region": {"agency": None, "date": None, "members": None, "directors": None},
     # game (Korean-developed video game): developer P178 as the studio edge, publication date P577.

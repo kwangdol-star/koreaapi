@@ -832,16 +832,6 @@ PARKS = {
     "park:taebaeksan": "Taebaeksan National Park",
 }
 
-# Musical vertical: Korean original musical theater (뮤지컬). English name-search is UNSAFE — Korean
-# musicals collide with same-English-name WESTERN musicals (Hero -> an Australian rock musical) AND with
-# same-name Korean FILMS (김종욱 찾기, 서편제 the 1993 film), so an unpinned seed verifies the WRONG entity.
-# Each entry must be pinned by a verified musical Q-id in sources/wikidata.py (_CURATED) — or have a
-# collision-free English name (Maybe Happy Ending). Grow this ONLY with verified musical Q-ids.
-MUSICALS = {
-    "musical:thelastempress": "The Last Empress",   # pinned _CURATED -> Q7745739 (verified musical)
-    "musical:maybe": "Maybe Happy Ending",           # collision-free name (어쩌면 해피엔딩; Broadway 2024)
-}
-
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -941,7 +931,7 @@ CONCEPTS = {
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
-         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS, **MUSICALS}
+         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

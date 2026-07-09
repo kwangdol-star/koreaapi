@@ -94,7 +94,7 @@ jobs:
           cp site/methodology.html site/for-agents.html site/agents.json site/pricing.html site/certify.html _site/   # trust + quickstart + manifest + pricing + certify storefront
           cp -r site/person _site/person   # per-person credit pages (/person/<slug>.html)
           cp -r site/label _site/label   # per-label/agency/network hub pages (/label/<slug>.html)
-          cp site/artists.html site/dramas.html site/films.html site/webtoons.html site/places.html site/food.html site/companies.html site/brands.html site/books.html site/history.html site/heritage.html site/folklore.html site/medical.html site/regions.html site/games.html site/shows.html site/animation.html site/universities.html site/classics.html site/fashion.html site/festivals.html site/awards.html site/holidays.html site/liquors.html site/parks.html site/musicals.html site/sports.html site/actors.html site/songs.html site/concepts.html site/people.html _site/   # vertical hub pages (ItemList)
+          cp site/artists.html site/dramas.html site/films.html site/webtoons.html site/places.html site/food.html site/companies.html site/brands.html site/books.html site/history.html site/heritage.html site/folklore.html site/medical.html site/regions.html site/games.html site/shows.html site/animation.html site/universities.html site/classics.html site/fashion.html site/festivals.html site/awards.html site/holidays.html site/liquors.html site/parks.html site/sports.html site/actors.html site/songs.html site/concepts.html site/people.html _site/   # vertical hub pages (ItemList)
           uv run python -m koreaapi.admin sitemap   # sitemap.xml incl. every entity + person page (daily lastmod)
           cp sitemap.xml _site/sitemap.xml
 
