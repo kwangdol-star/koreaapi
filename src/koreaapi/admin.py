@@ -436,6 +436,11 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
                    "note": ("official rights-holder certifications — the tier above cross-verification; an "
                             "institution vouched (a latecomer cannot forge or backdate it)")},
                   f, ensure_ascii=False, indent=2)
+    # OpenAPI 3.1 spec — the HTTP API contract, published static so the whole OpenAPI ecosystem (ChatGPT
+    # Actions, LangChain tools, generated clients) can auto-consume KoreaAPI, not just MCP clients.
+    from .api import openapi_spec
+    with open(os.path.join(out_dir, "openapi.json"), "w", encoding="utf-8") as f:
+        json.dump(openapi_spec(), f, ensure_ascii=False, indent=2)
     # Publish the integrity manifest: the whole-dataset fingerprint + the append-only history chain head,
     # plus a best-effort EXTERNAL anchor of the head to Bitcoin (OpenTimestamps — free, keyless).
     dh = integrity.dataset_hash(latest_list)
@@ -1155,6 +1160,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./concepts.html">{_ICON['concept']} Concepts</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
+ <a class="pill" href="./openapi.json">/openapi.json · OpenAPI 3.1</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
  <a class="pill" href="./llms-full.txt">/llms-full.txt · full corpus</a>
  <a class="pill" href="./korea-rising.md">/korea-rising.md · digest</a>
@@ -2566,6 +2572,7 @@ def _agents_manifest() -> dict:
         },
         "data": {
             "open_json": f"{_SITE_BASE}/latest.json",
+            "openapi": f"{_SITE_BASE}/openapi.json",  # OpenAPI 3.1 — auto-consumable HTTP API contract
             "changes_feed": f"{_SITE_BASE}/changes.json",  # verified change events (소속사 moves, renames)
             "certified_feed": f"{_SITE_BASE}/certified.json",  # official rights-holder certifications (supply-side)
             "llms_txt": f"{_SITE_BASE}/llms.txt",

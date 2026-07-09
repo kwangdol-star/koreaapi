@@ -23,9 +23,111 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from . import answers, service
+from .license import LICENSE
 from .payments import stripe, x402
 
 PREMIUM_DESC = "KoreaAPI korea-rising — verified Korean-culture demand signal (queries + buy-intent)"
+
+_OK = {"200": {"description": ("verified JSON — carries provenance (which independent sources agreed), a "
+                              "Skill Score (0–1), a ready cite line, and the machine-readable license.")}}
+
+
+def _op(summary: str, description: str, params: list | None = None, extra: dict | None = None) -> dict:
+    op = {"summary": summary, "description": description, "responses": dict(_OK)}
+    if params:
+        op["parameters"] = params
+    if extra:
+        op["responses"] = {**op["responses"], **extra}
+    return {"get": op}
+
+
+def _pp(name: str, example: str) -> dict:  # path parameter
+    return {"name": name, "in": "path", "required": True, "schema": {"type": "string"}, "example": example}
+
+
+def _qp(name: str, typ: str = "string", desc: str = "") -> dict:  # query parameter (optional)
+    return {"name": name, "in": "query", "required": False, "description": desc, "schema": {"type": typ}}
+
+
+def openapi_spec() -> dict:
+    """OpenAPI 3.1 description of the HTTP API — so KoreaAPI is auto-consumable by the whole OpenAPI
+    ecosystem (ChatGPT Actions, LangChain tools, generated clients): 'callable by any AI agent' beyond
+    MCP. Served at GET /openapi.json and published static (crawl-discoverable)."""
+    return {
+        "openapi": "3.1.0",
+        "info": {
+            "title": "KoreaAPI",
+            "summary": "The verifiable data layer for Korean culture — callable by any AI agent.",
+            "description": ("Verified, bilingual Korean-culture data. Every response carries provenance (which "
+                            "independent sources agreed), a Skill Score (0–1), and a machine-readable license. "
+                            "Free verified endpoints are open (crawl + cite them); the korea-rising demand "
+                            "signal is x402-metered (USDC on Base)."),
+            "version": "1.0",
+            "license": {"name": LICENSE["id"], "url": LICENSE["url"]},
+            "x-attribution": LICENSE["attribution"],
+            "contact": {"url": "https://aiagentlabs.co.kr/for-agents.html"},
+        },
+        "servers": [{"url": "/", "description": "the live KoreaAPI HTTP host"}],
+        "paths": {
+            "/v1/verified/{entity_id}": _op(
+                "Cross-verification status of an entity",
+                "How many INDEPENDENT sources agreed + Skill Score + cross/triple-verified flags — decide "
+                "trust before citing.", [_pp("entity_id", "artist:bts")]),
+            "/v1/resolve/{query}": _op(
+                "Resolve a name / external ID to the canonical verified entity",
+                "Map a fuzzy Korean name, a Wikidata Q-id, or an entity_id onto THE trusted entity (with "
+                "sameAs) before citing.", [_pp("query", "빈센조")]),
+            "/v1/artist/{artist_id}": _op(
+                "Latest verified artist status", "Comeback / chart / agency, with provenance.",
+                [_pp("artist_id", "artist:bts")]),
+            "/v1/person/{name}": _op(
+                "Verified credits for a person", "What a director / actor / idol member is credited on.",
+                [_pp("name", "Bong Joon-ho")]),
+            "/v1/related/{entity_id}": _op(
+                "Related entities via the same hub edge", "Same 소속사 (artists) or network (drama / film).",
+                [_pp("entity_id", "artist:bts")]),
+            "/v1/agency/{name}": _op(
+                "Artists under a Korean agency / label (소속사)", "The agency roster, cross-verified.",
+                [_pp("name", "HYBE")]),
+            "/v1/calendar": _op(
+                "Recent verified K-culture events", "Comebacks, releases, concerts.",
+                [_qp("window_days", "integer", "advisory window (Phase 1)")]),
+            "/v1/history/{entity_id}": _op(
+                "Append-only verified timeline + change events (the time moat)",
+                "First / last verified, snapshot count, and the change events (소속사 A→B, renames) a latecomer "
+                "cannot backfill.", [_pp("entity_id", "artist:bts")]),
+            "/v1/changes": _op(
+                "Recent verified changes across K-culture (the freshness feed)",
+                "소속사 moves and renames, newest first — exactly what stale models get wrong.",
+                [_qp("limit", "integer", "max changes (default 50)")]),
+            "/v1/certified": _op(
+                "Officially certified entities (the tier above cross-verification)",
+                "Entities an official rights-holder has vouched for — the strongest citation signal."),
+            "/v1/metrics": _op(
+                "Agent-consumption metrics",
+                "How much agents have pulled KoreaAPI — usage totals + the most-requested signals."),
+            "/v1/buy-options/{item}": _op(
+                "Verify-official → purchase gateway",
+                "Confirm the item is the REAL, cross-verified entity before a purchase; logs buy-intent.",
+                [_pp("item", "artist:bts")]),
+            "/v1/answer": _op(
+                "Answer Products — named, citable decisions over the verified store",
+                "No params → the catalog; ?product=&q= runs one decision; ?q= runs all.",
+                [_qp("product", "string", "e.g. canonical-name, fact-check, identity-resolve"),
+                 _qp("q", "string", "the query")]),
+            "/v1/korea-rising": {"get": {
+                "summary": "PREMIUM — Korea-rising verified demand signal (x402-metered)",
+                "description": ("The proprietary demand signal (queries + buy-intent). Metered per call via "
+                                "x402 (USDC on Base): send the request, and on HTTP 402 pay per the challenge "
+                                "and retry with an X-PAYMENT header. Served free while the receiving wallet is "
+                                "unset (dormant)."),
+                "parameters": [_qp("category", "string", "a vertical or 'all'"),
+                               _qp("limit", "integer", "top-N (default 10)")],
+                "responses": {**_OK, "402": {"description": ("Payment Required — x402 challenge (pay USDC on "
+                                                            "Base, retry with X-PAYMENT)")}},
+            }},
+        },
+    }
 
 
 def _int(request: Request, name: str, default: int) -> int:
@@ -173,6 +275,7 @@ async def index(request: Request) -> JSONResponse:
             "GET /v1/certified": "entities officially certified by their rights-holder (the tier above cross-verification)",
             "GET /v1/metrics": "how much agents have consumed KoreaAPI (usage totals + most-requested signals)",
             "GET /v1/answer": "Answer Products catalog; ?product=&q= runs one decision, ?q= runs all",
+            "GET /openapi.json": "OpenAPI 3.1 spec — auto-generate a client (ChatGPT Actions, LangChain, …)",
         },
         "premium_x402": {
             "endpoint": "GET /v1/korea-rising",
@@ -186,9 +289,14 @@ async def index(request: Request) -> JSONResponse:
     })
 
 
+async def openapi(request: Request) -> JSONResponse:
+    return JSONResponse(openapi_spec())
+
+
 routes = [
     Route("/", index),
     Route("/healthz", health),
+    Route("/openapi.json", openapi),
     Route("/v1/verified/{entity_id}", verified),
     Route("/v1/artist/{artist_id}", artist),
     Route("/v1/person/{name}", person),

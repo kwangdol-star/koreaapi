@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import tempfile
 
 import pytest
 
@@ -125,6 +126,35 @@ def test_bad_int_query_param_does_not_500(monkeypatch, tmp_path):
     c = _client(monkeypatch, tmp_path)
     assert c.get("/v1/changes?limit=abc").status_code == 200
     assert c.get("/v1/calendar?window_days=xyz").status_code == 200
+
+
+def test_openapi_spec_is_valid_and_served(monkeypatch, tmp_path):
+    # 'callable by any AI agent' beyond MCP: a valid OpenAPI 3.1 spec the OpenAPI ecosystem auto-consumes.
+    from koreaapi.api import openapi_spec
+    spec = openapi_spec()
+    assert spec["openapi"].startswith("3.1")
+    assert spec["info"]["title"] == "KoreaAPI" and spec["info"]["license"]["name"] == "CC-BY-4.0"
+    assert "/v1/verified/{entity_id}" in spec["paths"] and "/v1/resolve/{query}" in spec["paths"]
+    assert "402" in spec["paths"]["/v1/korea-rising"]["get"]["responses"]  # the x402 premium is documented
+    r = _client(monkeypatch, tmp_path).get("/openapi.json")               # served live
+    assert r.status_code == 200 and r.json()["openapi"].startswith("3.1")
+
+
+def test_openapi_published_static_by_export(tmp_path):
+    # published static on the GEO site (crawl-discoverable), not only served by the live host
+    import json as _json
+
+    from koreaapi import admin
+    from koreaapi.pipeline.ingest import ingest_one
+    from koreaapi.sources.mock import MockSource
+    db = tempfile.mktemp(suffix=".db")
+    p = {"name_ko": "방탄소년단", "name_en_official": "BTS", "name_en_source": "official"}
+    asyncio.run(ingest_one("facts", "artist:bts",
+                           [MockSource("Wikidata", p), MockSource("Wikipedia", p)], db_path=db))
+    out = str(tmp_path / "data")
+    asyncio.run(admin.export(db_path=db, out_dir=out))
+    spec = _json.load(open(out + "/openapi.json", encoding="utf-8"))
+    assert spec["openapi"].startswith("3.1") and "/v1/verified/{entity_id}" in spec["paths"]
 
 
 def test_premium_is_free_when_dormant(monkeypatch, tmp_path):
