@@ -84,6 +84,30 @@ def test_export_writes_manifest_and_reproducible_dataset_hash(tmp_path):
     assert len(open(os.path.join(out, "integrity-log.jsonl"), encoding="utf-8").read().strip().splitlines()) == 2
 
 
+def test_anchor_head_best_effort_dormant(monkeypatch):
+    # Onchain anchoring is best-effort: no history -> no_history; no `ots` client -> dormant, never
+    # raises, and writes NO files (the dormant rail ships inert, self-activates when the client is present).
+    assert integrity.anchor_head(None, tempfile.mkdtemp())["status"] == "no_history"
+    monkeypatch.setattr(integrity.shutil, "which", lambda _n: None)
+    d = tempfile.mkdtemp()
+    a = integrity.anchor_head("deadbeef" * 8, d)
+    assert a["status"] == "dormant" and a["method"] == "opentimestamps" and a["chain"] == "bitcoin"
+    assert a["keyless"] is True and "activate" in a
+    assert not os.path.exists(os.path.join(d, "integrity-head.txt"))  # inert until enabled
+
+
+def test_export_manifest_carries_onchain_anchor(tmp_path):
+    db = tempfile.mktemp(suffix=".db")
+    p = {"name_ko": "방탄소년단", "name_en_official": "BTS", "name_en_source": "official"}
+    asyncio.run(ingest_one("facts", "artist:bts",
+                           [MockSource("Wikidata", p), MockSource("Wikipedia", p)], db_path=db))
+    out = str(tmp_path / "data")
+    asyncio.run(admin.export(db_path=db, out_dir=out))
+    anchor = json.load(open(os.path.join(out, "integrity.json"), encoding="utf-8"))["onchain_anchor"]
+    assert anchor["method"] == "opentimestamps" and anchor["chain"] == "bitcoin"
+    assert anchor["status"] in ("dormant", "stamped", "stamp_failed", "error", "no_history")
+
+
 if __name__ == "__main__":
     import pytest
 

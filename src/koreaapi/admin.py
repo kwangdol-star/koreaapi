@@ -436,9 +436,11 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
                    "note": ("official rights-holder certifications — the tier above cross-verification; an "
                             "institution vouched (a latecomer cannot forge or backdate it)")},
                   f, ensure_ascii=False, indent=2)
-    # Publish the integrity manifest: the whole-dataset fingerprint + the append-only history chain head.
+    # Publish the integrity manifest: the whole-dataset fingerprint + the append-only history chain head,
+    # plus a best-effort EXTERNAL anchor of the head to Bitcoin (OpenTimestamps — free, keyless).
     dh = integrity.dataset_hash(latest_list)
     head, n_chain = integrity.chain_head(os.path.join(out_dir, "snapshots.jsonl"))
+    anchor = integrity.anchor_head(head, out_dir)
     manifest = {
         "generated": datetime.now(timezone.utc).isoformat(),
         "algorithm": integrity.ALGORITHM,
@@ -446,6 +448,7 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
         "snapshots": n_chain,
         "dataset_hash": dh,
         "chain_head": head,
+        "onchain_anchor": anchor,  # external Bitcoin timestamp of the head (OpenTimestamps; dormant until enabled)
         "method": ("Every record is cross-checked across independent sources (Wikidata, Wikipedia, "
                    "MusicBrainz, OpenStreetMap, TMDB, KTO), identity- and hallucination-guarded, and "
                    "Skill-scored. The history (snapshots.jsonl) is append-only and hash-chained; the "
@@ -455,7 +458,8 @@ async def export(db_path: str | None = None, *, out_dir: str = "data") -> dict:
                    "agreeing_sources, sources with the trailing ' YYYY-MM-DD HH:MM UTC' removed; JSON "
                    "sort_keys, separators (',',':')). dataset_hash = SHA-256 of the sorted content_hashes "
                    "joined. Recompute from latest.json to verify."),
-        "note": "Tamper-evidence via a published, git-committed head — not external notarization (a future step).",
+        "note": ("Tamper-evidence via a published, git-committed head; the head is ALSO anchorable to "
+                 "Bitcoin (external, keyless timestamp — see onchain_anchor)."),
     }
     # External anchoring (modest + honest): append the head to a PUBLIC, append-only log that is
     # git-committed each build, so GitHub timestamps every head. Altering a past head means rewriting
@@ -2470,13 +2474,16 @@ def _write_methodology(out_dir: str) -> None:
         "carries a ready “Cite as” line, so an answer engine can quote KoreaAPI with attribution.</p>"
         "<h2>Tamper-evident integrity</h2><p>Each record carries a SHA-256 <b>content hash</b>; the whole "
         "dataset has a reproducible <b>dataset hash</b>; the append-only history is <b>hash-chained</b>; and "
-        "each build appends the chain head to a public, git-timestamped <b>attestation log</b>. Recompute it "
-        "yourself — see <a href=\"./integrity.json\">/integrity.json</a> and "
-        "<a href=\"./integrity-log.jsonl\">/integrity-log.jsonl</a>.</p>"
+        "each build appends the chain head to a public, git-timestamped <b>attestation log</b>. The chain-head "
+        "is also <b>anchorable to Bitcoin</b> via OpenTimestamps — a free, keyless external timestamp (no wallet "
+        "or gas) — so the history’s existence-time is externally, cryptographically provable (status in "
+        "<code>onchain_anchor</code>). Recompute it yourself — see <a href=\"./integrity.json\">/integrity.json</a> "
+        "and <a href=\"./integrity-log.jsonl\">/integrity-log.jsonl</a>.</p>"
         "<h2>Honesty about limits</h2><p>Single-source records are clearly flagged (≤0.70). The underlying "
         "facts are derived from open sources; KoreaAPI’s added value is the verification, the Korean-official "
         "naming, the bilingual normalization, the proprietary demand signal, and the integrity trail. Integrity "
-        "today is tamper-<i>evidence</i> (a public, committed head), not external notarization — a noted next step.</p>"
+        "is tamper-<i>evidence</i> (a public, git-committed head) plus built-in external <b>Bitcoin anchoring</b> "
+        "(OpenTimestamps, keyless) — self-attestation hardened by an independent timestamp authority.</p>"
         "<h2>For agents</h2><p>Call <code>get_verified</code> for the trust breakdown before citing; read each "
         "record’s <code>content_hash</code> to cache and re-verify; respect the Skill Score. Wire it in via "
         "<a href=\"./for-agents.html\">/for-agents</a>.</p>"

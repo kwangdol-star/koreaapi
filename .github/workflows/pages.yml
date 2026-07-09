@@ -86,6 +86,7 @@ jobs:
           cp data/certified.json _site/certified.json   # official rights-holder certification registry (supply-side)
           cp data/integrity.json _site/integrity.json   # tamper-evident dataset hash + history chain head
           cp data/integrity-log.jsonl _site/integrity-log.jsonl   # public append-only attestation log (git-timestamped heads)
+          cp data/integrity-head.txt* _site/ 2>/dev/null || true   # OpenTimestamps Bitcoin proof of the chain-head (only when anchoring is enabled)
           cp robots.txt _site/robots.txt   # explicitly welcome answer-engine crawlers (AEO)
           cp CNAME _site/CNAME   # bind the custom domain (aiagentlabs.co.kr) on every deploy — the GEO authority host
           cp googleb476fa8c4c3cccf0.html _site/   # Google Search Console site verification (file method)
