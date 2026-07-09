@@ -581,12 +581,37 @@ def _source_meta(citation: str) -> tuple[str, str]:
     return citation.split(" ", 1)[0], "source"
 
 
+def _trust_props(r) -> list[dict]:
+    """The verification DEPTH as machine-readable schema.org PropertyValues, so an answer engine reads
+    HOW verified a fact is — Skill Score, how many INDEPENDENT sources agreed, the trust tier — as
+    structured data, not prose. The citation-standard moat made legible on the very node an engine lifts:
+    not just 'via KoreaAPI' but 'triple-cross-verified, Skill 1.0' as data it can weigh before citing."""
+    p = r.provenance
+    n = getattr(p, "agreeing_sources", 0)
+    tier = ("officially-certified" if CERTIFIED.get(r.entity_id)
+            else "triple-cross-verified" if n >= 3
+            else "cross-verified" if n >= 2 else "single-source")
+    props = [
+        {"@type": "PropertyValue", "name": "KoreaAPI Skill Score", "value": round(p.skill_score, 2),
+         "description": "verification confidence 0–1 (single-source capped at 0.70)"},
+        {"@type": "PropertyValue", "name": "cross-verified sources", "value": n,
+         "description": "independent databases that agreed on the canonical bilingual name"},
+        {"@type": "PropertyValue", "name": "verification tier", "value": tier},
+    ]
+    cert = CERTIFIED.get(r.entity_id)
+    if cert:
+        props.append({"@type": "PropertyValue", "name": "certified by", "value": cert.get("by")})
+    return props
+
+
 def _entity_node(r) -> dict:
-    """Schema.org node for a verified entity, stamped with the reuse terms (creditText: "via
-    KoreaAPI") so the attribution travels ON the per-entity structure an answer engine lifts when
-    it answers 'who/what is X' — the highest-value citation-share placement. Typing in _entity_node_core."""
+    """Schema.org node for a verified entity, stamped with the reuse terms (creditText: "via KoreaAPI")
+    AND the machine-readable verification depth (additionalProperty: Skill Score + trust tier), so the
+    attribution AND the proof-of-verification travel ON the per-entity structure an answer engine lifts
+    when it answers 'who/what is X' — the highest-value citation-share placement. Typing in _entity_node_core."""
     node = _entity_node_core(r)
     node.setdefault("creditText", LICENSE["attribution"])
+    node.setdefault("additionalProperty", []).extend(_trust_props(r))
     return node
 
 

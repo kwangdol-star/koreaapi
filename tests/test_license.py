@@ -68,6 +68,17 @@ def test_crawled_jsonld_carries_reuse_terms():
     assert pnode["creditText"] == LICENSE["attribution"]
 
 
+def test_entity_node_carries_machine_readable_verification_depth():
+    # Citation-standard, made legible: an answer engine reads HOW verified a fact is (Skill Score +
+    # trust tier + agreeing sources) as structured schema.org data on the node it lifts — not just prose.
+    node = admin._entity_node(_record())  # seeded: skill 1.0, 2 agreeing sources -> cross-verified
+    props = {p["name"]: p["value"] for p in node["additionalProperty"]}
+    assert props["KoreaAPI Skill Score"] == 1.0
+    assert props["cross-verified sources"] == 2
+    assert props["verification tier"] == "cross-verified"
+    assert all(p["@type"] == "PropertyValue" for p in node["additionalProperty"])
+
+
 if __name__ == "__main__":
     import pytest
 
