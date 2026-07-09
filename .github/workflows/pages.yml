@@ -57,6 +57,7 @@ jobs:
           TOURAPI_KEY: ${{ secrets.TOURAPI_KEY }} # KTO official place-authority source + badge (skipped if unset)
         run: |
           uv sync
+          uv pip install opentimestamps-client || echo "ots install skipped — Bitcoin anchoring stays dormant"  # enable OpenTimestamps (free, keyless) so admin export anchors the integrity chain-head
           uv run python -m koreaapi.admin pull
           uv run python -m koreaapi.admin sweep
           uv run python -m koreaapi.admin chart
