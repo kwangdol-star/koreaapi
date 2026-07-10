@@ -2811,7 +2811,7 @@ def _write_certify(out_dir: str) -> None:
         "<h2>공식 인증이란</h2><p>인증은 교차검증의 <b>한 단계 위</b> 등급입니다. 교차검증은 독립 DB들이 일치했다는 "
         "뜻이고, <b>인증</b>은 그 엔티티의 <b>공식 권리자</b> — 소속사·스튜디오·출판사·브랜드·기관 — 가 "
         "<b>기록 자체를 보증</b>했다는 뜻입니다. 후발주자는 오늘의 데이터를 복사할 순 있어도 기관의 서명을 위조하거나 "
-        "소급할 수 없습니다. 인증 기록은 페이지에 🏅 뱃지로 표시되고, <a href=\"./certified.json\">/certified.json</a>"
+        "소급할 수 없습니다. 인증 기록은 페이지에 🏅 뱃지로 표시되고, <a href=\"../certified.json\">/certified.json</a>"
         "으로 흐르며, 답변엔진이 읽는 인용 시그널을 <code>CERTIFIED</code>로 올립니다.</p>"
         "<h2>누가 인증할 수 있나</h2><p>엔티티의 공식 운영자·권리자: 아티스트의 소속사, 드라마·영화의 스튜디오·채널, "
         "웹툰·도서의 출판사, 브랜드의 회사, 장소·문화유산의 기관. KoreaAPI에 아직 없는 엔티티라면 같은 요청에서 함께 "
@@ -2829,7 +2829,7 @@ def _write_certify(out_dir: str) -> None:
         "한글·영문명, <b>귀사의</b> 소속사, <b>귀사의</b> 사실이 이기게 만듭니다 — 귀사가 통제하고, 날짜가 찍히고, "
         "방어 가능하게.</p>"
         f"<h2>신청</h2><p><a href=\"{repo}/issues\" rel=\"nofollow noopener\">GitHub Issues</a>로 요청하세요. "
-        "기계 판독 레지스트리: <a href=\"./certified.json\">/certified.json</a> · 신뢰 모델: "
+        "기계 판독 레지스트리: <a href=\"../certified.json\">/certified.json</a> · 신뢰 모델: "
         "<a href=\"./methodology.html\">/methodology</a>.</p>")
     _write_ko_list_page(out_dir, "certify.html", "공식 인증 (블루체크)",
                         "교차검증 위 등급 — 공식 권리자가 기록을 보증. 권리자에게 무료이며, 답변엔진이 가장 신뢰하는 인용.",

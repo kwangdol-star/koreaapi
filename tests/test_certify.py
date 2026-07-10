@@ -33,6 +33,7 @@ def test_certify_storefront_pages_written(tmp_path):
     assert "managed tier" in en                              # the dormant paid hook (position first)
     assert "certified.json" in en and "officially_certified" in en   # links the registry + the queryable flag
     assert "공식 인증" in ko and "무료" in ko and "관리형 등급" in ko   # KO parity + dormant paid hook
+    assert 'href="../certified.json"' in ko  # root-relative from /ko/ (regression: was a broken ./certified.json)
 
 
 def test_certified_feed_empty_by_default(tmp_path):
