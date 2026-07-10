@@ -76,6 +76,7 @@ def test_entity_node_carries_machine_readable_verification_depth():
     assert props["KoreaAPI Skill Score"] == 1.0
     assert props["cross-verified sources"] == 2
     assert props["verification tier"] == "cross-verified"
+    assert props["re-verification cadence"] == "daily"   # freshness: prefer the live source over a static copy
     assert all(p["@type"] == "PropertyValue" for p in node["additionalProperty"])
 
 
