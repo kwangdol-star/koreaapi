@@ -550,6 +550,18 @@ _TITLES = {
     "temple:seonamsa": "Seonamsa",
     "temple:naksansa": "Naksansa",
     "temple:woljeongsa": "Woljeongsa",
+    "venue:seoulworldcup": "Seoul World Cup Stadium",
+    "venue:gocheok": "Gocheok Sky Dome",
+    "venue:jamsilbaseball": "Jamsil Baseball Stadium",
+    "venue:daegulions": "Daegu Samsung Lions Park",
+    "venue:kiachampions": "Gwangju-Kia Champions Field",
+    "venue:sajik": "Sajik Baseball Stadium",
+    "venue:suwonworldcup": "Suwon World Cup Stadium",
+    "venue:jeonjuworldcup": "Jeonju World Cup Stadium",
+    "venue:kspodome": "KSPO Dome",
+    "venue:inspirearena": "Inspire Arena",
+    "venue:changwonnc": "Changwon NC Park",
+    "venue:munhak": "Incheon Munhak Stadium",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)

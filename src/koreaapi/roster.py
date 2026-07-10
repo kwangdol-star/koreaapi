@@ -873,6 +873,25 @@ TEMPLES = {
     "temple:woljeongsa": "Woljeongsa",
 }
 
+# Venue vertical: Korea's major stadiums & arenas (경기장·아레나) — KBO ballparks, World Cup stadiums,
+# and K-pop concert domes/arenas. High dual demand (baseball + concerts) and cross-verifiable (Wikidata
+# + Wikipedia + coordinates). `venue:` -> located-in region (P131) + opened (P571) + coordinates (P625,
+# map); schema.org StadiumOrArena. Distinctive names (low collision).
+VENUES = {
+    "venue:seoulworldcup": "Seoul World Cup Stadium",
+    "venue:gocheok": "Gocheok Sky Dome",
+    "venue:jamsilbaseball": "Jamsil Baseball Stadium",
+    "venue:daegulions": "Daegu Samsung Lions Park",
+    "venue:kiachampions": "Gwangju-Kia Champions Field",
+    "venue:sajik": "Sajik Baseball Stadium",
+    "venue:suwonworldcup": "Suwon World Cup Stadium",
+    "venue:jeonjuworldcup": "Jeonju World Cup Stadium",
+    "venue:kspodome": "KSPO Dome",
+    "venue:inspirearena": "Inspire Arena",
+    "venue:changwonnc": "Changwon NC Park",
+    "venue:munhak": "Incheon Munhak Stadium",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -973,7 +992,7 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
          **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS,
-         **MUSEUMS, **TEMPLES}
+         **MUSEUMS, **TEMPLES, **VENUES}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
