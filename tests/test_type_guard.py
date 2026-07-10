@@ -45,6 +45,8 @@ def test_alien_class_logic():
     assert _alien_class("skiresort", {"Q570116"}) is None            # a ski resort tagged as an attraction — not alien
     assert _alien_class("island", {"Q570116"}) is None               # an island tagged as an attraction — not alien
     assert _alien_class("island", {"Q7889"}) == "Q7889"              # ...but a game is still alien to an island
+    assert _alien_class("hotspring", {"Q570116"}) is None            # a hot spring tagged as an attraction — not alien
+    assert _alien_class("hotspring", {"Q7889"}) == "Q7889"           # ...but a game is still alien to a hot spring
 
 
 def test_p31_extraction():

@@ -147,9 +147,9 @@ def test_roster_breadth():
     # Guard the asset's breadth (25 verticals, 400+ entities) so a bad edit that drops rows is caught.
     from koreaapi.roster import (ACTORS, AIRPORTS, ANIMATIONS, ARTISTS, AWARDS, BOOKS, BRANDS, CLASSICS,
                                  COMPANIES, CONCEPTS, DRAMAS, FASHION, FESTIVALS, FILMS, FOLKLORE, FOODS,
-                                 GAMES, HERITAGE, HISTORY, HOLIDAYS, ISLANDS, LIQUORS, MEDICAL, MUSEUMS,
-                                 NAMES, PARKS, PLACES, REGION, SHOWS, SKIRESORTS, SONGS, SPORTS, TEMPLES,
-                                 THEATERS, THEMEPARKS, UNIVERSITIES, VENUES, WEBTOONS)
+                                 GAMES, HERITAGE, HISTORY, HOLIDAYS, HOTSPRINGS, ISLANDS, LIQUORS, MEDICAL,
+                                 MUSEUMS, NAMES, PARKS, PLACES, REGION, SHOWS, SKIRESORTS, SONGS, SPORTS,
+                                 TEMPLES, THEATERS, THEMEPARKS, UNIVERSITIES, VENUES, WEBTOONS)
     assert len(ARTISTS) >= 50 and len(DRAMAS) >= 18 and len(FILMS) >= 15
     assert len(WEBTOONS) >= 5 and len(PLACES) >= 10 and len(FOODS) >= 12
     assert len(COMPANIES) >= 8 and len(BRANDS) >= 8 and len(BOOKS) >= 6 and len(HISTORY) >= 8
@@ -159,7 +159,7 @@ def test_roster_breadth():
     assert len(FASHION) >= 6 and len(FESTIVALS) >= 6 and len(AWARDS) >= 12 and len(HOLIDAYS) >= 12
     assert len(LIQUORS) >= 12 and len(PARKS) >= 20 and len(MUSEUMS) >= 12 and len(TEMPLES) >= 12
     assert len(VENUES) >= 10 and len(AIRPORTS) >= 8 and len(THEATERS) >= 8 and len(THEMEPARKS) >= 6
-    assert len(SKIRESORTS) >= 6 and len(ISLANDS) >= 5
+    assert len(SKIRESORTS) >= 6 and len(ISLANDS) >= 5 and len(HOTSPRINGS) >= 5
     assert len(SPORTS) >= 12 and len(ACTORS) >= 15 and len(SONGS) >= 8 and len(CONCEPTS) >= 12
     assert len(NAMES) >= 400
     assert len(NAMES) == sum(map(len, (ARTISTS, DRAMAS, FILMS, WEBTOONS, PLACES, FOODS, COMPANIES,
@@ -167,7 +167,7 @@ def test_roster_breadth():
                                        GAMES, SHOWS, ANIMATIONS, UNIVERSITIES, CLASSICS, FASHION,
                                        FESTIVALS, AWARDS, HOLIDAYS, LIQUORS, PARKS, MUSEUMS, TEMPLES,
                                        VENUES, AIRPORTS, THEATERS, THEMEPARKS, SKIRESORTS, ISLANDS,
-                                       SPORTS, ACTORS, SONGS, CONCEPTS)))
+                                       HOTSPRINGS, SPORTS, ACTORS, SONGS, CONCEPTS)))
 
 
 def test_food_editorial_tags_cover_every_dish():

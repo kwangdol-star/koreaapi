@@ -963,6 +963,19 @@ ISLANDS = {
     "island:baengnyeongdo": "Baengnyeongdo",
 }
 
+# Hot-spring vertical: Korea's hot-spring / spa towns (온천) — leisure-tourism demand, cross-verifiable
+# where a Wikipedia article exists (coverage is thinner than parks/museums, so some seeds may resolve to
+# a miss — safe, never a wrong record). `hotspring:` -> located-in region (P131) + coordinates (P625,
+# map); schema.org TouristAttraction (a visited spa destination). Distinctive names (low collision).
+HOTSPRINGS = {
+    "hotspring:yuseong": "Yuseong Hot Springs",
+    "hotspring:onyang": "Onyang Hot Springs",
+    "hotspring:suanbo": "Suanbo Hot Springs",
+    "hotspring:bugok": "Bugok Hot Springs",
+    "hotspring:icheon": "Icheon Hot Springs",
+    "hotspring:deoksan": "Deoksan Hot Springs",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -1064,7 +1077,7 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
          **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS,
          **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS, **THEATERS, **THEMEPARKS,
-         **SKIRESORTS, **ISLANDS}
+         **SKIRESORTS, **ISLANDS, **HOTSPRINGS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

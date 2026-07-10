@@ -283,6 +283,8 @@ _NS_PROPS = {
     "skiresort": {"agency": "P131", "date": "P571", "members": None, "directors": None},
     # island (섬): located-in P131 (region) + coordinates P625 (map); no opened date.
     "island": {"agency": "P131", "date": None, "members": None, "directors": None},
+    # hot spring / spa town (온천): located-in P131 (region) + coordinates P625 (map); no opened date.
+    "hotspring": {"agency": "P131", "date": None, "members": None, "directors": None},
     # region: country / administrative division — name-anchored (capital/population not modelled here).
     "region": {"agency": None, "date": None, "members": None, "directors": None},
     # game (Korean-developed video game): developer P178 as the studio edge, publication date P577.
@@ -405,7 +407,7 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         payload["attrs"] = extra_attrs
     if extra_label_qids:
         payload["extra_label_qids"] = extra_label_qids
-    if ns in ("place", "medical", "university", "park", "museum", "temple", "venue", "airport", "theater", "themepark", "skiresort", "island"):  # physical locations -> coordinates (map + geo JSON-LD)
+    if ns in ("place", "medical", "university", "park", "museum", "temple", "venue", "airport", "theater", "themepark", "skiresort", "island", "hotspring"):  # physical locations -> coordinates (map + geo JSON-LD)
         coord = _claim_coord(item, "P625")
         if coord:
             payload["geo"] = {"lat": coord[0], "lon": coord[1]}
@@ -840,8 +842,8 @@ _ADJACENT = {  # verticals whose classes legitimately co-occur on one item (dual
     # a stadium/arena, airport, theater, theme park, ski resort, or island can be tagged as an attraction
     # (Q570116 ∈ place) — same relaxation.
     "museum": {"place"}, "temple": {"place"}, "venue": {"place"}, "airport": {"place"}, "theater": {"place"},
-    "themepark": {"place"}, "skiresort": {"place"}, "island": {"place"},
-    "place": {"museum", "temple", "venue", "airport", "theater", "themepark", "skiresort", "island"},
+    "themepark": {"place"}, "skiresort": {"place"}, "island": {"place"}, "hotspring": {"place"},
+    "place": {"museum", "temple", "venue", "airport", "theater", "themepark", "skiresort", "island", "hotspring"},
 }
 
 

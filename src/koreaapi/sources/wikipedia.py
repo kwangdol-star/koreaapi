@@ -601,6 +601,12 @@ _TITLES = {
     "island:hongdo": "Hongdo",
     "island:cheongsando": "Cheongsando",
     "island:baengnyeongdo": "Baengnyeongdo",
+    "hotspring:yuseong": "Yuseong Hot Springs",
+    "hotspring:onyang": "Onyang Hot Springs",
+    "hotspring:suanbo": "Suanbo Hot Springs",
+    "hotspring:bugok": "Bugok Hot Springs",
+    "hotspring:icheon": "Icheon Hot Springs",
+    "hotspring:deoksan": "Deoksan Hot Springs",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)
