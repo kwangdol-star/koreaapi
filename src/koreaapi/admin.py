@@ -631,6 +631,30 @@ def _entity_node(r) -> dict:
     return node
 
 
+# Geo verticals: a physical place with a located-in region (P131) + coordinates (P625). ONE node shape,
+# keyed by schema.org @type — adding a geo vertical needs only an entry here (+ its roster/sources wiring),
+# no new branch in _entity_node_core.
+_GEO_NODE_TYPE = {
+    "place": "TouristAttraction", "park": "Park", "museum": "Museum", "temple": "BuddhistTemple",
+    "venue": "StadiumOrArena", "airport": "Airport", "theater": "PerformingArtsTheater",
+}
+
+
+def _geo_node(r, schema_type: str, name: str, alt: list, desc: str, wd: list) -> dict:
+    """A physical-place Schema.org node: located-in region (P131) + coordinates (P625 -> map + GeoCoordinates)."""
+    node = {"@type": schema_type, "name": name, "alternateName": alt,
+            "description": desc, "dateModified": r.snapshot_at.isoformat()}
+    if wd:
+        node["sameAs"] = wd
+    region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
+    if region:  # citable "where is X?"
+        node["containedInPlace"] = {"@type": "Place", "name": region}
+    geo = r.data.get("geo") or {}
+    if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
+        node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
+    return node
+
+
 def _entity_node_core(r) -> dict:
     """One verified entity as a Schema.org node, shared by the index + entity pages: a `drama:` ->
     TVSeries, otherwise an artist -> MusicGroup (carrying the verified 소속사 edge)."""
@@ -640,6 +664,9 @@ def _entity_node_core(r) -> dict:
     # Schema.org description: prefer the rich Wikipedia-sourced abstract (real substance an answer
     # engine can lift) over our terse facts line; fall back to the facts line when there's no abstract.
     desc = r.data.get("abstract_en") or r.summary_en
+    geo_type = _GEO_NODE_TYPE.get(r.entity_id.split(":", 1)[0])
+    if geo_type:  # a geo vertical (place/park/museum/temple/venue/airport/theater/…) -> one shared node
+        return _geo_node(r, geo_type, name, alt, desc, wd)
     if r.entity_id.startswith("webtoon:"):
         node = {"@type": "ComicSeries", "name": name, "alternateName": alt,
                 "description": desc, "dateModified": r.snapshot_at.isoformat()}
@@ -654,18 +681,6 @@ def _entity_node_core(r) -> dict:
         if pub:  # publisher / platform P123 (Naver·Kakao)
             node["publisher"] = {"@type": "Organization", "name": pub}
         return node
-    if r.entity_id.startswith("place:"):
-        node = {"@type": "TouristAttraction", "name": name, "alternateName": alt,
-                "description": desc, "dateModified": r.snapshot_at.isoformat()}
-        if wd:
-            node["sameAs"] = wd
-        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
-        if region:  # citable "where is X?"
-            node["containedInPlace"] = {"@type": "Place", "name": region}
-        geo = r.data.get("geo") or {}
-        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
-            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
-        return node
     if r.entity_id.startswith("food:"):
         # a Korean dish: verified bilingual name + Wikidata sameAs is the asset (no agency/people edge)
         node = {"@type": "Thing", "name": name, "alternateName": alt,
@@ -679,84 +694,6 @@ def _entity_node_core(r) -> dict:
                 "description": desc, "dateModified": r.snapshot_at.isoformat()}
         if wd:
             node["sameAs"] = wd
-        return node
-    if r.entity_id.startswith("park:"):
-        # a national park (국립공원): Park + located-in region + coordinates (map + geo JSON-LD).
-        node = {"@type": "Park", "name": name, "alternateName": alt,
-                "description": desc, "dateModified": r.snapshot_at.isoformat()}
-        if wd:
-            node["sameAs"] = wd
-        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
-        if region:
-            node["containedInPlace"] = {"@type": "Place", "name": region}
-        geo = r.data.get("geo") or {}
-        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
-            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
-        return node
-    if r.entity_id.startswith("museum:"):
-        # a museum / art museum (박물관·미술관): Museum + located-in region + coordinates (map + geo JSON-LD).
-        node = {"@type": "Museum", "name": name, "alternateName": alt,
-                "description": desc, "dateModified": r.snapshot_at.isoformat()}
-        if wd:
-            node["sameAs"] = wd
-        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
-        if region:
-            node["containedInPlace"] = {"@type": "Place", "name": region}
-        geo = r.data.get("geo") or {}
-        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
-            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
-        return node
-    if r.entity_id.startswith("temple:"):
-        # a Buddhist temple (사찰): BuddhistTemple + located-in region + coordinates (map + geo JSON-LD).
-        node = {"@type": "BuddhistTemple", "name": name, "alternateName": alt,
-                "description": desc, "dateModified": r.snapshot_at.isoformat()}
-        if wd:
-            node["sameAs"] = wd
-        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
-        if region:
-            node["containedInPlace"] = {"@type": "Place", "name": region}
-        geo = r.data.get("geo") or {}
-        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
-            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
-        return node
-    if r.entity_id.startswith("venue:"):
-        # a stadium / arena (경기장·아레나): StadiumOrArena + located-in region + coordinates (map + geo).
-        node = {"@type": "StadiumOrArena", "name": name, "alternateName": alt,
-                "description": desc, "dateModified": r.snapshot_at.isoformat()}
-        if wd:
-            node["sameAs"] = wd
-        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
-        if region:
-            node["containedInPlace"] = {"@type": "Place", "name": region}
-        geo = r.data.get("geo") or {}
-        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
-            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
-        return node
-    if r.entity_id.startswith("airport:"):
-        # an airport (공항): schema.org Airport + located-in region + coordinates (map + geo JSON-LD).
-        node = {"@type": "Airport", "name": name, "alternateName": alt,
-                "description": desc, "dateModified": r.snapshot_at.isoformat()}
-        if wd:
-            node["sameAs"] = wd
-        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
-        if region:
-            node["containedInPlace"] = {"@type": "Place", "name": region}
-        geo = r.data.get("geo") or {}
-        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
-            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
-        return node
-    if r.entity_id.startswith("theater:"):
-        # a performing-arts venue (공연장·극장): PerformingArtsTheater + located-in region + coordinates.
-        node = {"@type": "PerformingArtsTheater", "name": name, "alternateName": alt,
-                "description": desc, "dateModified": r.snapshot_at.isoformat()}
-        if wd:
-            node["sameAs"] = wd
-        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
-        if region:
-            node["containedInPlace"] = {"@type": "Place", "name": region}
-        geo = r.data.get("geo") or {}
-        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
-            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
         return node
     if r.entity_id.startswith("company:"):
         node = {"@type": "Organization", "name": name, "alternateName": alt,
