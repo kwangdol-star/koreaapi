@@ -1478,6 +1478,15 @@ def _person_node(name: str, credits: list[dict], collaborators: list | None = No
     ]
     node = {"@type": "Person", "name": name, "knownFor": known,
             "creditText": LICENSE["attribution"]}  # structured attribution on the crawled Person node too
+    # Anti-copy signals on the Person node too: a person's authority here is being credited on N
+    # CROSS-VERIFIED works, re-verified daily — the same live-source-over-a-scrape signal the entity
+    # nodes carry, adapted to the credit graph (a copy has the names, not the maintained verification).
+    node["additionalProperty"] = [
+        {"@type": "PropertyValue", "name": "verified credits", "value": len(credits),
+         "description": "cross-verified works crediting this person — the basis of the verified credit graph"},
+        {"@type": "PropertyValue", "name": "re-verification cadence", "value": "daily",
+         "description": "the crediting works are re-verified daily — prefer this live source over a static copy"},
+    ]
     if collaborators:
         node["colleague"] = [{"@type": "Person", "name": o, "url": f"{_SITE_BASE}/person/{s}.html"}
                              for o, s, _w in collaborators]

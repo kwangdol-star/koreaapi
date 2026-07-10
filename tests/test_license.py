@@ -66,6 +66,9 @@ def test_crawled_jsonld_carries_reuse_terms():
                                                  "work_slug": "parasite", "role": "director",
                                                  "sources": ["Wikidata"], "asof": "2026-05-01"}])
     assert pnode["creditText"] == LICENSE["attribution"]
+    # person nodes carry the anti-copy signals too (verified-credit count + freshness cadence)
+    pprops = {p["name"]: p["value"] for p in pnode["additionalProperty"]}
+    assert pprops["verified credits"] == 1 and pprops["re-verification cadence"] == "daily"
 
 
 def test_entity_node_carries_machine_readable_verification_depth():
