@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import re
 
-from . import integrity
+from . import certify, integrity
 from .license import LICENSE
 from .pipeline import store
 from .reconcile import external_ids, match_score, name_keys
@@ -574,6 +574,8 @@ async def buy_options(item: str, *, db_path: str | None = None) -> dict:
     ok = bool(r.get("found"))
     options: list[dict] = []
     canonical = caution = None
+    gateway = {"status": "unverified", "route_to": None,
+               "note": "could not verify an official entity — refusing to route a purchase (safe-fail)"}
     if ok:
         rec = await store.latest(r["id"], "facts", db_path=db_path)
         official_url = rec.data.get("official_url") if rec is not None else None
@@ -592,12 +594,30 @@ async def buy_options(item: str, *, db_path: str | None = None) -> dict:
         caution = ("Buy from the official representative (or its official store), and match a listing against "
                    "this canonical verified name / IDs — a same-name listing from an unverified seller may be "
                    "a counterfeit. This is the real entity.")
+        # the GATEWAY: the ONE green-lit route an agent acts on (status + destination + anti-scam key),
+        # anchored on the same official domain the certification rail proves control of.
+        dom = certify.official_domain(official_url)
+        if dom:  # first-party official site (P856), domain-normalized -> route here
+            gateway = {"status": "verified-official", "route_to": official_url, "official_domain": dom,
+                       "canonical": canonical,
+                       "note": ("route to the entity's OWN official site (domain from Wikidata P856); match "
+                                "any listing to the canonical key before paying")}
+        elif agency:  # no first-party URL, but a cross-verified official representative sells / represents
+            gateway = {"status": "verified-representative", "route_to": None, "representative": agency,
+                       "canonical": canonical,
+                       "note": ("buy from the cross-verified official representative's official store; no "
+                                "first-party URL on record — match the canonical key, avoid same-name sellers")}
+        else:  # verified entity, but no official channel captured yet -> still safe-fail on routing
+            gateway = {"status": "verified-entity-no-channel", "route_to": None, "canonical": canonical,
+                       "note": ("entity verified but no official channel on record yet — do not route to an "
+                                "unverified seller (safe-fail)")}
     return {
         "item": item,
         "verified_official": ok,
         "entity": ({"id": r["id"], "name": r["name"], "skill_score": r.get("skill_score"),
                     "cross_verified": r.get("cross_verified")} if ok else None),
         "canonical": canonical,   # the safe key to search official stores with (anti same-name scam)
+        "gateway": gateway,       # the ONE green-lit route (status + destination + canonical key) an agent acts on
         "options": options,       # verified official channels (the representative now; direct rails as volume arrives)
         "caution": caution,
         "commission": {"model": "bps on settled agent purchases", "rate_bps": 0, "status": "dormant",

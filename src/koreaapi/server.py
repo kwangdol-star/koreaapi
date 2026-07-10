@@ -125,8 +125,10 @@ async def get_buy_options(item: str) -> dict:
     cross-verified entity ('is this the official X, not a fake/scam?'), then returns its official
     REPRESENTATIVE (the verified label / agency / publisher whose store is authoritative) + a CANONICAL
     key (verified name + external IDs) to match a store listing against — so an agent buys from the real
-    source, not a same-name counterfeit. Commerce commission dormant (0 bps) until agent-commerce / x402
-    volume; buy-intent logged as the demand signal. Safe-fails (no channels, no purchase) if it can't verify."""
+    source, not a same-name counterfeit. Returns a single green-lit `gateway` {status, route_to,
+    canonical} — the ONE destination to act on (the entity's domain-verified official site, else its
+    official representative). Commerce commission dormant (0 bps) until agent-commerce / x402 volume;
+    buy-intent logged as the demand signal. Safe-fails (no route, no purchase) if it can't verify."""
     return await service.buy_options(item)
 
 

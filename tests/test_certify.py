@@ -9,7 +9,7 @@ import json
 import tempfile
 from datetime import datetime, timezone
 
-from koreaapi import admin, service
+from koreaapi import admin, certify, service
 from koreaapi.models import Name, Provenance, Record
 
 
@@ -91,6 +91,51 @@ def test_get_certified_registry_queryable(monkeypatch):
     c = out["certified"][0]
     assert c["entity_id"] == "artist:newjeans" and c["certified_by"] == "ADOR"
     assert c["name"]["en_official"] == "NewJeans" and c["in_store"] is True and c["tier"] == "certified"
+
+
+def test_certify_domain_control_protocol():
+    # The real-use proof: DOMAIN CONTROL of the entity's official site — deterministic token, published
+    # at a well-known path only the domain owner can write. Pure + offline.
+    assert certify.official_domain("https://www.hybecorp.com/about") == "hybecorp.com"  # strip scheme/www/path
+    assert certify.official_domain("hybecorp.com") == "hybecorp.com"                     # tolerate a bare host
+    assert certify.official_domain("http://Ador.example:8080/x") == "ador.example"       # lowercase, drop port
+    assert certify.official_domain(None) is None and certify.official_domain("ftp://x.com") is None
+    assert certify.official_domain("nodot") is None                                      # hostless -> None
+    # deterministic + normalization-stable: the bare host and the full URL yield the SAME token
+    t = certify.claim_token("artist:bts", "hybecorp.com")
+    assert t.startswith("koreaapi-certify=")
+    assert t == certify.claim_token("artist:bts", "https://www.hybecorp.com/x")
+    assert t != certify.claim_token("artist:iu", "hybecorp.com")   # bound to the entity
+    # verification: the token in the fetched file passes; noise / wrong-entity / empty fail
+    assert certify.verify_published(f"# koreaapi\n{t}\n", "artist:bts", "hybecorp.com") is True
+    assert certify.verify_published("nope", "artist:bts", "hybecorp.com") is False
+    assert certify.verify_published(t, "artist:iu", "hybecorp.com") is False
+    assert certify.verify_published(None, "artist:bts", "hybecorp.com") is False
+    # the merged registry entry: domain-anchored + dated (non-forgeable / non-backdatable)
+    rec = certify.claim_record("artist:bts", "HYBE", "www.hybecorp.com", "2026-06-01")
+    assert rec["by"] == "HYBE" and rec["date"] == "2026-06-01" and rec["domain"] == "hybecorp.com"
+    assert rec["proof"] == "domain-control" and rec["url"].endswith("/.well-known/koreaapi-certify.txt")
+
+
+def test_certify_record_flows_into_get_certified(monkeypatch):
+    # A domain-control claim_record, once merged, is exactly what service.certified() reads back.
+    db = tempfile.mktemp(suffix=".db")
+    _seed(db, "artist:newjeans", "ADOR")
+    monkeypatch.setitem(admin.CERTIFIED, "artist:newjeans",
+                        certify.claim_record("artist:newjeans", "ADOR", "ador.com", "2026-06-01"))
+    out = asyncio.run(service.certified(db_path=db))
+    assert out["count"] == 1 and out["certified"][0]["certified_by"] == "ADOR"
+
+
+def test_certify_storefront_documents_domain_control(tmp_path):
+    # The storefront makes step 2 CONCRETE: publish a token at the well-known path on your official domain.
+    db = tempfile.mktemp(suffix=".db")
+    _seed(db)
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=str(tmp_path / "site")))
+    en = (tmp_path / "site" / "certify.html").read_text(encoding="utf-8")
+    ko = (tmp_path / "site" / "ko" / "certify.html").read_text(encoding="utf-8")
+    assert "/.well-known/koreaapi-certify.txt" in en and "domain control" in en and "P856" in en
+    assert "/.well-known/koreaapi-certify.txt" in ko and "도메인 소유 증명" in ko
 
 
 if __name__ == "__main__":

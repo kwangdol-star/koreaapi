@@ -217,9 +217,14 @@ def test_buy_options_verifies_official_and_returns_safe_channels():
                for o in out["options"])
     assert out["caution"] and "counterfeit" in out["caution"]
     assert out["commission"]["status"] == "dormant"          # money rail stays dormant
+    # the GATEWAY: the ONE green-lit route an agent acts on — the domain-verified first-party site
+    g = out["gateway"]
+    assert g["status"] == "verified-official" and g["route_to"] == "https://ibighit.com"
+    assert g["official_domain"] == "ibighit.com" and g["canonical"]["id"] == "artist:bts"
     # an UNVERIFIED item -> safe-fail: no channels, no purchase routed, but buy-intent still logged
     bad = asyncio.run(service.buy_options("Totally Fake Nonexistent Thing 12345", db_path=db))
     assert bad["verified_official"] is False and bad["options"] == [] and bad["canonical"] is None
+    assert bad["gateway"]["status"] == "unverified" and bad["gateway"]["route_to"] is None  # safe-fail route
     assert "buy-intent" in bad["note"]
 
 
