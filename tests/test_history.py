@@ -102,6 +102,18 @@ def test_entity_page_renders_verification_history(tmp_path):
     assert "/changes.json" in page                                 # full feed link
 
 
+def test_entity_page_jsonld_carries_time_depth(tmp_path):
+    # The time moat as machine-readable JSON-LD: an answer engine reads "verified since <date>" +
+    # snapshot count as structured data — the anti-copy signal a wholesale scrape can never claim.
+    db = tempfile.mktemp(suffix=".db")
+    _snap(db, 1, "ADOR")
+    _snap(db, 8, "HYBE")
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=str(tmp_path / "site")))
+    page = (tmp_path / "site" / "artist" / "newjeans.html").read_text(encoding="utf-8")
+    assert '"name": "verified since"' in page and "2026-05-01" in page   # first-verified in the JSON-LD node
+    assert '"name": "verified snapshots"' in page
+
+
 def test_entity_page_hides_history_without_depth(tmp_path):
     # A single verified snapshot (no temporal depth, no change) must NOT render a thin history section.
     db = tempfile.mktemp(suffix=".db")

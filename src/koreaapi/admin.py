@@ -2886,8 +2886,21 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         qas = _entity_qa(name, primary, by_kind)
         v = _VERTICALS.get(_entity_kind(entity_id))
         mid = (v[0], f"{_SITE_BASE}/{v[1]}") if v else None  # breadcrumb Home > vertical > entity
+        node = _entity_node(primary)
+        # The TIME moat, machine-readable: stamp the verified-since date + snapshot count on the crawled
+        # node so an answer engine reads the timestamped DEPTH a wholesale copy can never claim ("tracked
+        # since 2024, N snapshots") — the structured answer to "why cite KoreaAPI, not a scraped copy".
+        hist = histories.get(entity_id)
+        if hist and (hist["count"] >= 2 or hist.get("changes")):
+            node.setdefault("additionalProperty", []).extend([
+                {"@type": "PropertyValue", "name": "verified since",
+                 "value": hist["first"].strftime("%Y-%m-%d"),
+                 "description": ("first cross-verified by KoreaAPI on this date — an append-only timestamped "
+                                 "depth (Bitcoin-anchorable) a latecomer cannot backfill")},
+                {"@type": "PropertyValue", "name": "verified snapshots", "value": hist["count"]},
+            ])
         doc = {"@context": "https://schema.org",
-               "@graph": [_entity_node(primary)]
+               "@graph": [node]
                + ([_faqpage_node(qas)] if qas else []) + [_breadcrumb(name, url, middle=mid)]}
         related = _related(entity_id, primary, by_entity)
         ag = primary.data.get("agency_en") or primary.data.get("agency_ko")
