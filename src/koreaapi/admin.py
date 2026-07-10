@@ -2585,6 +2585,14 @@ def _agents_manifest() -> dict:
             "command": "python -m koreaapi.server",
             "install": "pip install koreaapi  (or: uvx --from koreaapi koreaapi-mcp)",
             "tools": [{"name": n, "description": d} for n, d in _MCP_TOOLS],
+            "resources": [
+                {"uri": "koreaapi://catalog", "about": "the Answer Products catalog (JSON)"},
+                {"uri": "koreaapi://guide", "about": "how to use KoreaAPI — which tool for which question"},
+            ],
+            "prompts": [
+                {"name": "verify_before_citing", "about": "verify a Korean-culture claim before citing it"},
+                {"name": "canonical_korean_name", "about": "the authoritative Korean + official-English spelling"},
+            ],
         },
         "data": {
             "open_json": f"{_SITE_BASE}/latest.json",

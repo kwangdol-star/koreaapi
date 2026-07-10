@@ -82,5 +82,21 @@ def test_answer_product_tools_are_bound(monkeypatch, tmp_path):
     assert env["signal"] == "NOT_FOUND" and env["product"] == "canonical-name"
 
 
+def test_server_registers_resources_and_prompts():
+    # MCP has three primitives; beyond the 15 tools, KoreaAPI now exposes browsable resources + reusable
+    # prompt workflows, so an MCP client can attach the verified corpus as context and offer slash-commands.
+    def _names(res) -> set[str]:
+        if inspect.isawaitable(res):
+            res = asyncio.run(res)
+        return {getattr(x, "name", None) for x in res}
+
+    assert {"catalog_resource", "guide_resource"} <= _names(server.mcp.list_resources())
+    assert {"verify_before_citing", "canonical_korean_name"} <= _names(server.mcp.list_prompts())
+    import json as _json
+    assert _json.loads(server.catalog_resource())["count"] >= 5   # the Answer Products catalog renders
+    assert "get_verified" in server.guide_resource()             # the guide points at the trust tool
+    assert "verify" in server.verify_before_citing("x").lower()  # the prompt template renders
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
