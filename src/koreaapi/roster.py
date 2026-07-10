@@ -924,6 +924,20 @@ THEATERS = {
     "theater:jeongdong": "Jeongdong Theater",
 }
 
+# Theme-park vertical: Korea's amusement / theme parks (테마파크) — high family/tourist demand and
+# cross-verifiable (Wikidata + Wikipedia + coordinates). `themepark:` -> located-in region (P131) +
+# opened (P571) + coordinates (P625, map); schema.org AmusementPark. Distinctive names (low collision).
+# (Everland is left as place:everland — no duplicate canonical page for one real site.)
+THEMEPARKS = {
+    "themepark:lotteworld": "Lotte World",
+    "themepark:seoulland": "Seoul Land",
+    "themepark:eworld": "E-World",
+    "themepark:gyeongjuworld": "Gyeongju World",
+    "themepark:legoland": "Legoland Korea",
+    "themepark:childrensgrandpark": "Seoul Children's Grand Park",
+    "themepark:caribbeanbay": "Caribbean Bay",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -1024,7 +1038,7 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
          **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS,
-         **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS, **THEATERS}
+         **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS, **THEATERS, **THEMEPARKS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

@@ -581,6 +581,13 @@ _TITLES = {
     "theater:lotteconcert": "Lotte Concert Hall",
     "theater:charlotte": "Charlotte Theater",
     "theater:jeongdong": "Jeongdong Theater",
+    "themepark:lotteworld": "Lotte World",
+    "themepark:seoulland": "Seoul Land",
+    "themepark:eworld": "E-World",
+    "themepark:gyeongjuworld": "Gyeongju World",
+    "themepark:legoland": "Legoland Korea",
+    "themepark:childrensgrandpark": "Seoul Children's Grand Park",
+    "themepark:caribbeanbay": "Caribbean Bay",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)

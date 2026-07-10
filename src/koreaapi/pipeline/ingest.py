@@ -481,6 +481,17 @@ async def ingest_one(
         summary_ko = (f"{name.ko} — 검증된 한국 공연장·극장."
                       + (f" 위치: {region}." if region else "")
                       + (f" {year}년 개관." if year else ""))
+    elif kind == "facts" and entity_id.startswith("themepark:"):
+        disp = name.en_official or name.ko
+        ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
+        region = chosen.get("agency_en") or chosen.get("agency_ko")  # located-in (P131)
+        year = chosen.get("debut")  # opened (P571)
+        summary_en = (f"{disp}{ko_part} — verified Korean amusement / theme park (테마파크)."
+                      + (f" In {region}." if region else "")
+                      + (f" Opened {year}." if year else ""))
+        summary_ko = (f"{name.ko} — 검증된 한국 테마파크."
+                      + (f" 위치: {region}." if region else "")
+                      + (f" {year}년 개장." if year else ""))
     elif kind == "facts":
         disp = name.en_official or name.ko
         ko_part = f" ({name.ko})" if name.ko and name.ko != disp else ""
