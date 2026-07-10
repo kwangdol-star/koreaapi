@@ -637,7 +637,7 @@ def _entity_node(r) -> dict:
 _GEO_NODE_TYPE = {
     "place": "TouristAttraction", "park": "Park", "museum": "Museum", "temple": "BuddhistTemple",
     "venue": "StadiumOrArena", "airport": "Airport", "theater": "PerformingArtsTheater",
-    "themepark": "AmusementPark",
+    "themepark": "AmusementPark", "skiresort": "SkiResort", "island": "Place",
 }
 
 
@@ -1170,6 +1170,8 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./airports.html">{_ICON['airport']} Airports</a>
  <a class="pill" href="./theaters.html">{_ICON['theater']} Theaters</a>
  <a class="pill" href="./themeparks.html">{_ICON['themepark']} Theme parks</a>
+ <a class="pill" href="./skiresorts.html">{_ICON['skiresort']} Ski resorts</a>
+ <a class="pill" href="./islands.html">{_ICON['island']} Islands</a>
  <a class="pill" href="./sports.html">{_ICON['sports']} Athletes</a>
  <a class="pill" href="./actors.html">{_ICON['actor']} Actors</a>
  <a class="pill" href="./songs.html">{_ICON['song']} Songs</a>
@@ -1363,6 +1365,12 @@ _ICON = {
     "themepark": _icon('<circle cx="12" cy="10" r="8"/><circle cx="12" cy="10" r="1.5"/>'
                        '<path d="M12 2v16M4 10h16M6.3 4.3l11.4 11.4M17.7 4.3 6.3 15.7"/>'
                        '<path d="M9 21h6l-3-5z"/>'),
+    # snowy peak (ski resorts)
+    "skiresort": _icon('<path d="M3 20h18L12 4z"/><path d="M8.5 12.5 12 9l3.5 3.5"/>'
+                       '<path d="M6 16.5 9 14l3 2.5 3-2.5 3 2.5"/>'),
+    # island — palm over a mound in water (islands)
+    "island": _icon('<path d="M2 20h20"/><path d="M6 20a6 6 0 0 1 12 0"/><path d="M12 14V9"/>'
+                    '<path d="M12 9c2-1 4 0 4 0M12 9c-2-1-4 0-4 0M12 9c0-2 1-3 1-3"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -2060,6 +2068,8 @@ _VERTICALS = {
     "airport": ("Airports", "airports.html", _ICON["airport"], "Region / location"),
     "theater": ("Theaters & concert halls", "theaters.html", _ICON["theater"], "Region / location"),
     "themepark": ("Theme parks", "themeparks.html", _ICON["themepark"], "Region / location"),
+    "skiresort": ("Ski resorts", "skiresorts.html", _ICON["skiresort"], "Region / location"),
+    "island": ("Islands", "islands.html", _ICON["island"], "Region / location"),
     "sports": ("Athletes & esports", "sports.html", _ICON["sports"], "Team"),
     "actor": ("Korean actors", "actors.html", _ICON["actor"], "Works"),
     "song": ("K-pop songs", "songs.html", _ICON["song"], "Performer"),
@@ -2439,7 +2449,7 @@ _KO_VERTICAL = {  # ns -> Korean hub label
     "animation": "애니메이션", "university": "대학교", "classic": "고전·기록", "fashion": "한국 패션",
     "festival": "축제", "award": "시상식", "holiday": "명절·기념일", "liquor": "전통주", "park": "국립공원",
     "museum": "박물관·미술관", "temple": "사찰", "venue": "경기장·아레나", "airport": "공항", "theater": "공연장·극장",
-    "themepark": "테마파크",
+    "themepark": "테마파크", "skiresort": "스키장·리조트", "island": "섬",
     "people": "인물", "sports": "스포츠 선수", "actor": "배우", "song": "K-pop 곡", "concept": "문화 개념·정서",
 }
 
@@ -3273,6 +3283,7 @@ _CORPUS_VERTICALS = [
     ("liquor:", "Traditional liquor"), ("park:", "National parks"),
     ("museum:", "Museums & galleries"), ("temple:", "Buddhist temples"), ("venue:", "Stadiums & arenas"),
     ("airport:", "Airports"), ("theater:", "Theaters & concert halls"), ("themepark:", "Theme parks"),
+    ("skiresort:", "Ski resorts"), ("island:", "Islands"),
     ("sports:", "Athletes & esports"), ("actor:", "Korean actors"), ("song:", "K-pop songs"),
     ("concept:", "K-culture concepts"),
 ]

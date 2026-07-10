@@ -938,6 +938,31 @@ THEMEPARKS = {
     "themepark:caribbeanbay": "Caribbean Bay",
 }
 
+# Ski-resort vertical: Korea's ski / mountain resorts (스키장·리조트) — winter-tourism demand and
+# cross-verifiable (Wikidata + Wikipedia + coordinates). `skiresort:` -> located-in region (P131) +
+# opened (P571) + coordinates (P625, map); schema.org SkiResort. Distinctive names (low collision).
+SKIRESORTS = {
+    "skiresort:yongpyong": "Yongpyong Resort",
+    "skiresort:high1": "High1 Resort",
+    "skiresort:vivaldipark": "Vivaldi Park",
+    "skiresort:phoenixpyeongchang": "Phoenix Pyeongchang",
+    "skiresort:konjiam": "Konjiam Resort",
+    "skiresort:elysian": "Elysian Gangchon",
+    "skiresort:alpensia": "Alpensia Resort",
+}
+
+# Island vertical: Korea's notable islands (섬) — high tourist demand and cross-verifiable (Wikidata +
+# Wikipedia + coordinates). `island:` -> located-in region (P131) + coordinates (P625, map); schema.org
+# Place (no island subtype). Distinctive names (low collision); Nami Island is left as place:namiisland.
+ISLANDS = {
+    "island:ulleungdo": "Ulleungdo",
+    "island:ganghwado": "Ganghwa Island",
+    "island:geoje": "Geoje",
+    "island:hongdo": "Hongdo",
+    "island:cheongsando": "Cheongsando",
+    "island:baengnyeongdo": "Baengnyeongdo",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -1038,7 +1063,8 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
          **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS,
-         **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS, **THEATERS, **THEMEPARKS}
+         **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS, **THEATERS, **THEMEPARKS,
+         **SKIRESORTS, **ISLANDS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
