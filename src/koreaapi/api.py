@@ -101,7 +101,8 @@ def openapi_spec() -> dict:
                 "소속사 moves and renames, newest first — exactly what stale models get wrong. Pass "
                 "?since=YYYY-MM-DD for incremental sync (only the delta after that cursor).",
                 [_qp("limit", "integer", "max changes (default 50)"),
-                 _qp("since", "string", "cursor — ISO date or full timestamp; only changes after it (sub-day precise; pass back next_since)")]),
+                 _qp("since", "string", "cursor — ISO date or full timestamp; only changes after it (sub-day precise; pass back next_since)"),
+                 _qp("offset", "integer", "skip N (drain a delta bigger than limit: loop offset=next_offset until null)")]),
             "/v1/batch": _op(
                 "Batch verify / resolve — the agent-throughput lane",
                 "Verify or resolve MANY entities in ONE round-trip: ?ids=a,b,c (comma-separated ids or "
@@ -209,7 +210,8 @@ async def history(request: Request) -> JSONResponse:
 
 async def changes(request: Request) -> JSONResponse:
     return JSONResponse(await service.recent_changes(
-        _int(request, "limit", 50), since=request.query_params.get("since")))
+        _int(request, "limit", 50), since=request.query_params.get("since"),
+        offset=_int(request, "offset", 0)))
 
 
 async def batch(request: Request) -> JSONResponse:

@@ -374,15 +374,17 @@ async def history(entity_id: str, *, db_path: str | None = None) -> dict:
     }
 
 
-async def recent_changes(limit: int = 50, *, since: str | None = None, db_path: str | None = None) -> dict:
+async def recent_changes(limit: int = 50, *, since: str | None = None, offset: int = 0,
+                         db_path: str | None = None) -> dict:
     """Store-wide RECENT verified changes (소속사 moves, renames), newest first — the freshness feed
     made queryable, so an agent can ask 'what changed lately?' and cite us on exactly the facts LLMs
     go stale on. Computed from the append-only store (bounded scan). Pass `since` (an ISO date, e.g.
     '2026-05-01') to get ONLY changes after that cursor — incremental sync, so an agent caches the feed
     then re-pulls just the delta instead of the whole thing each poll. `since` is a full TIMESTAMP cursor
     (sub-day precise) — pass back `next_since` to resume EXACTLY (no same-day event lost), or an ISO date
-    to include that whole day; the reply also carries `truncated` (more than `limit` in this delta — widen
-    it). A malformed `since` is ignored (never silently zeroes the feed), not applied."""
+    to include that whole day. A delta larger than `limit` is drained with offset paging: loop
+    `offset = next_offset` until it is null (`total` says how many). A malformed `since` is ignored
+    (never silently zeroes the feed), not applied."""
     await _log("query", "recent_changes", db_path)
     recs = await store.recent(30000, db_path=db_path)
     by_ent: dict[str, list] = {}
@@ -403,7 +405,9 @@ async def recent_changes(limit: int = 50, *, since: str | None = None, db_path: 
                                         "at": r.snapshot_at.isoformat(),  # full-timestamp cursor key (sub-day precise)
                                         "field": label, "from": prev[field], "to": st[field]})
             prev = st
-    changes.sort(key=lambda c: c["at"], reverse=True)  # sub-day precise ordering (full timestamp)
+    # newest first, ties broken deterministically (entity_id, field) so OFFSET paging is stable across
+    # calls and same-timestamp events are never split/lost at a page boundary.
+    changes.sort(key=lambda c: (c["at"], c["entity_id"], c["field"]), reverse=True)
     since_note = ""
     if since:
         try:
@@ -416,13 +420,17 @@ async def recent_changes(limit: int = 50, *, since: str | None = None, db_path: 
     if since:  # incremental cursor: only the delta strictly after the agent's last-seen timestamp
         changes = [c for c in changes if c["at"] > since]
     total = len(changes)
-    page = changes[:limit]
-    next_since = page[0]["at"] if page else since  # advance to the newest event's full timestamp
-    return {"count": len(page), "total": total, "truncated": total > limit, "since": since,
+    offset = max(0, offset)
+    page = changes[offset:offset + limit]
+    more = offset + limit < total
+    next_since = changes[0]["at"] if changes else since  # newest event overall (for the next incremental poll)
+    return {"count": len(page), "total": total, "offset": offset, "truncated": more,
+            "next_offset": (offset + limit) if more else None, "since": since,
             "next_since": next_since, "changes": page, "license": LICENSE,
             "note": ("verified change events across KoreaAPI — newest first (a latecomer cannot backfill). "
                      "The since cursor is a full TIMESTAMP (sub-day precise): pass back next_since to resume "
-                     "exactly, or an ISO date to include that whole day"
+                     "exactly, or an ISO date to include that whole day. Drain a delta bigger than limit "
+                     "with offset paging: loop offset=next_offset until it is null"
                      + (f"; delta since {since}" if since else "") + since_note)}
 
 

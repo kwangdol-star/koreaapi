@@ -129,6 +129,25 @@ def test_recent_changes_since_returns_only_the_delta():
     assert before["count"] == 1  # the 05-09 change is after the 05-01 cursor
 
 
+def test_recent_changes_offset_paginates_without_loss():
+    # (G) a delta LARGER than `limit` must be fully drainable via offset paging — no event silently
+    # dropped by a bare [:limit]. Loop offset=next_offset until it is null.
+    db = tempfile.mktemp(suffix=".db")
+    for i, ag in enumerate(["ADOR", "L1", "L2", "L3", "L4", "L5"], start=1):
+        _seed(db, "artist:x", "엑스", "X", day=i, agency=ag)  # 5 change events (days 2..6)
+    first = asyncio.run(service.recent_changes(limit=2, db_path=db))
+    assert first["total"] == 5 and first["count"] == 2 and first["truncated"] is True
+    assert first["next_offset"] == 2
+    seen: list[str] = []
+    offset, guard = 0, 0
+    while offset is not None and guard < 10:
+        guard += 1
+        pg = asyncio.run(service.recent_changes(limit=2, offset=offset, db_path=db))
+        seen += [c["to"] for c in pg["changes"]]
+        offset = pg["next_offset"]
+    assert sorted(seen) == ["L1", "L2", "L3", "L4", "L5"] and len(seen) == 5  # every event, exactly once
+
+
 if __name__ == "__main__":
     import pytest
 
