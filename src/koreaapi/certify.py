@@ -24,7 +24,7 @@ def official_domain(url: str | None) -> str | None:
     """The normalized host of an official URL (P856): lowercased, no scheme / port / path, leading
     'www.' stripped. Returns None for a blank / non-http(s) / hostless value. Pure — the anchor shared
     by the commerce gateway (route here) and certification (prove control of THIS domain)."""
-    if not url:
+    if not url or not isinstance(url, str):
         return None
     u = url.strip()
     if "://" not in u:
@@ -35,7 +35,7 @@ def official_domain(url: str | None) -> str | None:
         return None
     if parsed.scheme not in ("http", "https"):
         return None
-    host = (parsed.hostname or "").lower().strip()
+    host = (parsed.hostname or "").lower().strip().rstrip(".")  # strip a trailing FQDN dot (example.com.)
     if not host or "." not in host:
         return None
     return host[4:] if host.startswith("www.") else host
@@ -78,6 +78,25 @@ def verify_published(published_text: str | None, entity_id: str, domain: str) ->
         return False
     want = claim_token(entity_id, domain)
     return any(line.strip() == want for line in published_text.splitlines())
+
+
+def domain_matches_record(domain: str, record_official_url: str | None) -> bool:
+    """True iff `domain` is the SAME host as the entity's on-record official website (Wikidata P856).
+    This equality is what the whole proof rests on: certification must bind to the domain KoreaAPI has
+    ALREADY cross-verified for the entity — not any domain a claimant happens to control. Enforced in
+    CODE here, not left as prose on the /certify page. Pure."""
+    rec = official_domain(record_official_url)
+    return bool(rec) and rec == official_domain(domain)
+
+
+def verify_claim(published_text: str | None, entity_id: str, domain: str,
+                 record_official_url: str | None) -> bool:
+    """The COMPLETE gate an automated verifier MUST pass before certifying: (1) the proof token is
+    published at the domain AND (2) that domain equals the entity's on-record official website (P856).
+    Either alone is insufficient — the token is public, so a claimant could publish it on any domain they
+    control; the P856-equality is what ties control of the domain to authority over THE entity. Pure."""
+    return (verify_published(published_text, entity_id, domain)
+            and domain_matches_record(domain, record_official_url))
 
 
 def claim_record(entity_id: str, org: str, domain: str, date: str, url: str | None = None) -> dict:

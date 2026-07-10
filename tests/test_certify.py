@@ -117,6 +117,21 @@ def test_certify_domain_control_protocol():
     assert rec["proof"] == "domain-control" and rec["url"].endswith("/.well-known/koreaapi-certify.txt")
 
 
+def test_certify_verify_claim_requires_p856_equality():
+    # The token proves DOMAIN CONTROL; certification ALSO requires that the domain equals the entity's
+    # on-record official site (P856) — enforced in code (verify_claim), not just prose. Else a same-name
+    # impostor publishes the (public) token on their own domain and self-certifies.
+    t_official = certify.claim_token("artist:bts", "bts-official.example")
+    assert certify.verify_claim(t_official, "artist:bts", "bts-official.example",
+                                "https://www.bts-official.example/store") is True
+    assert certify.domain_matches_record("bts-official.example", "https://bts-official.example.") is True  # trailing dot
+    # attacker proves control of THEIR domain (token publishes) — but P856 mismatch -> NOT certified
+    t_attacker = certify.claim_token("artist:bts", "attacker.example")
+    assert certify.verify_published(t_attacker, "artist:bts", "attacker.example") is True   # control alone...
+    assert certify.verify_claim(t_attacker, "artist:bts", "attacker.example",
+                                "https://bts-official.example") is False                     # ...but not authority
+
+
 def test_certify_record_flows_into_get_certified(monkeypatch):
     # A domain-control claim_record, once merged, is exactly what service.certified() reads back.
     db = tempfile.mktemp(suffix=".db")

@@ -56,6 +56,36 @@ def test_batch_dedupes_caps_and_guards_unknown_op():
     assert bad["found"] is False and bad["count"] == 0 and bad["results"] == {}
 
 
+def test_batch_isolates_a_failing_item(monkeypatch):
+    # one raising lookup (a corrupt/legacy record) must NOT sink the whole batch — it's keyed as an error.
+    db = tempfile.mktemp(suffix=".db")
+    _seed(db, "artist:bts", "방탄소년단", "BTS")
+    real = service.verified
+
+    async def flaky(entity_id, *, db_path=None):
+        if entity_id == "artist:boom":
+            raise RuntimeError("corrupt record")
+        return await real(entity_id, db_path=db_path)
+
+    monkeypatch.setattr(service, "verified", flaky)
+    out = asyncio.run(service.batch(["artist:bts", "artist:boom"], db_path=db))
+    assert out["count"] == 2
+    assert out["results"]["artist:bts"]["found"] is True
+    assert out["results"]["artist:boom"]["found"] is False and out["results"]["artist:boom"]["error"] == "lookup failed"
+
+
+def test_recent_changes_since_validation_and_cursor():
+    # A malformed cursor is IGNORED, not silently zeroed (that would read as "no changes" — the exact
+    # staleness this feed fixes); the reply advances the agent via next_since.
+    db = tempfile.mktemp(suffix=".db")
+    _seed(db, "artist:newjeans", "뉴진스", "NewJeans", day=1, agency="ADOR")
+    _seed(db, "artist:newjeans", "뉴진스", "NewJeans", day=9, agency="HYBE")
+    bad = asyncio.run(service.recent_changes(since="garbage", db_path=db))
+    assert bad["count"] == 1 and bad["since"] is None and "ignored malformed" in bad["note"]
+    ok = asyncio.run(service.recent_changes(db_path=db))
+    assert ok["next_since"] == "2026-05-09" and ok["truncated"] is False
+
+
 def test_recent_changes_since_returns_only_the_delta():
     # incremental sync: an agent caches the feed, then re-pulls only changes AFTER its cursor.
     db = tempfile.mktemp(suffix=".db")

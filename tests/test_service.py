@@ -228,6 +228,22 @@ def test_buy_options_verifies_official_and_returns_safe_channels():
     assert "buy-intent" in bad["note"]
 
 
+def test_buy_options_safe_fails_when_not_cross_verified():
+    # Commerce routes money, so the bar is CROSS-VERIFICATION, not mere existence: a single-source entity
+    # (agreeing_sources=1) — even WITH an official_url — must not be green-lit as verified-official.
+    db = tempfile.mktemp(suffix=".db")
+    now = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    asyncio.run(store.append_record(Record(
+        entity_id="brand:solo", kind="facts", name=Name(ko="솔로브랜드", en_official="SoloBrand"),
+        snapshot_at=now, summary_en="SoloBrand", data={"official_url": "https://solobrand.example"},
+        provenance=Provenance(sources=["Wikidata Q1"], fetched_at=now,
+                              skill_score=0.7, confidence="low", agreeing_sources=1)), db_path=db))
+    out = asyncio.run(service.buy_options("brand:solo", db_path=db))
+    assert out["verified_official"] is False                      # single-source is below the anti-fake bar
+    assert out["options"] == [] and out["gateway"]["status"] == "unverified"
+    assert out["gateway"]["route_to"] is None                     # never route to an uncorroborated entity
+
+
 def test_korea_rising_category_filter_and_buy_intent_weight():
     db = _agency_db()  # seeds 4 artists
     asyncio.run(store.log_signal("query", "artist:aespa", db_path=db))

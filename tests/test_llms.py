@@ -42,7 +42,7 @@ def test_llms_coverage_reflects_live_roster_and_graph():
     asyncio.run(admin.llms_txt(db_path=db, out_path=out))
     text = open(out, encoding="utf-8").read()
     assert "## Coverage (live" in text
-    assert "1 artists, 1 K-dramas, 2 K-films" in text   # counts by vertical
+    assert "1 K-pop artists, 1 K-dramas, 2 K-films" in text   # counts by vertical (data-driven labels)
     assert "Bong Joon-ho" not in text                   # people are summarized as a COUNT, not listed
     assert "1 verified people" in text                  # Bong directed 2 films -> 1 qualifying hub
     assert "BTS" in text and "Squid Game" in text and "Parasite" in text  # vertical samples

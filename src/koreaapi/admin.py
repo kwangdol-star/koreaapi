@@ -1174,6 +1174,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./holidays.html">{_ICON['heritage']} Holidays</a>
  <a class="pill" href="./liquors.html">{_ICON['food']} Liquor</a>
  <a class="pill" href="./parks.html">{_ICON['place']} Parks</a>
+ <a class="pill" href="./museums.html">{_ICON['museum']} Museums</a>
  <a class="pill" href="./sports.html">{_ICON['sports']} Athletes</a>
  <a class="pill" href="./actors.html">{_ICON['actor']} Actors</a>
  <a class="pill" href="./songs.html">{_ICON['song']} Songs</a>
@@ -3203,46 +3204,25 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
     def names(prefix: str) -> list[str]:
         return sorted(r.name.en_official or r.name.ko for e, r in facts.items() if e.startswith(prefix))
 
-    (arts, dramas, films, webtoons, places, foods, companies, brands, books, history, heritage,
-     folklore, medical, region, games, shows, animations, universities, classics, fashion, festivals) = (
-        names("artist:"), names("drama:"), names("film:"), names("webtoon:"),
-        names("place:"), names("food:"), names("company:"), names("brand:"),
-        names("book:"), names("history:"), names("heritage:"), names("folklore:"),
-        names("medical:"), names("region:"), names("game:"),
-        names("show:"), names("animation:"), names("university:"), names("classic:"), names("fashion:"),
-        names("festival:"))
     people = _collect_credits(by_entity)
     linked = _linked_person_slugs(people, {_slug(e) for e in by_entity})
 
     def sample(xs: list[str], n: int = 14) -> str:
         return ", ".join(xs[:n]) + (" …" if len(xs) > n else "")
 
+    # Data-driven from _CORPUS_VERTICALS (the single source of truth) so a newly-added vertical is NEVER
+    # silently dropped from the crawlable agent index — the staleness that once left 9 verticals unlisted.
+    present = [(label, names(prefix)) for prefix, label in _CORPUS_VERTICALS]
+    present = [(label, xs) for label, xs in present if xs]
+    counts = ", ".join(f"{len(xs)} {label}" for label, xs in present)
+    sample_lines = "\n".join(f"- {label}: {sample(xs)}" for label, xs in present)
+
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coverage = f"""
 ## Coverage (live, as of {today})
-- {len(facts)} verified entities across 21 verticals: {len(arts)} artists, {len(dramas)} K-dramas, {len(films)} K-films, {len(webtoons)} webtoons, {len(places)} places, {len(foods)} foods, {len(companies)} companies, {len(brands)} brands, {len(books)} books, {len(history)} history, {len(heritage)} heritage, {len(folklore)} folklore, {len(medical)} hospitals, {len(region)} regions, {len(games)} games, {len(shows)} variety shows, {len(animations)} animations, {len(universities)} universities, {len(classics)} classics, {len(fashion)} fashion brands, {len(festivals)} festivals.
+- {len(facts)} verified entities across {len(present)} verticals: {counts}.
 - {len(linked)} verified people (directors + cross-work cast/creators), each a citable hub page linking their works.
-- K-pop artists: {sample(arts)}
-- K-dramas: {sample(dramas)}
-- K-films: {sample(films)}
-- Webtoons: {sample(webtoons)}
-- Places to visit: {sample(places)}
-- Korean food: {sample(foods)}
-- Korean companies: {sample(companies)}
-- Korean brands (K-beauty …): {sample(brands)}
-- Korean books (literature): {sample(books)}
-- Korean history: {sample(history)}
-- Heritage & traditional arts: {sample(heritage)}
-- Folklore & myth: {sample(folklore)}
-- Hospitals & medical: {sample(medical)}
-- Korea & regions: {sample(region)}
-- Korean games: {sample(games)}
-- Variety & TV shows: {sample(shows)}
-- Animation: {sample(animations)}
-- Universities: {sample(universities)}
-- Classics & historical records: {sample(classics)}
-- Korean fashion brands: {sample(fashion)}
-- Festivals & cultural events: {sample(festivals)}
+{sample_lines}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml

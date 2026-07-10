@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 
 from . import certify, integrity
 from .license import LICENSE
@@ -378,7 +379,9 @@ async def recent_changes(limit: int = 50, *, since: str | None = None, db_path: 
     made queryable, so an agent can ask 'what changed lately?' and cite us on exactly the facts LLMs
     go stale on. Computed from the append-only store (bounded scan). Pass `since` (an ISO date, e.g.
     '2026-05-01') to get ONLY changes after that cursor — incremental sync, so an agent caches the feed
-    then re-pulls just the delta instead of the whole thing each poll."""
+    then re-pulls just the delta instead of the whole thing each poll. The cursor is DAY-granular; the
+    reply carries `next_since` (advance to it) and `truncated` (more than `limit` in this delta — widen
+    `limit`). A malformed `since` is ignored (never silently zeroes the feed), not applied."""
     await _log("query", "recent_changes", db_path)
     recs = await store.recent(30000, db_path=db_path)
     by_ent: dict[str, list] = {}
@@ -399,11 +402,26 @@ async def recent_changes(limit: int = 50, *, since: str | None = None, db_path: 
                                         "field": label, "from": prev[field], "to": st[field]})
             prev = st
     changes.sort(key=lambda c: c["as_of"], reverse=True)
+    since_note = ""
+    if since:
+        try:
+            date.fromisoformat(since)  # a DAY-granular ISO cursor (YYYY-MM-DD)
+        except (ValueError, TypeError):
+            # a malformed cursor must NOT silently filter everything out (that reads as "no changes",
+            # the exact staleness this feed fixes) — ignore it and say so.
+            since_note = f"; ignored malformed since='{since}' (expected an ISO date YYYY-MM-DD)"
+            since = None
     if since:  # incremental cursor: only the delta strictly after the agent's last-seen date
         changes = [c for c in changes if c["as_of"] > since]
-    return {"count": len(changes), "since": since, "changes": changes[:limit], "license": LICENSE,
+    total = len(changes)
+    page = changes[:limit]
+    next_since = page[0]["as_of"] if page else since  # advance the cursor to the newest event received
+    return {"count": len(page), "total": total, "truncated": total > limit, "since": since,
+            "next_since": next_since, "changes": page, "license": LICENSE,
             "note": ("verified change events across KoreaAPI — timestamped, newest first (a latecomer "
-                     "cannot backfill)" + (f"; delta since {since}" if since else ""))}
+                     "cannot backfill). The since cursor is DAY-granular (YYYY-MM-DD); poll after the daily "
+                     "re-verification and use next_since to avoid missing same-day events"
+                     + (f"; delta since {since}" if since else "") + since_note)}
 
 
 async def certified(*, db_path: str | None = None) -> dict:
@@ -547,7 +565,12 @@ async def batch(ids: list[str], *, op: str = "verified", db_path: str | None = N
             keys.append(k)
     truncated = len(keys) > _BATCH_MAX
     keys = keys[:_BATCH_MAX]
-    results = {k: await fn(k, db_path=db_path) for k in keys}
+    results: dict[str, dict] = {}
+    for k in keys:  # per-item isolation: one corrupt/legacy record must not sink the whole batch
+        try:
+            results[k] = await fn(k, db_path=db_path)
+        except Exception as exc:
+            results[k] = {"found": False, "error": "lookup failed", "detail": type(exc).__name__}
     return {
         "op": op,
         "requested": len(ids or []),
@@ -571,11 +594,15 @@ async def buy_options(item: str, *, db_path: str | None = None) -> dict:
     the item can't be verified as official."""
     await _log("buy_intent", item, db_path)  # demand signal + future commission-ledger seed (accrues at $0)
     r = await resolve(item, db_path=db_path)  # verify: is this a real, official entity?
-    ok = bool(r.get("found"))
+    # Commerce routes money, so the bar is stricter than "found": require CROSS-VERIFICATION (≥2 sources)
+    # AND an exact (non-fuzzy) resolve. A single-source or fuzzy/substring match is exactly the same-name
+    # scam vector this gate exists to stop — so it safe-fails rather than green-lighting a purchase.
+    ok = bool(r.get("found")) and bool(r.get("cross_verified")) and r.get("matched_by") != "fuzzy"
     options: list[dict] = []
     canonical = caution = None
     gateway = {"status": "unverified", "route_to": None,
-               "note": "could not verify an official entity — refusing to route a purchase (safe-fail)"}
+               "note": ("not a cross-verified official entity (single-source, fuzzy, or unknown) — "
+                        "refusing to route a purchase (safe-fail)")}
     if ok:
         rec = await store.latest(r["id"], "facts", db_path=db_path)
         official_url = rec.data.get("official_url") if rec is not None else None
