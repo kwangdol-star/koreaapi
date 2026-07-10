@@ -832,6 +832,26 @@ PARKS = {
     "park:taebaeksan": "Taebaeksan National Park",
 }
 
+# Museum vertical: Korea's major museums & art museums (박물관·미술관) — high tourist/education demand
+# ("best museums in Seoul") and strongly cross-verifiable (all carry Wikidata + Wikipedia + coordinates).
+# `museum:` -> located-in region (P131) + founded (P571) + coordinates (P625, map). Distinctive
+# institution names (low collision); parallels the park/place geo pattern (schema.org Museum node).
+MUSEUMS = {
+    "museum:nationalmuseum": "National Museum of Korea",
+    "museum:mmca": "National Museum of Modern and Contemporary Art, Korea",
+    "museum:leeum": "Leeum Museum of Art",
+    "museum:nationalfolk": "National Folk Museum of Korea",
+    "museum:warmemorial": "War Memorial of Korea",
+    "museum:gyeongjunational": "Gyeongju National Museum",
+    "museum:seoulhistory": "Seoul Museum of History",
+    "museum:palacemuseum": "National Palace Museum of Korea",
+    "museum:hangeul": "National Hangeul Museum",
+    "museum:sema": "Seoul Museum of Art",
+    "museum:hoam": "Hoam Museum of Art",
+    "museum:amorepacific": "Amorepacific Museum of Art",
+    "museum:daelim": "Daelim Museum",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -931,7 +951,8 @@ CONCEPTS = {
 NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIES, **BRANDS,
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
-         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS}
+         **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS,
+         **MUSEUMS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

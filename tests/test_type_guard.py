@@ -29,6 +29,9 @@ def test_alien_class_logic():
     assert _alien_class("fashion", {"Q431289"}) is None              # fashion houses ARE brands
     assert _alien_class("drama", set()) is None                      # untyped -> fail-open
     assert _alien_class("song", {"Q7889"}) == "Q7889"                # a game is not a song
+    assert _alien_class("museum", {"Q33506"}) is None                # a museum IS a place (Q33506 ∈ place) — not alien
+    assert _alien_class("museum", {"Q570116"}) is None               # ...a museum typed as a tourist attraction too
+    assert _alien_class("museum", {"Q7889"}) == "Q7889"              # ...but a game is still alien to a museum
 
 
 def test_p31_extraction():

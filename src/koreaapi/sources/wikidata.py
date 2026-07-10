@@ -267,6 +267,8 @@ _NS_PROPS = {
     "liquor": {"agency": None, "date": None, "members": None, "directors": None},
     # national park (국립공원): located-in P131 (region) + designated P571 + coordinates P625 (map).
     "park": {"agency": "P131", "date": "P571", "members": None, "directors": None},
+    # museum / art museum (박물관·미술관): located-in P131 (region) + founded P571 + coordinates P625 (map).
+    "museum": {"agency": "P131", "date": "P571", "members": None, "directors": None},
     # region: country / administrative division — name-anchored (capital/population not modelled here).
     "region": {"agency": None, "date": None, "members": None, "directors": None},
     # game (Korean-developed video game): developer P178 as the studio edge, publication date P577.
@@ -389,7 +391,7 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         payload["attrs"] = extra_attrs
     if extra_label_qids:
         payload["extra_label_qids"] = extra_label_qids
-    if ns in ("place", "medical", "university", "park"):  # physical locations -> coordinates (map + geo JSON-LD)
+    if ns in ("place", "medical", "university", "park", "museum"):  # physical locations -> coordinates (map + geo JSON-LD)
         coord = _claim_coord(item, "P625")
         if coord:
             payload["geo"] = {"lat": coord[0], "lon": coord[1]}
@@ -817,6 +819,11 @@ _ADJACENT = {  # verticals whose classes legitimately co-occur on one item (dual
     "drama": {"film", "animation", "show"}, "show": {"drama", "animation"},
     "brand": {"company", "fashion"}, "company": {"brand", "fashion"},
     "fashion": {"brand", "company"}, "book": {"classic"}, "classic": {"book"},
+    # a museum IS an attraction/place: the museum class (Q33506) lives in place's own class list, so
+    # without this a museum:-entity typed Q33506 would be rejected as "alien to place" -> the whole
+    # vertical would silently ingest nothing. They legitimately co-occur; relax the TYPE guard (the
+    # bilingual NAME guard still applies).
+    "museum": {"place"}, "place": {"museum"},
 }
 
 
