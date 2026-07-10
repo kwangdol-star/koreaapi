@@ -227,6 +227,9 @@ async def person(name: str, *, db_path: str | None = None) -> dict:
     credits: list[dict] = []
     sources: set[str] = set()
     display: str | None = None
+    my_works: list[tuple[str, list[str]]] = []   # P's works -> everyone credited on each (collab graph)
+    person_works: dict[str, set] = {}            # person key -> set of work ids (the recurring-collab filter)
+    people_display: dict[str, str] = {}          # person key -> a display name
     for e in await store.entities(db_path=db_path):
         if e["kind"] != "facts":
             continue
@@ -236,9 +239,16 @@ async def person(name: str, *, db_path: str | None = None) -> dict:
         is_video = rec.entity_id.startswith(("drama:", "film:"))
         roles = [("cast" if is_video else "member", n) for n in (rec.data.get("members") or [])]
         roles += [("director", n) for n in (rec.data.get("directors") or [])]
+        for _role, nm in roles:  # global credit graph — how many works each person is credited on
+            k = _person_key(nm)
+            if k:
+                person_works.setdefault(k, set()).add(rec.entity_id)
+                people_display.setdefault(k, nm)
+        credited = False
         for role, nm in roles:
             if _person_key(nm) != key:
                 continue
+            credited = True
             display = display or nm
             sources.update(rec.provenance.sources)
             credits.append({
@@ -251,14 +261,30 @@ async def person(name: str, *, db_path: str | None = None) -> dict:
                 "sources": rec.provenance.sources,
                 "as_of": rec.snapshot_at.date().isoformat(),
             })
+        if credited:
+            my_works.append((rec.name.en_official or rec.name.ko, [nm for _r, nm in roles]))
     if not credits:
         return {"query": name, "found": False, "note": "no verified credit for this person yet"}
+    # Collaborators: other RECURRING people (credited on >=2 works) who share a verified work with P,
+    # ranked by #shared works — the differentiated "who does X repeatedly work with?" graph edge. Already
+    # on the crawled person page (Schema.org `colleague`); this brings it to the AGENT surface too.
+    shared: dict[str, set] = {}
+    for wname, ppl in my_works:
+        for nm in ppl:
+            k = _person_key(nm)
+            if k and k != key:
+                shared.setdefault(k, set()).add(wname)
+    collaborators = [
+        {"name": people_display.get(k, k), "shared_count": len(w), "shared_works": sorted(w)}
+        for k, w in sorted(shared.items(), key=lambda kv: (-len(kv[1]), people_display.get(kv[0], kv[0])))
+        if len(person_works.get(k, ())) >= 2
+    ][:12]
     cite = (f"{display} — {len(credits)} verified credit(s). "
             f"Source: {'; '.join(sorted(sources)) or 'unsourced'}. via KoreaAPI.")
     return {
         "query": name, "found": True, "name": display, "count": len(credits),
-        "credits": credits, "provenance": {"sources": sorted(sources)}, "citation": cite,
-        "license": LICENSE,
+        "credits": credits, "collaborators": collaborators,
+        "provenance": {"sources": sorted(sources)}, "citation": cite, "license": LICENSE,
     }
 
 

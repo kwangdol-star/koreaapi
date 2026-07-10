@@ -244,6 +244,32 @@ def test_buy_options_safe_fails_when_not_cross_verified():
     assert out["gateway"]["route_to"] is None                     # never route to an uncorroborated entity
 
 
+def test_person_returns_recurring_collaborators():
+    # The person graph on the AGENT surface: a director's RECURRING collaborators (people who share a
+    # verified work AND are themselves credited on >=2 works), ranked by shared-work count.
+    db = tempfile.mktemp(suffix=".db")
+    now = datetime(2026, 5, 1, tzinfo=timezone.utc)
+
+    def film(eid, ko, en, directors, cast):
+        asyncio.run(store.append_record(Record(
+            entity_id=eid, kind="facts", name=Name(ko=ko, en_official=en), snapshot_at=now,
+            summary_en=en, data={"directors": directors, "members": cast},
+            provenance=Provenance(sources=["Wikidata Q1", "Wikipedia x"], fetched_at=now,
+                                  skill_score=1.0, confidence="high", agreeing_sources=2)), db_path=db))
+
+    film("film:parasite", "기생충", "Parasite", ["Bong Joon-ho"], ["Song Kang-ho"])
+    film("film:memoriesofmurder", "살인의 추억", "Memories of Murder", ["Bong Joon-ho"], ["Song Kang-ho"])
+    film("film:okja", "옥자", "Okja", ["Bong Joon-ho"], ["One Timer"])          # co-star with a single credit
+    film("film:thewailing", "곡성", "The Wailing", ["Na Hong-jin"], ["Kwak Do-won"])  # unrelated (no shared work)
+    out = asyncio.run(service.person("Bong Joon-ho", db_path=db))
+    assert out["found"] and out["count"] == 3
+    collabs = {c["name"]: c for c in out["collaborators"]}
+    assert collabs["Song Kang-ho"]["shared_count"] == 2                       # recurring co-worker
+    assert set(collabs["Song Kang-ho"]["shared_works"]) == {"Parasite", "Memories of Murder"}
+    assert "One Timer" not in collabs                                         # one credit -> not recurring
+    assert "Na Hong-jin" not in collabs and "Kwak Do-won" not in collabs      # never shared a work with Bong
+
+
 def test_korea_rising_category_filter_and_buy_intent_weight():
     db = _agency_db()  # seeds 4 artists
     asyncio.run(store.log_signal("query", "artist:aespa", db_path=db))

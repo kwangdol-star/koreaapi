@@ -50,7 +50,9 @@ async def get_korea_rising(category: str = "all", limit: int = 10) -> dict:
 async def get_person(name: str) -> dict:
     """Verified credits for a Korean-culture person (director / actor / idol member), aggregated
     across every work that credits them, each with provenance + Skill Score. Answers 'what did
-    X direct / act in?'. `name` e.g. 'Bong Joon-ho' (display name or slug)."""
+    X direct / act in?'. Also returns `collaborators` — the RECURRING people X shares verified works
+    with (ranked by shared-work count), the 'who does X repeatedly work with?' graph edge. `name`
+    e.g. 'Bong Joon-ho' (display name or slug)."""
     return await service.person(name)
 
 
