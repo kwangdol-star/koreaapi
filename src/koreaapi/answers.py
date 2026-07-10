@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from . import service
 from .pipeline import store
+from .roster import FOOD_SPICE, FOOD_VEG
 
 
 def _clamp01(x: float) -> float:
@@ -280,6 +281,67 @@ async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
                         "festivals": _li(festivals, 4), "foods": _li(foods, 5)})
 
 
+async def _run_food_guide(query: str, db_path: str | None = None) -> dict:
+    """Foreigner meal filter: verified Korean dishes matching a dietary need or spice tolerance —
+    'vegetarian', 'vegan', 'not spicy', 'no seafood'. The dish NAME is cross-verified; the spice +
+    dietary tag is a labeled KoreaAPI EDITORIAL classification (clearly NOT cross-verified)."""
+    q = (query or "").strip().casefold()
+    want_vegan = any(w in q for w in ("vegan", "비건"))
+    want_veg = want_vegan or any(w in q for w in ("vegetarian", "veggie", "채식", "no meat",
+                                                  "meat-free", "meatless"))
+    want_mild = any(w in q for w in ("not spicy", "non-spicy", "mild", "안 매", "안매", "순한", "덜 매"))
+    no_seafood = any(w in q for w in ("no seafood", "seafood-free", "no fish", "해산물"))
+
+    def ok(spice: str | None, veg: str | None) -> bool:
+        vg, sp = (veg or "").casefold(), (spice or "").casefold()
+        if want_vegan and "vegan" not in vg:
+            return False
+        if want_veg and not ("vegan" in vg or "vegetarian" in vg):
+            return False
+        if want_mild and sp not in ("none", "mild"):
+            return False
+        if no_seafood and "seafood" in vg:
+            return False
+        return True
+
+    matches: list = []
+    for e in await store.entities(db_path=db_path):
+        eid = e["entity_id"]
+        if e["kind"] != "facts" or not eid.startswith("food:") or not ok(FOOD_SPICE.get(eid), FOOD_VEG.get(eid)):
+            continue
+        rec = await store.latest(eid, "facts", db_path=db_path)
+        if rec is not None:
+            matches.append((eid, rec, FOOD_SPICE.get(eid), FOOD_VEG.get(eid)))
+    matches.sort(key=lambda t: -t[1].provenance.skill_score)
+
+    filters: list[str] = []
+    if want_vegan:
+        filters.append("vegan")
+    elif want_veg:
+        filters.append("vegetarian")
+    if want_mild:
+        filters.append("not-spicy")
+    if no_seafood:
+        filters.append("no-seafood")
+    n = len(matches)
+    if not filters:
+        signal = "BROWSE"
+        action = "No dietary/spice filter recognized — returning verified dishes with their tags."
+    elif n:
+        signal, action = "MATCHES", f"{n} verified dish(es) fit: {', '.join(filters)}."
+    else:
+        signal, action = "NONE", f"No verified dish fits: {', '.join(filters)}."
+    dishes = [{"id": eid, "name": {"ko": r.name.ko, "en_official": r.name.en_official},
+               "spice": sp, "dietary": vg, "skill_score": r.provenance.skill_score}
+              for eid, r, sp, vg in matches[:12]]
+    return _env("food-guide", query, signal=signal, action=action, score=_clamp01(n / 10.0),
+                rationale=(f"{n} dish(es) match [{', '.join(filters) or 'no filter'}]; the dish name is "
+                           "cross-verified, but the spice + dietary tag is a labeled KoreaAPI EDITORIAL "
+                           "classification (not cross-verified)."),
+                answer={"filters": filters, "dishes": dishes,
+                        "editorial_note": "spice + dietary tags are KoreaAPI editorial, not cross-verified"})
+
+
 _PRODUCTS = [
     {"id": "canonical-name", "name": "Canonical Name Resolver", "name_ko": "공식 표기 확정", "emoji": "🪪",
      "sector": "Identity / AEO", "inputs": ["name or id"],
@@ -320,8 +382,15 @@ _PRODUCTS = [
      "sector": "Travel", "inputs": ["region or city name, e.g. 'Busan'"],
      "about": "Every verified spot in a region — places, parks, temples, museums, beaches, ski resorts… "
               "grouped by type — plus festivals + signature dishes; itinerary raw material.",
-     "about_ko": "지역의 검증된 명소·축제 + 대표 음식 — 여행 일정의 재료.",
+     "about_ko": "지역의 검증된 모든 명소(장소·공원·절·박물관·해변 등)를 유형별로 + 축제 + 대표 음식 — 여행 일정 재료.",
      "run": _run_trip_plan},
+    {"id": "food-guide", "name": "Food Guide (Dietary)", "name_ko": "음식 가이드", "emoji": "🍚",
+     "sector": "Travel", "inputs": ["a dietary/spice filter, e.g. 'vegetarian', 'not spicy', 'no seafood'"],
+     "about": "Verified Korean dishes filtered by dietary need or spice tolerance (vegan / vegetarian / "
+              "not-spicy / no-seafood). The dish name is cross-verified; the spice + dietary tag is "
+              "labeled KoreaAPI editorial (not cross-verified).",
+     "about_ko": "채식·비건·안 매운·해산물 없는 검증된 한식 필터 — 음식명은 교차검증, 맵기·식이 태그는 KoreaAPI 편집(비교차검증).",
+     "run": _run_food_guide},
 ]
 _BY_ID = {p["id"]: p for p in _PRODUCTS}
 

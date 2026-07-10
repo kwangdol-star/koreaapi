@@ -132,6 +132,26 @@ def test_trip_plan_geo_namespaces_stay_in_sync_with_the_geo_node_types():
     assert set(_GEO_NS) == set(_GEO_NODE_TYPE)
 
 
+def test_food_guide_filters_by_dietary_and_spice():
+    # Foreigner meal filter: verified dishes filtered by the editorial spice + dietary tags. The dish
+    # name is cross-verified; the tag is clearly labeled editorial (never presented as cross-verified).
+    db = tempfile.mktemp(suffix=".db")
+    for eid, ko, en in [("food:japchae", "잡채", "Japchae"),          # editorial: mild, vegetarian
+                        ("food:tteokbokki", "떡볶이", "Tteokbokki"),   # hot, vegetarian (often)
+                        ("food:bulgogi", "불고기", "Bulgogi"),         # mild, contains meat
+                        ("food:hoe", "회", "Hoe")]:                     # none, contains seafood
+        _add(db, eid, ko, en, sources=["Wikidata Q1", "Wikipedia x"], agree=2, skill=1.0)
+    veg = asyncio.run(answers.answer("food-guide", "vegetarian", db_path=db))
+    veg_ids = {d["id"] for d in veg["answer"]["dishes"]}
+    assert veg["signal"] == "MATCHES"
+    assert "food:japchae" in veg_ids and "food:bulgogi" not in veg_ids and "food:hoe" not in veg_ids
+    assert "editorial" in veg["rationale"].lower()                    # the tag is labeled editorial
+    mild_ids = {d["id"] for d in asyncio.run(answers.answer("food-guide", "not spicy", db_path=db))["answer"]["dishes"]}
+    assert "food:tteokbokki" not in mild_ids and "food:japchae" in mild_ids   # hot excluded, mild kept
+    noseafood = asyncio.run(answers.answer("food-guide", "no seafood", db_path=db))
+    assert "food:hoe" not in {d["id"] for d in noseafood["answer"]["dishes"]}  # seafood excluded
+
+
 def test_catalog_is_bilingual():
     cat = answers.list_products()
     assert all(p.get("name_ko") and p.get("about_ko") for p in cat["products"])
