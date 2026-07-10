@@ -101,7 +101,7 @@ def openapi_spec() -> dict:
                 "소속사 moves and renames, newest first — exactly what stale models get wrong. Pass "
                 "?since=YYYY-MM-DD for incremental sync (only the delta after that cursor).",
                 [_qp("limit", "integer", "max changes (default 50)"),
-                 _qp("since", "string", "ISO date cursor — return only changes after it (incremental sync)")]),
+                 _qp("since", "string", "cursor — ISO date or full timestamp; only changes after it (sub-day precise; pass back next_since)")]),
             "/v1/batch": _op(
                 "Batch verify / resolve — the agent-throughput lane",
                 "Verify or resolve MANY entities in ONE round-trip: ?ids=a,b,c (comma-separated ids or "

@@ -83,7 +83,33 @@ def test_recent_changes_since_validation_and_cursor():
     bad = asyncio.run(service.recent_changes(since="garbage", db_path=db))
     assert bad["count"] == 1 and bad["since"] is None and "ignored malformed" in bad["note"]
     ok = asyncio.run(service.recent_changes(db_path=db))
-    assert ok["next_since"] == "2026-05-09" and ok["truncated"] is False
+    assert ok["next_since"].startswith("2026-05-09T") and ok["truncated"] is False  # full timestamp cursor
+
+
+def test_recent_changes_cursor_is_sub_day_precise():
+    # (e) the timestamp cursor: two changes on the SAME calendar day must BOTH be recoverable — a
+    # day-granular cursor would silently drop the second. Seed distinct intraday snapshot times.
+    db = tempfile.mktemp(suffix=".db")
+
+    def snap(eid, ko, en, when, agency):
+        asyncio.run(admin.store.append_record(Record(
+            entity_id=eid, kind="facts", name=Name(ko=ko, en_official=en), snapshot_at=when,
+            summary_en=en, data={"agency_en": agency}, provenance=Provenance(
+                sources=["Wikidata Q1", "Wikipedia x"], fetched_at=when,
+                skill_score=1.0, confidence="high", agreeing_sources=2)), db_path=db))
+
+    def at(hour):
+        return datetime(2026, 5, 9, hour, tzinfo=timezone.utc)
+
+    snap("artist:a", "에이", "A", at(1), "L1")
+    snap("artist:a", "에이", "A", at(2), "L2")   # a change @ 02:00
+    snap("artist:b", "비", "B", at(1), "M1")
+    snap("artist:b", "비", "B", at(6), "M2")     # another change @ 06:00 — same day
+    out = asyncio.run(service.recent_changes(db_path=db))
+    assert out["count"] == 2                                  # both same-day changes present, newest first
+    earliest = min(c["at"] for c in out["changes"])          # the 02:00 change's full timestamp
+    resume = asyncio.run(service.recent_changes(since=earliest, db_path=db))
+    assert resume["count"] == 1 and resume["changes"][0]["to"] == "M2"  # the later same-day change survived
 
 
 def test_recent_changes_since_returns_only_the_delta():
@@ -93,10 +119,14 @@ def test_recent_changes_since_returns_only_the_delta():
     _seed(db, "artist:newjeans", "뉴진스", "NewJeans", day=9, agency="HYBE")  # 소속사 moved on 05-09
     full = asyncio.run(service.recent_changes(db_path=db))
     assert full["count"] == 1 and full["since"] is None
-    at_cursor = asyncio.run(service.recent_changes(since="2026-05-09", db_path=db))
-    assert at_cursor["count"] == 0 and at_cursor["since"] == "2026-05-09"  # nothing strictly after
-    before_cursor = asyncio.run(service.recent_changes(since="2026-05-01", db_path=db))
-    assert before_cursor["count"] == 1  # the 05-09 change is after the 05-01 cursor
+    # resume from the EXACT timestamp cursor -> nothing strictly after it
+    resume = asyncio.run(service.recent_changes(since=full["next_since"], db_path=db))
+    assert resume["count"] == 0
+    # a DATE cursor is inclusive of that whole day (so a same-day change is never dropped)
+    same_day = asyncio.run(service.recent_changes(since="2026-05-09", db_path=db))
+    assert same_day["count"] == 1
+    before = asyncio.run(service.recent_changes(since="2026-05-01", db_path=db))
+    assert before["count"] == 1  # the 05-09 change is after the 05-01 cursor
 
 
 if __name__ == "__main__":

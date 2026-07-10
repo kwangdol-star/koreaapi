@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
+from datetime import datetime
 
 from . import certify, integrity
 from .license import LICENSE
@@ -379,9 +379,10 @@ async def recent_changes(limit: int = 50, *, since: str | None = None, db_path: 
     made queryable, so an agent can ask 'what changed lately?' and cite us on exactly the facts LLMs
     go stale on. Computed from the append-only store (bounded scan). Pass `since` (an ISO date, e.g.
     '2026-05-01') to get ONLY changes after that cursor — incremental sync, so an agent caches the feed
-    then re-pulls just the delta instead of the whole thing each poll. The cursor is DAY-granular; the
-    reply carries `next_since` (advance to it) and `truncated` (more than `limit` in this delta — widen
-    `limit`). A malformed `since` is ignored (never silently zeroes the feed), not applied."""
+    then re-pulls just the delta instead of the whole thing each poll. `since` is a full TIMESTAMP cursor
+    (sub-day precise) — pass back `next_since` to resume EXACTLY (no same-day event lost), or an ISO date
+    to include that whole day; the reply also carries `truncated` (more than `limit` in this delta — widen
+    it). A malformed `since` is ignored (never silently zeroes the feed), not applied."""
     await _log("query", "recent_changes", db_path)
     recs = await store.recent(30000, db_path=db_path)
     by_ent: dict[str, list] = {}
@@ -399,28 +400,29 @@ async def recent_changes(limit: int = 50, *, since: str | None = None, db_path: 
                                      ("name_en", "English name")):
                     if st[field] and prev[field] and st[field] != prev[field]:
                         changes.append({"entity_id": eid, "as_of": r.snapshot_at.date().isoformat(),
+                                        "at": r.snapshot_at.isoformat(),  # full-timestamp cursor key (sub-day precise)
                                         "field": label, "from": prev[field], "to": st[field]})
             prev = st
-    changes.sort(key=lambda c: c["as_of"], reverse=True)
+    changes.sort(key=lambda c: c["at"], reverse=True)  # sub-day precise ordering (full timestamp)
     since_note = ""
     if since:
         try:
-            date.fromisoformat(since)  # a DAY-granular ISO cursor (YYYY-MM-DD)
+            datetime.fromisoformat(since)  # accept an ISO date (2026-05-09) OR a full timestamp cursor
         except (ValueError, TypeError):
             # a malformed cursor must NOT silently filter everything out (that reads as "no changes",
             # the exact staleness this feed fixes) — ignore it and say so.
-            since_note = f"; ignored malformed since='{since}' (expected an ISO date YYYY-MM-DD)"
+            since_note = f"; ignored malformed since='{since}' (expected an ISO date or timestamp)"
             since = None
-    if since:  # incremental cursor: only the delta strictly after the agent's last-seen date
-        changes = [c for c in changes if c["as_of"] > since]
+    if since:  # incremental cursor: only the delta strictly after the agent's last-seen timestamp
+        changes = [c for c in changes if c["at"] > since]
     total = len(changes)
     page = changes[:limit]
-    next_since = page[0]["as_of"] if page else since  # advance the cursor to the newest event received
+    next_since = page[0]["at"] if page else since  # advance to the newest event's full timestamp
     return {"count": len(page), "total": total, "truncated": total > limit, "since": since,
             "next_since": next_since, "changes": page, "license": LICENSE,
-            "note": ("verified change events across KoreaAPI — timestamped, newest first (a latecomer "
-                     "cannot backfill). The since cursor is DAY-granular (YYYY-MM-DD); poll after the daily "
-                     "re-verification and use next_since to avoid missing same-day events"
+            "note": ("verified change events across KoreaAPI — newest first (a latecomer cannot backfill). "
+                     "The since cursor is a full TIMESTAMP (sub-day precise): pass back next_since to resume "
+                     "exactly, or an ISO date to include that whole day"
                      + (f"; delta since {since}" if since else "") + since_note)}
 
 
