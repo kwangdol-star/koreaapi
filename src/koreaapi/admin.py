@@ -2563,7 +2563,7 @@ _MCP_TOOLS = [
     ("get_related", "entities sharing a 소속사 / network"),
     ("get_kculture_calendar", "upcoming K-culture events"),
     ("get_korea_rising", "what is rising in Korea now (premium signal)"),
-    ("get_buy_options", "verify-official -> purchase gateway (is this the real X?) — the commerce-commission seed"),
+    ("get_buy_options", "verify-official -> purchase gateway: the real official representative + a canonical anti-scam key (commerce-commission seed)"),
     ("list_answer_products", "list the Answer Products — named, citable decisions over the verified store"),
     ("get_answer", "run an Answer Product -> {signal, action, score, rationale, answer, evidence}"),
 ]
@@ -3098,8 +3098,8 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
   (the usage moat + the demand evidence behind get_korea_rising; a latecomer starts at zero).
 - get_resolve(query): map a fuzzy name / external ID (Wikidata Q-id) / entity_id to THE canonical
   verified entity — the reconciliation spine before you cite.
-- get_buy_options(item): verify-official → purchase gateway (confirm the REAL entity, not a scam),
-  returns purchase-channel intent; logs buy-intent as the demand signal.
+- get_buy_options(item): verify-official → purchase gateway (confirm the REAL entity, not a scam) →
+  returns the official representative + a canonical anti-scam key; logs buy-intent as the demand signal.
 - list_answer_products(): the catalog of named Answer Products — the decisions get_answer can run.
 - get_answer(query, product): run an Answer Product (canonical-name · fact-check · identity-resolve ·
   trend-radar · agency-roster …) → one decision envelope {signal, action, score, rationale, evidence}.

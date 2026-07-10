@@ -198,12 +198,26 @@ def test_related_stays_within_non_artist_family():
     assert out["related_by"] == "hub"
 
 
-def test_buy_options_phase1_stub_is_honest():
-    db = _seeded_db()
-    out = asyncio.run(service.buy_options("BTS album", db_path=db))
-
-    assert out["options"] == []
-    assert "buy-intent" in out["note"]
+def test_buy_options_verifies_official_and_returns_safe_channels():
+    db = tempfile.mktemp(suffix=".db")
+    now = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    asyncio.run(store.append_record(Record(
+        entity_id="artist:bts", kind="facts", name=Name(ko="방탄소년단", en_official="BTS"),
+        snapshot_at=now, summary_en="BTS", data={"agency_en": "HYBE"},
+        provenance=Provenance(sources=["Wikidata Q1", "Wikipedia BTS"], fetched_at=now,
+                              skill_score=1.0, confidence="high", agreeing_sources=2)), db_path=db))
+    # a VERIFIED entity -> the official representative + a canonical anti-scam key + a caution
+    out = asyncio.run(service.buy_options("artist:bts", db_path=db))
+    assert out["verified_official"] is True
+    assert out["canonical"]["id"] == "artist:bts" and out["canonical"]["cross_verified"] is True
+    assert any(o["type"] == "official-representative" and o["name"] == "HYBE" and o["verified"]
+               for o in out["options"])
+    assert out["caution"] and "counterfeit" in out["caution"]
+    assert out["commission"]["status"] == "dormant"          # money rail stays dormant
+    # an UNVERIFIED item -> safe-fail: no channels, no purchase routed, but buy-intent still logged
+    bad = asyncio.run(service.buy_options("Totally Fake Nonexistent Thing 12345", db_path=db))
+    assert bad["verified_official"] is False and bad["options"] == [] and bad["canonical"] is None
+    assert "buy-intent" in bad["note"]
 
 
 def test_korea_rising_category_filter_and_buy_intent_weight():
@@ -265,5 +279,5 @@ def test_certification_is_top_tier_in_verified_and_on_page(tmp_path):
 if __name__ == "__main__":
     test_artist_status_is_verified_and_bilingual()
     test_korea_rising_ranks_high_skill_first()
-    test_buy_options_phase1_stub_is_honest()
+    test_buy_options_verifies_official_and_returns_safe_channels()
     print("all service tests passed")

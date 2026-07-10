@@ -119,10 +119,12 @@ async def get_resolve(query: str) -> dict:
 
 @mcp.tool
 async def get_buy_options(item: str) -> dict:
-    """Verify-official → purchase gateway: confirms the item is a REAL, cross-verified entity ('is
-    this the official X, not a fake/scam?') before any purchase, and returns purchase-channel intent +
-    a commission-ready envelope. Commerce rail dormant (0 bps) until agent-commerce/x402 volume;
-    buy-intent is logged as the demand signal. Safe-fails (no purchase routed) if it can't verify."""
+    """Verify-official → purchase gateway (the agent-commerce SAFETY layer). Confirms the item is a REAL,
+    cross-verified entity ('is this the official X, not a fake/scam?'), then returns its official
+    REPRESENTATIVE (the verified label / agency / publisher whose store is authoritative) + a CANONICAL
+    key (verified name + external IDs) to match a store listing against — so an agent buys from the real
+    source, not a same-name counterfeit. Commerce commission dormant (0 bps) until agent-commerce / x402
+    volume; buy-intent logged as the demand signal. Safe-fails (no channels, no purchase) if it can't verify."""
     return await service.buy_options(item)
 
 

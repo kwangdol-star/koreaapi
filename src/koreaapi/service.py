@@ -529,17 +529,35 @@ async def buy_options(item: str, *, db_path: str | None = None) -> dict:
     await _log("buy_intent", item, db_path)  # demand signal + future commission-ledger seed (accrues at $0)
     r = await resolve(item, db_path=db_path)  # verify: is this a real, official entity?
     ok = bool(r.get("found"))
+    options: list[dict] = []
+    canonical = caution = None
+    if ok:
+        rec = await store.latest(r["id"], "facts", db_path=db_path)
+        agency = (rec.data.get("agency_en") or rec.data.get("agency_ko")) if rec is not None else None
+        if agency:  # WHO officially sells/represents — cross-verified, so its official store is authoritative
+            options.append({"type": "official-representative", "name": agency, "verified": True,
+                            "note": ("the cross-verified official label / publisher / agency — its official "
+                                     "store is the authoritative place to buy")})
+        # the anti-same-name-scam key: match a store listing against THIS verified name + IDs before buying
+        canonical = {"name": r["name"], "id": r["id"], "external_ids": r.get("ids"),
+                     "cross_verified": r.get("cross_verified"), "skill_score": r.get("skill_score")}
+        caution = ("Buy from the official representative (or its official store), and match a listing against "
+                   "this canonical verified name / IDs — a same-name listing from an unverified seller may be "
+                   "a counterfeit. This is the real entity.")
     return {
         "item": item,
         "verified_official": ok,
         "entity": ({"id": r["id"], "name": r["name"], "skill_score": r.get("skill_score"),
                     "cross_verified": r.get("cross_verified")} if ok else None),
-        "options": [],  # official purchase channels attach here once the rail is live
+        "canonical": canonical,   # the safe key to search official stores with (anti same-name scam)
+        "options": options,       # verified official channels (the representative now; direct rails as volume arrives)
+        "caution": caution,
         "commission": {"model": "bps on settled agent purchases", "rate_bps": 0, "status": "dormant",
                        "note": "activates with agent-commerce / x402 settlement volume"},
         "license": LICENSE,
-        "note": ("verified the entity is real/official before purchase (the anti-fake step); commerce "
-                 "rail dormant (0 bps) until agent-commerce volume arrives — buy-intent logged as demand signal."
+        "note": ("verified the REAL, cross-verified official entity (the anti-fake step that is our commerce "
+                 "value) and returned its official representative + a canonical key to buy safely; commerce "
+                 "rail dormant (0 bps) until agent-commerce volume — buy-intent logged as the demand signal."
                  if ok else
                  "could not verify this as an official KoreaAPI entity — refusing to route a purchase "
                  "(safe-fail); buy-intent still logged as the demand signal."),
