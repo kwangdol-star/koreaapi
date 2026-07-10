@@ -29,6 +29,12 @@ def _clamp01(x: float) -> float:
     return max(0.0, min(1.0, float(x)))
 
 
+# The GEO verticals a region trip-plan draws on — a physical thing verified in a region (P131).
+# Keep in sync with admin._GEO_NODE_TYPE (guarded by test_trip_plan_covers_all_geo_verticals).
+_GEO_NS = ("place", "park", "temple", "museum", "venue", "airport", "theater",
+           "themepark", "skiresort", "island", "hotspring", "beach")
+
+
 def _evidence(d: dict) -> dict:
     """Lift provenance from a service result into the common evidence block."""
     ev: dict = {}
@@ -218,50 +224,59 @@ async def _run_related_network(query: str, db_path: str | None = None) -> dict:
 
 
 async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
-    """Compose a verified visit plan for a region/city: the places + festivals verified THERE
-    (matched on the located-in / location hub edge and the name/summary), plus signature Korean
-    dishes (national — not region-filtered). Every item is a verified, citable entity."""
+    """Compose a verified visit plan for a region/city: every GEO entity verified THERE — places, parks,
+    temples, museums, theaters, theme parks, ski resorts, islands, hot springs, beaches, venues (matched
+    on the located-in region edge + name/summary) — grouped by type, plus festivals THERE and signature
+    national Korean dishes. Every item is a verified, citable entity."""
     q = (query or "").strip().casefold()
-    places: list = []
+    geo: dict[str, list] = {}   # namespace -> [(eid, rec)]
     festivals: list = []
     foods: list = []
     for e in await store.entities(db_path=db_path):
         ns = e["entity_id"].split(":", 1)[0]
-        if e["kind"] != "facts" or ns not in ("place", "festival", "food"):
+        if e["kind"] != "facts" or (ns not in _GEO_NS and ns not in ("festival", "food")):
             continue
         rec = await store.latest(e["entity_id"], "facts", db_path=db_path)
         if rec is None:
             continue
-        if ns == "food":
+        if ns == "food":  # national picks — not region-filtered
             foods.append((e["entity_id"], rec))
             continue
         hay = " ".join(filter(None, [
             rec.data.get("agency_en"), rec.data.get("agency_ko"),
             rec.name.en_official, rec.name.ko, rec.summary_en])).casefold()
-        if q and q in hay:
-            (places if ns == "place" else festivals).append((e["entity_id"], rec))
+        if not (q and q in hay):
+            continue
+        if ns == "festival":
+            festivals.append((e["entity_id"], rec))
+        else:
+            geo.setdefault(ns, []).append((e["entity_id"], rec))
+
     def by_skill(t) -> float:
         return -t[1].provenance.skill_score
 
-    places.sort(key=by_skill)
     festivals.sort(key=by_skill)
     foods.sort(key=by_skill)
+    all_geo = sorted((x for v in geo.values() for x in v), key=by_skill)
 
     def _li(items: list, n: int) -> list[dict]:
         return [{"id": eid, "name": {"ko": r.name.ko, "en_official": r.name.en_official},
                  "skill_score": r.provenance.skill_score} for eid, r in items[:n]]
 
-    n_pl, n_fe = len(places), len(festivals)
-    if n_pl >= 3:
-        signal, action = "PLAN_READY", f"Build the itinerary — {n_pl} verified place(s) in '{query}'."
-    elif n_pl or n_fe:
+    by_type = {ns: _li(sorted(v, key=by_skill), 6) for ns, v in sorted(geo.items())}
+    n_geo, n_fe = len(all_geo), len(festivals)
+    if n_geo >= 3:
+        signal, action = "PLAN_READY", f"Build the itinerary — {n_geo} verified spot(s) in '{query}'."
+    elif n_geo or n_fe:
         signal, action = "PARTIAL", f"Thin coverage for '{query}' — pad with national picks."
     else:
-        signal, action = "THIN", f"No verified places/festivals matched '{query}' yet."
+        signal, action = "THIN", f"No verified spots/festivals matched '{query}' yet."
+    kinds = ", ".join(f"{len(v)} {ns}" for ns, v in sorted(geo.items())) or "none"
     return _env("trip-plan", query, signal=signal, action=action,
-                score=_clamp01((n_pl + n_fe) / 8.0),
-                rationale=f"{n_pl} place(s) + {n_fe} festival(s) matched; foods are national picks.",
-                answer={"region": query, "places": _li(places, 6),
+                score=_clamp01((n_geo + n_fe) / 8.0),
+                rationale=(f"{n_geo} spot(s) across {len(geo)} type(s) ({kinds}) + {n_fe} festival(s) "
+                           "matched; foods are national picks."),
+                answer={"region": query, "places": _li(all_geo, 8), "by_type": by_type,
                         "festivals": _li(festivals, 4), "foods": _li(foods, 5)})
 
 
@@ -303,7 +318,8 @@ _PRODUCTS = [
      "run": _run_related_network},
     {"id": "trip-plan", "name": "Trip Plan (Region)", "name_ko": "여행 플랜", "emoji": "🧳",
      "sector": "Travel", "inputs": ["region or city name, e.g. 'Busan'"],
-     "about": "Verified places + festivals in a region, plus signature Korean dishes — itinerary raw material.",
+     "about": "Every verified spot in a region — places, parks, temples, museums, beaches, ski resorts… "
+              "grouped by type — plus festivals + signature dishes; itinerary raw material.",
      "about_ko": "지역의 검증된 명소·축제 + 대표 음식 — 여행 일정의 재료.",
      "run": _run_trip_plan},
 ]

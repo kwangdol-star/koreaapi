@@ -102,6 +102,36 @@ def test_trip_plan_matches_region_and_packs_foods():
     assert asyncio.run(answers.answer("trip-plan", "Nowhereville", db_path=db))["signal"] == "THIN"
 
 
+def test_trip_plan_pulls_all_geo_verticals_grouped_by_type():
+    # The trip plan draws on EVERY geo vertical verified in the region (not just place:) — the breadth
+    # this session added (parks, temples, ski resorts, beaches…) turned into one region itinerary.
+    db = tempfile.mktemp(suffix=".db")
+    for eid, ko, en in [("park:seoraksan", "설악산국립공원", "Seoraksan National Park"),
+                        ("beach:gyeongpo", "경포해수욕장", "Gyeongpo Beach"),
+                        ("skiresort:yongpyong", "용평리조트", "Yongpyong Resort"),
+                        ("temple:naksansa", "낙산사", "Naksansa")]:
+        _add(db, eid, ko, en, sources=["Wikidata Q1", "Wikipedia x"], agree=2, skill=1.0,
+             data={"agency_en": "Gangwon"})  # located-in region edge
+    _add(db, "park:jirisan", "지리산", "Jirisan National Park",
+         sources=["Wikidata Q2"], agree=2, skill=1.0, data={"agency_en": "South Gyeongsang"})  # other region
+    out = asyncio.run(answers.answer("trip-plan", "Gangwon", db_path=db))
+    assert out["signal"] == "PLAN_READY"
+    ids = {p["id"] for p in out["answer"]["places"]}
+    assert {"park:seoraksan", "beach:gyeongpo", "skiresort:yongpyong", "temple:naksansa"} <= ids
+    assert "park:jirisan" not in ids                       # region-filtered
+    bt = out["answer"]["by_type"]
+    assert set(bt) == {"park", "beach", "skiresort", "temple"}   # grouped by vertical type
+    assert bt["park"][0]["id"] == "park:seoraksan"
+
+
+def test_trip_plan_geo_namespaces_stay_in_sync_with_the_geo_node_types():
+    # A new geo vertical must join the trip plan too (else a whole category of verified spots silently
+    # never surfaces in a region itinerary). _GEO_NS must match admin's geo-node type map exactly.
+    from koreaapi.admin import _GEO_NODE_TYPE
+    from koreaapi.answers import _GEO_NS
+    assert set(_GEO_NS) == set(_GEO_NODE_TYPE)
+
+
 def test_catalog_is_bilingual():
     cat = answers.list_products()
     assert all(p.get("name_ko") and p.get("about_ko") for p in cat["products"])
