@@ -852,6 +852,27 @@ MUSEUMS = {
     "museum:daelim": "Daelim Museum",
 }
 
+# Temple vertical: Korea's major Buddhist temples (사찰) — high tourist/heritage demand ("temples in
+# Korea", "temple stay") and strongly cross-verifiable (all carry Wikidata + Wikipedia + coordinates;
+# 7 are UNESCO "Sansa" monasteries). `temple:` -> located-in region (P131) + founded (P571) +
+# coordinates (P625, map); schema.org BuddhistTemple. Distinctive romanized names (low collision).
+# (Bulguksa is deliberately left as place:bulguksa — no duplicate canonical page for one real site.)
+TEMPLES = {
+    "temple:haeinsa": "Haeinsa",
+    "temple:tongdosa": "Tongdosa",
+    "temple:songgwangsa": "Songgwangsa",
+    "temple:jogyesa": "Jogyesa",
+    "temple:bongeunsa": "Bongeunsa",
+    "temple:beopjusa": "Beopjusa",
+    "temple:magoksa": "Magoksa",
+    "temple:buseoksa": "Buseoksa",
+    "temple:bongjeongsa": "Bongjeongsa",
+    "temple:daeheungsa": "Daeheungsa",
+    "temple:seonamsa": "Seonamsa",
+    "temple:naksansa": "Naksansa",
+    "temple:woljeongsa": "Woljeongsa",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -952,7 +973,7 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
          **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS,
-         **MUSEUMS}
+         **MUSEUMS, **TEMPLES}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
