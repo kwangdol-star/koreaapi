@@ -357,6 +357,9 @@ def parse_entity(raw: dict, entity_id: str, kind: str) -> dict:
         "summary_en": f"{en or ko} - {kind} (Wikidata labels).",
         "summary_ko": f"{ko or en} - {kind} (위키데이터 라벨).",
     }
+    official = _claim_string(item, "P856")  # official website — the verified first-party channel (anti-scam commerce)
+    if official:
+        payload["official_url"] = official
     if ns == "region":
         # Country/admin infobox: STABLE facts only (capital/language/currency entity Q-ids -> resolved
         # to labels in fetch(); ISO code + calling code are direct strings). Volatile stats (population,

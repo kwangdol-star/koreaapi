@@ -533,6 +533,11 @@ async def buy_options(item: str, *, db_path: str | None = None) -> dict:
     canonical = caution = None
     if ok:
         rec = await store.latest(r["id"], "facts", db_path=db_path)
+        official_url = rec.data.get("official_url") if rec is not None else None
+        if official_url:  # the entity's OWN official site (Wikidata P856) — the authoritative first-party channel
+            options.append({"type": "official-website", "url": official_url, "verified": True,
+                            "note": "the entity's OFFICIAL website (cross-referenced via Wikidata P856) — the "
+                                    "authoritative first-party source to buy from / confirm against"})
         agency = (rec.data.get("agency_en") or rec.data.get("agency_ko")) if rec is not None else None
         if agency:  # WHO officially sells/represents — cross-verified, so its official store is authoritative
             options.append({"type": "official-representative", "name": agency, "verified": True,

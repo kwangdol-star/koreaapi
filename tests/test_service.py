@@ -203,13 +203,16 @@ def test_buy_options_verifies_official_and_returns_safe_channels():
     now = datetime(2026, 5, 1, tzinfo=timezone.utc)
     asyncio.run(store.append_record(Record(
         entity_id="artist:bts", kind="facts", name=Name(ko="방탄소년단", en_official="BTS"),
-        snapshot_at=now, summary_en="BTS", data={"agency_en": "HYBE"},
+        snapshot_at=now, summary_en="BTS",
+        data={"agency_en": "HYBE", "official_url": "https://ibighit.com"},
         provenance=Provenance(sources=["Wikidata Q1", "Wikipedia BTS"], fetched_at=now,
                               skill_score=1.0, confidence="high", agreeing_sources=2)), db_path=db))
-    # a VERIFIED entity -> the official representative + a canonical anti-scam key + a caution
+    # a VERIFIED entity -> official website (P856) + official representative + a canonical anti-scam key
     out = asyncio.run(service.buy_options("artist:bts", db_path=db))
     assert out["verified_official"] is True
     assert out["canonical"]["id"] == "artist:bts" and out["canonical"]["cross_verified"] is True
+    assert any(o["type"] == "official-website" and o["url"] == "https://ibighit.com" and o["verified"]
+               for o in out["options"])
     assert any(o["type"] == "official-representative" and o["name"] == "HYBE" and o["verified"]
                for o in out["options"])
     assert out["caution"] and "counterfeit" in out["caution"]
