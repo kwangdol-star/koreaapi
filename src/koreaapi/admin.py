@@ -745,6 +745,19 @@ def _entity_node_core(r) -> dict:
         if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
             node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
         return node
+    if r.entity_id.startswith("theater:"):
+        # a performing-arts venue (공연장·극장): PerformingArtsTheater + located-in region + coordinates.
+        node = {"@type": "PerformingArtsTheater", "name": name, "alternateName": alt,
+                "description": desc, "dateModified": r.snapshot_at.isoformat()}
+        if wd:
+            node["sameAs"] = wd
+        region = r.data.get("agency_en") or r.data.get("agency_ko")  # located-in (P131)
+        if region:
+            node["containedInPlace"] = {"@type": "Place", "name": region}
+        geo = r.data.get("geo") or {}
+        if geo.get("lat") is not None and geo.get("lon") is not None:  # P625 -> map + GeoCoordinates
+            node["geo"] = {"@type": "GeoCoordinates", "latitude": geo["lat"], "longitude": geo["lon"]}
+        return node
     if r.entity_id.startswith("company:"):
         node = {"@type": "Organization", "name": name, "alternateName": alt,
                 "description": desc, "dateModified": r.snapshot_at.isoformat()}
@@ -1217,6 +1230,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./temples.html">{_ICON['temple']} Temples</a>
  <a class="pill" href="./venues.html">{_ICON['venue']} Venues</a>
  <a class="pill" href="./airports.html">{_ICON['airport']} Airports</a>
+ <a class="pill" href="./theaters.html">{_ICON['theater']} Theaters</a>
  <a class="pill" href="./sports.html">{_ICON['sports']} Athletes</a>
  <a class="pill" href="./actors.html">{_ICON['actor']} Actors</a>
  <a class="pill" href="./songs.html">{_ICON['song']} Songs</a>
@@ -1403,6 +1417,9 @@ _ICON = {
     "venue": _icon('<ellipse cx="12" cy="12" rx="9" ry="6"/><ellipse cx="12" cy="12" rx="4.5" ry="3"/>'),
     # paper plane (airports)
     "airport": _icon('<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>'),
+    # theater masks / stage — proscenium arch + curtain (theaters & concert halls)
+    "theater": _icon('<path d="M2 4h20"/><path d="M4 4v9a8 8 0 0 0 16 0V4"/><path d="M4 13h16"/>'
+                     '<line x1="12" y1="13" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/>'),
 }
 
 _ENTITY_STYLE = _FONT_LINKS + "<style>" + _AURORA + """
@@ -2098,6 +2115,7 @@ _VERTICALS = {
     "temple": ("Buddhist temples", "temples.html", _ICON["temple"], "Region / location"),
     "venue": ("Stadiums & arenas", "venues.html", _ICON["venue"], "Region / location"),
     "airport": ("Airports", "airports.html", _ICON["airport"], "Region / location"),
+    "theater": ("Theaters & concert halls", "theaters.html", _ICON["theater"], "Region / location"),
     "sports": ("Athletes & esports", "sports.html", _ICON["sports"], "Team"),
     "actor": ("Korean actors", "actors.html", _ICON["actor"], "Works"),
     "song": ("K-pop songs", "songs.html", _ICON["song"], "Performer"),
@@ -2476,7 +2494,7 @@ _KO_VERTICAL = {  # ns -> Korean hub label
     "medical": "병원·의료", "region": "한국·지역", "game": "한국 게임", "show": "예능·방송",
     "animation": "애니메이션", "university": "대학교", "classic": "고전·기록", "fashion": "한국 패션",
     "festival": "축제", "award": "시상식", "holiday": "명절·기념일", "liquor": "전통주", "park": "국립공원",
-    "museum": "박물관·미술관", "temple": "사찰", "venue": "경기장·아레나", "airport": "공항",
+    "museum": "박물관·미술관", "temple": "사찰", "venue": "경기장·아레나", "airport": "공항", "theater": "공연장·극장",
     "people": "인물", "sports": "스포츠 선수", "actor": "배우", "song": "K-pop 곡", "concept": "문화 개념·정서",
 }
 
@@ -3309,7 +3327,7 @@ _CORPUS_VERTICALS = [
     ("award:", "Awards & ceremonies"), ("holiday:", "Holidays & observances"),
     ("liquor:", "Traditional liquor"), ("park:", "National parks"),
     ("museum:", "Museums & galleries"), ("temple:", "Buddhist temples"), ("venue:", "Stadiums & arenas"),
-    ("airport:", "Airports"),
+    ("airport:", "Airports"), ("theater:", "Theaters & concert halls"),
     ("sports:", "Athletes & esports"), ("actor:", "Korean actors"), ("song:", "K-pop songs"),
     ("concept:", "K-culture concepts"),
 ]

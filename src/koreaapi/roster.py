@@ -908,6 +908,22 @@ AIRPORTS = {
     "airport:ulsan": "Ulsan Airport",
 }
 
+# Theater vertical: Korea's performing-arts venues (공연장·극장) — where musicals, concerts, and
+# classical/국악 happen. Distinct from venue: (sports stadiums/arenas). High K-culture demand and
+# cross-verifiable (Wikidata + Wikipedia + coordinates). `theater:` -> located-in region (P131) +
+# opened (P571) + coordinates (P625, map); schema.org PerformingArtsTheater. Distinctive names.
+THEATERS = {
+    "theater:sac": "Seoul Arts Center",
+    "theater:sejong": "Sejong Center",
+    "theater:lgartscenter": "LG Arts Center",
+    "theater:nationaltheater": "National Theater of Korea",
+    "theater:nationalgugak": "National Gugak Center",
+    "theater:daeguopera": "Daegu Opera House",
+    "theater:lotteconcert": "Lotte Concert Hall",
+    "theater:charlotte": "Charlotte Theater",
+    "theater:jeongdong": "Jeongdong Theater",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -1008,7 +1024,7 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
          **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS,
-         **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS}
+         **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS, **THEATERS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

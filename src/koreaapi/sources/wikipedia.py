@@ -572,6 +572,15 @@ _TITLES = {
     "airport:yangyang": "Yangyang International Airport",
     "airport:gwangju": "Gwangju Airport",
     "airport:ulsan": "Ulsan Airport",
+    "theater:sac": "Seoul Arts Center",
+    "theater:sejong": "Sejong Center",
+    "theater:lgartscenter": "LG Arts Center",
+    "theater:nationaltheater": "National Theater of Korea",
+    "theater:nationalgugak": "National Gugak Center",
+    "theater:daeguopera": "Daegu Opera House",
+    "theater:lotteconcert": "Lotte Concert Hall",
+    "theater:charlotte": "Charlotte Theater",
+    "theater:jeongdong": "Jeongdong Theater",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)
