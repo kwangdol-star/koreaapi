@@ -128,6 +128,19 @@ def test_bad_int_query_param_does_not_500(monkeypatch, tmp_path):
     assert c.get("/v1/calendar?window_days=xyz").status_code == 200
 
 
+def test_batch_route_and_since_cursor_are_wired(monkeypatch, tmp_path):
+    # The throughput lane over HTTP: /v1/batch parses a comma list into a keyed result map in one
+    # round-trip (empty db -> misses, but no crash), and /v1/changes accepts the incremental cursor.
+    monkeypatch.delenv("X402_PAY_TO", raising=False)
+    c = _client(monkeypatch, tmp_path)
+    r = c.get("/v1/batch?ids=artist:bts,artist:newjeans")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["op"] == "verified" and body["count"] == 2 and "artist:bts" in body["results"]
+    assert c.get("/v1/batch?ids=BTS&op=resolve").status_code == 200
+    assert c.get("/v1/changes?since=2026-01-01").json()["since"] == "2026-01-01"
+
+
 def test_openapi_spec_is_valid_and_served(monkeypatch, tmp_path):
     # 'callable by any AI agent' beyond MCP: a valid OpenAPI 3.1 spec the OpenAPI ecosystem auto-consumes.
     from koreaapi.api import openapi_spec
@@ -135,6 +148,7 @@ def test_openapi_spec_is_valid_and_served(monkeypatch, tmp_path):
     assert spec["openapi"].startswith("3.1")
     assert spec["info"]["title"] == "KoreaAPI" and spec["info"]["license"]["name"] == "CC-BY-4.0"
     assert "/v1/verified/{entity_id}" in spec["paths"] and "/v1/resolve/{query}" in spec["paths"]
+    assert "/v1/batch" in spec["paths"]  # the agent-throughput lane is documented
     assert "402" in spec["paths"]["/v1/korea-rising"]["get"]["responses"]  # the x402 premium is documented
     r = _client(monkeypatch, tmp_path).get("/openapi.json")               # served live
     assert r.status_code == 200 and r.json()["openapi"].startswith("3.1")

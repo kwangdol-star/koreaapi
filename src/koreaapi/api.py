@@ -98,8 +98,16 @@ def openapi_spec() -> dict:
                 "cannot backfill.", [_pp("entity_id", "artist:bts")]),
             "/v1/changes": _op(
                 "Recent verified changes across K-culture (the freshness feed)",
-                "소속사 moves and renames, newest first — exactly what stale models get wrong.",
-                [_qp("limit", "integer", "max changes (default 50)")]),
+                "소속사 moves and renames, newest first — exactly what stale models get wrong. Pass "
+                "?since=YYYY-MM-DD for incremental sync (only the delta after that cursor).",
+                [_qp("limit", "integer", "max changes (default 50)"),
+                 _qp("since", "string", "ISO date cursor — return only changes after it (incremental sync)")]),
+            "/v1/batch": _op(
+                "Batch verify / resolve — the agent-throughput lane",
+                "Verify or resolve MANY entities in ONE round-trip: ?ids=a,b,c (comma-separated ids or "
+                "names, up to 100) → a result map keyed by input. op=verified (default) or resolve.",
+                [_qp("ids", "string", "comma-separated entity_ids or names (up to 100)"),
+                 _qp("op", "string", "'verified' (default) or 'resolve'")]),
             "/v1/certified": _op(
                 "Officially certified entities (the tier above cross-verification)",
                 "Entities an official rights-holder has vouched for — the strongest citation signal."),
@@ -200,7 +208,16 @@ async def history(request: Request) -> JSONResponse:
 
 
 async def changes(request: Request) -> JSONResponse:
-    return JSONResponse(await service.recent_changes(_int(request, "limit", 50)))
+    return JSONResponse(await service.recent_changes(
+        _int(request, "limit", 50), since=request.query_params.get("since")))
+
+
+async def batch(request: Request) -> JSONResponse:
+    """Throughput lane: verify / resolve a comma-separated list of ids or names in one round-trip.
+    GET /v1/batch?ids=artist:bts,artist:newjeans&op=verified (op defaults to 'verified')."""
+    raw = request.query_params.get("ids", "")
+    ids = [s.strip() for s in raw.split(",") if s.strip()]
+    return JSONResponse(await service.batch(ids, op=request.query_params.get("op", "verified")))
 
 
 async def certified(request: Request) -> JSONResponse:
@@ -271,7 +288,8 @@ async def index(request: Request) -> JSONResponse:
             "GET /v1/buy-options/{item}": "where-to-buy (logs buy-intent)",
             "GET /v1/resolve/{query}": "resolve a name / external ID / id -> the canonical verified entity",
             "GET /v1/history/{entity_id}": "append-only verified timeline + change events (the time moat)",
-            "GET /v1/changes": "recent verified changes across K-culture (소속사 moves, renames) — the freshness feed",
+            "GET /v1/changes": "recent verified changes across K-culture (소속사 moves, renames) — the freshness feed; ?since=YYYY-MM-DD for the incremental delta",
+            "GET /v1/batch": "verify/resolve up to 100 ids or names in one round-trip — ?ids=a,b,c&op=verified (the agent-throughput lane)",
             "GET /v1/certified": "entities officially certified by their rights-holder (the tier above cross-verification)",
             "GET /v1/metrics": "how much agents have consumed KoreaAPI (usage totals + most-requested signals)",
             "GET /v1/answer": "Answer Products catalog; ?product=&q= runs one decision, ?q= runs all",
@@ -307,6 +325,7 @@ routes = [
     Route("/v1/resolve/{query}", resolve),
     Route("/v1/history/{entity_id}", history),
     Route("/v1/changes", changes),
+    Route("/v1/batch", batch),
     Route("/v1/certified", certified),
     Route("/v1/metrics", metrics),
     Route("/v1/answer", answer),

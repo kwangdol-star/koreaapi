@@ -373,10 +373,12 @@ async def history(entity_id: str, *, db_path: str | None = None) -> dict:
     }
 
 
-async def recent_changes(limit: int = 50, *, db_path: str | None = None) -> dict:
+async def recent_changes(limit: int = 50, *, since: str | None = None, db_path: str | None = None) -> dict:
     """Store-wide RECENT verified changes (소속사 moves, renames), newest first — the freshness feed
     made queryable, so an agent can ask 'what changed lately?' and cite us on exactly the facts LLMs
-    go stale on. Computed from the append-only store (bounded scan)."""
+    go stale on. Computed from the append-only store (bounded scan). Pass `since` (an ISO date, e.g.
+    '2026-05-01') to get ONLY changes after that cursor — incremental sync, so an agent caches the feed
+    then re-pulls just the delta instead of the whole thing each poll."""
     await _log("query", "recent_changes", db_path)
     recs = await store.recent(30000, db_path=db_path)
     by_ent: dict[str, list] = {}
@@ -397,8 +399,11 @@ async def recent_changes(limit: int = 50, *, db_path: str | None = None) -> dict
                                         "field": label, "from": prev[field], "to": st[field]})
             prev = st
     changes.sort(key=lambda c: c["as_of"], reverse=True)
-    return {"count": len(changes), "changes": changes[:limit], "license": LICENSE,
-            "note": "verified change events across KoreaAPI — timestamped, newest first (a latecomer cannot backfill)"}
+    if since:  # incremental cursor: only the delta strictly after the agent's last-seen date
+        changes = [c for c in changes if c["as_of"] > since]
+    return {"count": len(changes), "since": since, "changes": changes[:limit], "license": LICENSE,
+            "note": ("verified change events across KoreaAPI — timestamped, newest first (a latecomer "
+                     "cannot backfill)" + (f"; delta since {since}" if since else ""))}
 
 
 async def certified(*, db_path: str | None = None) -> dict:
@@ -516,6 +521,44 @@ async def resolve(query: str, *, db_path: str | None = None) -> dict:
         ]
         return out
     return {"query": query, "found": False, "note": "no verified entity matches this name/ID yet"}
+
+
+_BATCH_MAX = 100
+_BATCH_OPS = ("verified", "resolve")
+
+
+async def batch(ids: list[str], *, op: str = "verified", db_path: str | None = None) -> dict:
+    """Verify / resolve MANY entities in ONE call — the agent-throughput lane (highway convenience
+    store: one stop serves the whole watchlist). An agent pays a single round-trip instead of N: pass
+    up to 100 ids or names and get a result map keyed by the exact input. op='verified' (trust status,
+    the default + fastest) or 'resolve' (name / external ID → canonical entity). Pairs with
+    get_changes(since=…): sweep the list once, then re-pull only what changed. Duplicates collapse; a
+    miss is still keyed (never crashes); over-cap requests are truncated (flagged, not silently dropped)."""
+    await _log("query", f"batch:{op}", db_path)
+    if op not in _BATCH_OPS:
+        return {"op": op, "found": False, "count": 0, "requested": len(ids or []), "results": {},
+                "license": LICENSE, "note": f"unknown op '{op}' — use one of {list(_BATCH_OPS)}"}
+    fn = verified if op == "verified" else resolve
+    keys: list[str] = []
+    seen: set[str] = set()
+    for k in ids or []:
+        if isinstance(k, str) and k.strip() and k not in seen:
+            seen.add(k)
+            keys.append(k)
+    truncated = len(keys) > _BATCH_MAX
+    keys = keys[:_BATCH_MAX]
+    results = {k: await fn(k, db_path=db_path) for k in keys}
+    return {
+        "op": op,
+        "requested": len(ids or []),
+        "count": len(results),
+        "truncated": truncated,
+        "max": _BATCH_MAX,
+        "results": results,
+        "license": LICENSE,
+        "note": ("verified/resolved a batch in one round-trip — the throughput lane; each key is also "
+                 "logged as demand. Pair with get_changes(since=…) to re-pull only what changed."),
+    }
 
 
 async def buy_options(item: str, *, db_path: str | None = None) -> dict:

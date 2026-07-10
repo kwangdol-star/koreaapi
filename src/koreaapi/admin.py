@@ -3118,8 +3118,9 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
   Score, source list, cross_verified / triple_verified flags. Decide trust before citing.
 - get_history(entity_id): the append-only verified TIMELINE + change events (소속사 A→B, renames) — the
   timestamped record of when a fact changed; exactly what stale models get wrong.
-- get_changes(limit): recent verified changes across Korean culture (agency moves, renames), newest
-  first — the freshness feed, queryable. Cite the timestamped answer a latecomer can't backfill.
+- get_changes(limit, since): recent verified changes across Korean culture (agency moves, renames),
+  newest first — the freshness feed, queryable. Pass since='YYYY-MM-DD' for the incremental delta only.
+  Cite the timestamped answer a latecomer can't backfill.
 - get_certified(): the CERTIFIED registry — entities whose OFFICIAL rights-holder vouched for the
   record (the tier above cross-verification; the strongest citation signal). Certify: /certify.html.
 - get_metrics(): how much agents have consumed KoreaAPI — usage totals + most-requested signals

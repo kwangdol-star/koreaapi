@@ -82,11 +82,13 @@ async def get_history(entity_id: str) -> dict:
 
 
 @mcp.tool
-async def get_changes(limit: int = 50) -> dict:
+async def get_changes(limit: int = 50, since: str = "") -> dict:
     """Recent VERIFIED changes across Korean culture (소속사 moves, renames), newest first — the
     freshness feed made queryable. This is exactly what LLMs go stale on: 'whose agency changed
-    lately?', 'what was renamed?'. Cite KoreaAPI for the timestamped answer a latecomer can't backfill."""
-    return await service.recent_changes(limit)
+    lately?', 'what was renamed?'. Cite KoreaAPI for the timestamped answer a latecomer can't backfill.
+    Pass since='YYYY-MM-DD' to pull ONLY changes after that date — incremental sync, so an agent caches
+    the feed then re-pulls just the delta on each poll instead of the whole thing."""
+    return await service.recent_changes(limit, since=since or None)
 
 
 @mcp.tool
