@@ -562,6 +562,16 @@ _TITLES = {
     "venue:inspirearena": "Inspire Arena",
     "venue:changwonnc": "Changwon NC Park",
     "venue:munhak": "Incheon Munhak Stadium",
+    "airport:incheon": "Incheon International Airport",
+    "airport:gimpo": "Gimpo International Airport",
+    "airport:jeju": "Jeju International Airport",
+    "airport:gimhae": "Gimhae International Airport",
+    "airport:daegu": "Daegu International Airport",
+    "airport:cheongju": "Cheongju International Airport",
+    "airport:muan": "Muan International Airport",
+    "airport:yangyang": "Yangyang International Airport",
+    "airport:gwangju": "Gwangju Airport",
+    "airport:ulsan": "Ulsan Airport",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)

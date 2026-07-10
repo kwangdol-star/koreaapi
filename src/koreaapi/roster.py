@@ -892,6 +892,22 @@ VENUES = {
     "venue:munhak": "Incheon Munhak Stadium",
 }
 
+# Airport vertical: Korea's airports (공항) — high traveler demand and cross-verifiable (Wikidata +
+# Wikipedia + coordinates). `airport:` -> located-in region (P131) + opened (P571) + coordinates
+# (P625, map); schema.org Airport. Distinctive names (low collision).
+AIRPORTS = {
+    "airport:incheon": "Incheon International Airport",
+    "airport:gimpo": "Gimpo International Airport",
+    "airport:jeju": "Jeju International Airport",
+    "airport:gimhae": "Gimhae International Airport",
+    "airport:daegu": "Daegu International Airport",
+    "airport:cheongju": "Cheongju International Airport",
+    "airport:muan": "Muan International Airport",
+    "airport:yangyang": "Yangyang International Airport",
+    "airport:gwangju": "Gwangju Airport",
+    "airport:ulsan": "Ulsan Airport",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -992,7 +1008,7 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
          **BOOKS, **HISTORY, **HERITAGE, **FOLKLORE, **MEDICAL, **REGION, **GAMES,
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
          **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS,
-         **MUSEUMS, **TEMPLES, **VENUES}
+         **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
