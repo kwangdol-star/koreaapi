@@ -976,6 +976,21 @@ HOTSPRINGS = {
     "hotspring:deoksan": "Deoksan Hot Springs",
 }
 
+# Beach vertical: Korea's beaches (해수욕장) — high summer-tourism demand and cross-verifiable where a
+# Wikipedia article exists (coverage is moderate, like islands — some seeds may resolve to a miss, which
+# is safe, never a wrong record). `beach:` -> located-in region (P131) + coordinates (P625, map);
+# schema.org Beach. Distinctive names (low collision); Haeundae/Gwangalli stay as place: entries.
+BEACHES = {
+    "beach:gyeongpo": "Gyeongpo Beach",
+    "beach:jeongdongjin": "Jeongdongjin",
+    "beach:daecheon": "Daecheon Beach",
+    "beach:naksan": "Naksan Beach",
+    "beach:eurwangni": "Eurwangni Beach",
+    "beach:mallipo": "Mallipo Beach",
+    "beach:hyeopjae": "Hyeopjae Beach",
+    "beach:hamdeok": "Hamdeok Beach",
+}
+
 # Sports vertical: Korean athletes & esports pros — the highest-demand AEO gap (손흥민, 김연아,
 # Faker…). `sports:` humans map to team P54 as the org edge (related-by-team) + sport/represents
 # extras. Distinctive romanized full names only (a same-EN-name person, e.g. footballer-vs-actor
@@ -1077,7 +1092,7 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
          **SHOWS, **ANIMATIONS, **UNIVERSITIES, **CLASSICS, **FASHION, **FESTIVALS,
          **SPORTS, **ACTORS, **SONGS, **CONCEPTS, **AWARDS, **HOLIDAYS, **LIQUORS, **PARKS,
          **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS, **THEATERS, **THEMEPARKS,
-         **SKIRESORTS, **ISLANDS, **HOTSPRINGS}
+         **SKIRESORTS, **ISLANDS, **HOTSPRINGS, **BEACHES}
 
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple

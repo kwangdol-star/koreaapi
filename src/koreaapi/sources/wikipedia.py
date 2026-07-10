@@ -607,6 +607,14 @@ _TITLES = {
     "hotspring:bugok": "Bugok Hot Springs",
     "hotspring:icheon": "Icheon Hot Springs",
     "hotspring:deoksan": "Deoksan Hot Springs",
+    "beach:gyeongpo": "Gyeongpo Beach",
+    "beach:jeongdongjin": "Jeongdongjin",
+    "beach:daecheon": "Daecheon Beach",
+    "beach:naksan": "Naksan Beach",
+    "beach:eurwangni": "Eurwangni Beach",
+    "beach:mallipo": "Mallipo Beach",
+    "beach:hyeopjae": "Hyeopjae Beach",
+    "beach:hamdeok": "Hamdeok Beach",
     # artists — batch 5 (solo/trot)
     "artist:limyoungwoong": "Lim Young-woong",
     # sports — athletes & esports (MLB players' articles are given-name-first; roster names match)
