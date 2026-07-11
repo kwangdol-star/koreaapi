@@ -1100,6 +1100,22 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
 GEO_NAMESPACES = ("place", "park", "temple", "museum", "venue", "airport", "theater",
                   "themepark", "skiresort", "island", "hotspring", "beach")
 
+# KOPIS (공연예술통합전산망) — the official Korean performing-arts VENUE registry. It's Korean-indexed
+# (unlike KTO's English EngService), so the KOPIS source searches by the Korean 시설명 given here.
+# Theater vertical only (KOPIS is 공연시설, not sports stadiums). A missing/mismatched name -> graceful
+# miss (the source just doesn't corroborate), never a wrong record.
+KOPIS_NAMES = {
+    "theater:sac": "예술의전당",
+    "theater:sejong": "세종문화회관",
+    "theater:lgartscenter": "LG아트센터",
+    "theater:nationaltheater": "국립극장",
+    "theater:nationalgugak": "국립국악원",
+    "theater:daeguopera": "대구오페라하우스",
+    "theater:lotteconcert": "롯데콘서트홀",
+    "theater:charlotte": "샤롯데씨어터",
+    "theater:jeongdong": "정동극장",
+}
+
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
 # cross-verified" (an authority staked its name — faster + more official than a wiki edit, and a

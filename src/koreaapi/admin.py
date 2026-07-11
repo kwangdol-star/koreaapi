@@ -58,6 +58,7 @@ from .sources.mock import MockSource
 from .sources.musicbrainz import MusicBrainzSource
 from .sources.nominatim import NominatimSource
 from .sources.tmdb import TMDBSource
+from .sources.kopis import KopisSource
 from .sources.tourapi import TourAPISource
 from .sources.wikidata import _DISCOVER, WikidataSource, fetch_discover, fetch_labelmates
 from .sources.wikipedia import WikipediaSource
@@ -110,7 +111,8 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
     #   MusicBrainz -> artists · OpenStreetMap -> places · TMDB -> drama/film/animation (key-gated).
     # Wikidata+Wikipedia are correlated; these come from separate DBs -> genuine triple-verification.
     sources = [WikidataSource(), WikipediaSource(), MusicBrainzSource(),
-               NominatimSource(), TMDBSource(), TourAPISource(), KOSISSource(), OpenLibrarySource()]
+               NominatimSource(), TMDBSource(), TourAPISource(), KopisSource(), KOSISSource(),
+               OpenLibrarySource()]
     ingested: list[str] = []
     failed: list[str] = []
     for i, entity_id in enumerate(ids):
@@ -192,7 +194,8 @@ async def sweep(*, db_path: str | None = None, max_new: int = 10) -> dict:
     aliases = dict(todo)
     sources = [WikidataSource(aliases=aliases), WikipediaSource(aliases=aliases),
                MusicBrainzSource(aliases=aliases), NominatimSource(aliases=aliases),
-               TMDBSource(aliases=aliases), TourAPISource(aliases=aliases), OpenLibrarySource(aliases=aliases)]
+               TMDBSource(aliases=aliases), TourAPISource(aliases=aliases), KopisSource(aliases=aliases),
+               OpenLibrarySource(aliases=aliases)]
     ingested: list[str] = []
     for eid, _name in todo:
         rec = await ingest_one("facts", eid, sources, db_path=db_path)
@@ -242,7 +245,8 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
         qids = {eid: q for eid, _en, q in todo}
         sources = [WikidataSource(aliases=aliases, qids=qids), WikipediaSource(aliases=aliases),
                    MusicBrainzSource(aliases=aliases), NominatimSource(aliases=aliases),
-                   TMDBSource(aliases=aliases), TourAPISource(aliases=aliases), OpenLibrarySource(aliases=aliases)]
+                   TMDBSource(aliases=aliases), TourAPISource(aliases=aliases), KopisSource(aliases=aliases),
+                   OpenLibrarySource(aliases=aliases)]
         ingested: list[str] = []
         for eid, _en, _q in todo:
             rec = await ingest_one("facts", eid, sources, db_path=db_path)
