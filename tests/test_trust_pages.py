@@ -47,6 +47,7 @@ def test_for_agents_page_and_manifest(tmp_path):
     assert man["name"] == "KoreaAPI"
     assert man["trust_model"]["basis"] == "verification, not brand"   # the differentiator, machine-readable
     assert "Skill Score" in man["trust_model"]["how"]
+    assert "open-data ecosystem" in man["trust_model"]["ecosystem"]   # positioned as the verification layer
     assert any(t["name"] == "get_verified" for t in man["mcp"]["tools"])
     assert man["mcp"]["command"] == "python -m koreaapi.server"
     assert man["data"]["open_json"].endswith("/latest.json")
