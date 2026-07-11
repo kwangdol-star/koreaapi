@@ -270,6 +270,33 @@ def test_person_returns_recurring_collaborators():
     assert "Na Hong-jin" not in collabs and "Kwak Do-won" not in collabs      # never shared a work with Bong
 
 
+def test_related_surfaces_same_region_geo_neighbors():
+    # The per-entity "what's near this?" edge: for a GEO entity, related() also returns same_region —
+    # nearby verified spots ACROSS all geo verticals (park/temple/beach…), region-filtered.
+    db = tempfile.mktemp(suffix=".db")
+    now = datetime(2026, 5, 1, tzinfo=timezone.utc)
+
+    def geo(eid, ko, en, region):
+        asyncio.run(store.append_record(Record(
+            entity_id=eid, kind="facts", name=Name(ko=ko, en_official=en), snapshot_at=now,
+            summary_en=en, data={"agency_en": region}, provenance=Provenance(
+                sources=["Wikidata Q1", "Wikipedia x"], fetched_at=now,
+                skill_score=1.0, confidence="high", agreeing_sources=2)), db_path=db))
+
+    geo("temple:naksansa", "낙산사", "Naksansa", "Gangwon")
+    geo("park:seoraksan", "설악산", "Seoraksan National Park", "Gangwon")
+    geo("beach:gyeongpo", "경포해변", "Gyeongpo Beach", "Gangwon")
+    geo("place:gyeongbokgung", "경복궁", "Gyeongbokgung", "Seoul")   # other region — must be excluded
+    out = asyncio.run(service.related("temple:naksansa", db_path=db))
+    sr = {it["name"]["en_official"] for it in out["same_region"]}
+    assert "Seoraksan National Park" in sr and "Gyeongpo Beach" in sr   # cross-vertical, same region
+    assert "Gyeongbokgung" not in sr and out["same_region_count"] == 2  # region-filtered
+    assert out["count"] == 0                                            # same-KIND related (lone temple) is empty
+    # a non-geo entity gets an empty same_region (no noise)
+    geo("artist:bts", "방탄", "BTS", "HYBE")
+    assert asyncio.run(service.related("artist:bts", db_path=db))["same_region"] == []
+
+
 def test_korea_rising_category_filter_and_buy_intent_weight():
     db = _agency_db()  # seeds 4 artists
     asyncio.run(store.log_signal("query", "artist:aespa", db_path=db))

@@ -19,7 +19,7 @@ from . import certify, integrity
 from .license import LICENSE
 from .pipeline import store
 from .reconcile import external_ids, match_score, name_keys
-from .roster import CERTIFIED
+from .roster import CERTIFIED, GEO_NAMESPACES
 
 _CALENDAR_KINDS = ("comeback", "release", "concert")
 
@@ -302,24 +302,38 @@ async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None
     if not key:
         return {"entity_id": entity_id, "found": True, "related_by": None, "key": None,
                 "count": 0, "related": [], "note": "no agency/network edge on this entity"}
-    out: list[dict] = []
+    fam = _family(entity_id)
+    is_geo = entity_id.split(":", 1)[0] in GEO_NAMESPACES
+    out: list[dict] = []       # same-KIND hub edge (so속사 / network / place↔place)
     seen: set[str] = set()
+    same_region: list[dict] = []   # same-REGION neighbors ACROSS the geo verticals (nearby verified spots)
+    seen_sr: set[str] = set()
     for e in await store.entities(db_path=db_path):
         oid = e["entity_id"]
-        # keep related within the same family (artist↔artist, drama↔film, place↔place …); dedupe
-        if oid == entity_id or oid in seen or _family(oid) != _family(entity_id):
+        if oid == entity_id:
+            continue
+        related_hit = oid not in seen and _family(oid) == fam          # same family, dedup
+        region_hit = is_geo and oid not in seen_sr and oid.split(":", 1)[0] in GEO_NAMESPACES  # any geo vertical
+        if not (related_hit or region_hit):
             continue
         r = await store.latest(oid, "facts", db_path=db_path)
-        if r is None:
+        if r is None or _norm_name(r.data.get("agency_en") or r.data.get("agency_ko")) != key:
             continue
-        if _norm_name(r.data.get("agency_en") or r.data.get("agency_ko")) == key:
+        if related_hit:
             seen.add(oid)
             out.append(_item(r))
+        if region_hit:
+            seen_sr.add(oid)
+            same_region.append(_item(r))
     out.sort(key=lambda it: (it["name"]["en_official"] or it["name"]["ko"] or "").lower())
+    same_region.sort(key=lambda it: (it["name"]["en_official"] or it["name"]["ko"] or "").lower())
     return {
         "entity_id": entity_id, "found": True,
-        "related_by": ("agency" if is_artist else "network" if _family(entity_id) == "video" else "hub"),
+        "related_by": ("agency" if is_artist else "network" if fam == "video" else "hub"),
         "key": label, "count": len(out), "related": out[:limit],
+        # nearby verified spots in the same region, across ALL geo verticals (park·temple·museum·beach…)
+        # — the per-entity companion to the region trip-plan. Empty for non-geo entities.
+        "same_region": same_region[:limit], "same_region_count": len(same_region),
         "license": LICENSE,
     }
 

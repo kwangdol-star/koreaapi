@@ -23,17 +23,15 @@ from __future__ import annotations
 
 from . import service
 from .pipeline import store
-from .roster import FOOD_SPICE, FOOD_VEG
+from .roster import FOOD_SPICE, FOOD_VEG, GEO_NAMESPACES
 
 
 def _clamp01(x: float) -> float:
     return max(0.0, min(1.0, float(x)))
 
 
-# The GEO verticals a region trip-plan draws on — a physical thing verified in a region (P131).
-# Keep in sync with admin._GEO_NODE_TYPE (guarded by test_trip_plan_covers_all_geo_verticals).
-_GEO_NS = ("place", "park", "temple", "museum", "venue", "airport", "theater",
-           "themepark", "skiresort", "island", "hotspring", "beach")
+# The GEO verticals a region trip-plan draws on — canonical list lives in roster.GEO_NAMESPACES.
+_GEO_NS = GEO_NAMESPACES
 
 
 def _evidence(d: dict) -> dict:

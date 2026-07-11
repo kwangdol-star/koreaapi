@@ -1094,6 +1094,12 @@ NAMES = {**ARTISTS, **DRAMAS, **FILMS, **WEBTOONS, **PLACES, **FOODS, **COMPANIE
          **MUSEUMS, **TEMPLES, **VENUES, **AIRPORTS, **THEATERS, **THEMEPARKS,
          **SKIRESORTS, **ISLANDS, **HOTSPRINGS, **BEACHES}
 
+# The GEO namespaces — verticals that are a physical place in a region (P131) with coordinates (P625).
+# The single source of truth: admin._GEO_NODE_TYPE (JSON-LD @type per ns), answers._GEO_NS (trip-plan),
+# and service.related() (same-region edge) all key off this — guarded by test_trip_plan_covers_all_geo.
+GEO_NAMESPACES = ("place", "park", "temple", "museum", "venue", "airport", "theater",
+                  "themepark", "skiresort", "island", "hotspring", "beach")
+
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
 # cross-verified" (an authority staked its name — faster + more official than a wiki edit, and a
