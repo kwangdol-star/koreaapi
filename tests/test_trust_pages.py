@@ -39,10 +39,14 @@ def test_for_agents_page_and_manifest(tmp_path):
     fa = open(os.path.join(out, "for-agents.html"), encoding="utf-8").read()
     assert "python -m koreaapi.server" in fa and "<code>get_verified</code>" in fa
     assert "./agents.json" in fa and 'hreflang="ko"' in fa
+    assert "verified, not just asserted" in fa and "not by brand" in fa  # positioning: verification-trust
     fa_ko = open(os.path.join(out, "ko", "for-agents.html"), encoding="utf-8").read()
     assert '<html lang="ko">' in fa_ko and "MCP 빠른 시작" in fa_ko
+    assert "브랜드가 아니라 구조로" in fa_ko  # KO parity for the positioning
     man = json.load(open(os.path.join(out, "agents.json"), encoding="utf-8"))
     assert man["name"] == "KoreaAPI"
+    assert man["trust_model"]["basis"] == "verification, not brand"   # the differentiator, machine-readable
+    assert "Skill Score" in man["trust_model"]["how"]
     assert any(t["name"] == "get_verified" for t in man["mcp"]["tools"])
     assert man["mcp"]["command"] == "python -m koreaapi.server"
     assert man["data"]["open_json"].endswith("/latest.json")
