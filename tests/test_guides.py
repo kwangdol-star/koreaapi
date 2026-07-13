@@ -74,9 +74,29 @@ def test_food_guide_pages_generate_and_label_editorial_tags(tmp_path, monkeypatc
 
     idx = (tmp_path / "site" / "guides.html").read_text(encoding="utf-8")
     assert "food-vegetarian.html" in idx and "By diet" in idx                  # index links the food guide
+    assert (tmp_path / "site" / "ko" / "food-vegetarian.html").exists()        # Korean counterpart
     sm = tempfile.mktemp(suffix=".xml")
     asyncio.run(admin.sitemap(db_path=db, out_path=sm))
-    assert "/food-vegetarian.html" in open(sm, encoding="utf-8").read()        # sitemap ⊇ the food set
+    smt = open(sm, encoding="utf-8").read()
+    assert "/food-vegetarian.html" in smt and "/ko/food-vegetarian.html" in smt  # sitemap ⊇ EN + KO
+
+
+def test_guides_have_korean_counterparts(tmp_path):
+    db = tempfile.mktemp(suffix=".db")
+    for eid, ko, en in [("place:haeundae", "해운대", "Haeundae"),
+                        ("beach:gwangalli", "광안리해수욕장", "Gwangalli Beach"),
+                        ("temple:beomeosa", "범어사", "Beomeosa")]:
+        _ingest(db, eid, ko, en, region="Busan")
+    out_dir = str(tmp_path / "site")
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
+
+    ko = (tmp_path / "site" / "ko" / "guide-busan.html").read_text(encoding="utf-8")
+    assert 'lang="ko"' in ko and "검증 여행 가이드" in ko                        # Korean chrome
+    assert "artist/haeundae.html" in ko                                        # -> /ko/artist/ (relative)
+    assert '"@type": "FAQPage"' in ko and "None" not in ko
+    assert (tmp_path / "site" / "ko" / "guides.html").exists()                  # /ko/ index (no hreflang-404)
+    en = (tmp_path / "site" / "guide-busan.html").read_text(encoding="utf-8")
+    assert "/ko/guide-busan.html" in en                                        # hreflang -> the real KO page
 
 
 def test_guides_index_written_even_with_no_regions(tmp_path):

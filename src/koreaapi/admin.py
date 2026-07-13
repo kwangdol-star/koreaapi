@@ -3061,6 +3061,33 @@ def _write_guides_index(out_dir: str, region_guides: list[dict], food_guides: li
     _write_hub_html(out_dir, "guides.html", _ICON.get("place", ""), "Guides",
                     "Verified, citable Korean guides — travel by region + food by diet.",
                     body, _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
+    # Korean index (/ko/guides.html) — hreflang counterpart of /guides.html.
+    ko_sections: list[str] = []
+    ko_items: list[dict] = []
+    if region_guides:
+        gs = sorted(region_guides, key=lambda g: g["region"])
+        lis = "".join(f'<li><a href="guide-{g["slug"]}.html">{html.escape(g["region"])}</a>'
+                      f' · 검증 명소 {g["count"]}곳</li>' for g in gs)
+        ko_sections.append(f"<h2>지역별</h2><ul>{lis}</ul>")
+        ko_items += [{"@type": "ListItem", "position": len(ko_items) + 1, "name": g["region"],
+                      "url": f"{_SITE_BASE}/ko/guide-{g['slug']}.html"} for g in gs]
+    if food_guides:
+        fs = sorted(food_guides, key=lambda g: g["slug"])
+        lis = "".join(f'<li><a href="food-{g["slug"]}.html">{html.escape(_FOOD_KO.get(g["slug"], (g["title"],))[0])}</a>'
+                      f' · 검증 음식 {g["count"]}개</li>' for g in fs)
+        ko_sections.append(f"<h2>식단별</h2><ul>{lis}</ul>")
+        ko_items += [{"@type": "ListItem", "position": len(ko_items) + 1,
+                      "name": _FOOD_KO.get(g["slug"], (g["title"],))[0],
+                      "url": f"{_SITE_BASE}/ko/food-{g['slug']}.html"} for g in fs]
+    if ko_sections:
+        ko_body = "<p class=lede>검증된 인용 가능 KoreaAPI 가이드 — 모든 항목 교차검증.</p>" + "".join(ko_sections)
+        ko_graph: list = [{"@type": "ItemList", "name": "KoreaAPI 가이드", "inLanguage": "ko",
+                           "itemListElement": ko_items}, _breadcrumb("가이드", f"{_SITE_BASE}/ko/guides.html")]
+    else:
+        ko_body = "<p class=lede>검증 coverage가 늘면 가이드가 여기 표시됩니다.</p>"
+        ko_graph = [_breadcrumb("가이드", f"{_SITE_BASE}/ko/guides.html")]
+    _write_ko_list_page(out_dir, "guides.html", "가이드", "검증된 한국 가이드 — 지역별 여행 + 식단별 음식.",
+                        ko_body, _escape_jsonld({"@context": "https://schema.org", "@graph": ko_graph}))
 
 
 def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
@@ -3111,6 +3138,31 @@ def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
                         "KoreaAPI entity. Travel-decision raw material for agents & answer engines.",
                         f'<p class=lede>{lede}</p>' + "".join(sections) + cite,
                         _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
+        # Korean counterpart (/ko/guide-<slug>.html) — Naver / Korean answer engines + hreflang pairing.
+        ko_top = [r.name.ko or r.name.en_official for _, r in all_spots[:6]]
+        ko_sections = [f"<h2>{html.escape(_KO_VERTICAL.get(ns, ns))}</h2>"
+                       f"<ul>{_guide_li(sorted(geo[ns], key=lambda t: -t[1].provenance.skill_score)[:12])}</ul>"
+                       for ns in sorted(geo)]
+        if festivals:
+            ko_sections.append(f"<h2>축제·행사</h2><ul>{_guide_li(festivals[:8])}</ul>")
+        ko_qas = [(f"{region}에서 가볼 만한 검증된 곳은?",
+                   f"KoreaAPI가 {region}의 {n_geo}곳을 교차검증했습니다: {', '.join(ko_top)}. "
+                   "각 항목은 독립적으로 교차검증된 인용 가능 엔티티입니다.")]
+        ko_graph = [{"@type": "ItemList", "name": f"{region} 검증 명소", "inLanguage": "ko",
+                     "itemListElement": [{"@type": "ListItem", "position": i + 1,
+                                          "url": f"{_SITE_BASE}/ko/artist/{_slug(eid)}.html",
+                                          "name": r.name.ko or r.name.en_official}
+                                         for i, (eid, r) in enumerate(all_spots[:20])]},
+                    _faqpage_node(ko_qas),
+                    _breadcrumb(f"{region} 가이드", f"{_SITE_BASE}/ko/guide-{slug}.html",
+                                middle=("가이드", f"{_SITE_BASE}/ko/guides.html"))]
+        ko_lede = html.escape(f"{region}의 교차검증 명소 {n_geo}곳"
+                              + (f" + 축제 {len(festivals)}건" if festivals else "")
+                              + ". 모든 항목이 검증된 인용 가능 프로필로 연결됩니다.")
+        _write_ko_list_page(out_dir, f"guide-{slug}.html", f"{region} — 검증 여행 가이드",
+                            f"{region}의 검증된 명소를 유형별로 — 각 항목은 교차검증된 인용 가능 엔티티.",
+                            f'<p class=lede>{ko_lede}</p>' + "".join(ko_sections),
+                            _escape_jsonld({"@context": "https://schema.org", "@graph": ko_graph}))
         written.append({"region": region, "slug": slug, "count": n_geo, "festivals": len(festivals),
                         "url": url})
     return written
@@ -3126,6 +3178,13 @@ _FOOD_FILTERS = [  # (slug, title, question, predicate(spice, veg)) — mirrors 
     ("no-seafood", "Korean food without seafood", "Which verified Korean dishes have no seafood?",
      lambda sp, vg: bool(vg) and "seafood" not in vg),
 ]
+
+_FOOD_KO = {  # slug -> (Korean title, Korean question) for the /ko/food-<slug>.html counterpart
+    "vegetarian": ("채식 한식", "채식 가능한 검증된 한식은?"),
+    "vegan": ("비건 한식", "비건 가능한 검증된 한식은?"),
+    "not-spicy": ("안 매운 한식", "맵지 않은 검증된 한식은?"),
+    "no-seafood": ("해산물 없는 한식", "해산물이 없는 검증된 한식은?"),
+}
 
 
 def _food_guide_matches(by_entity: dict) -> list[tuple[str, str, str, list]]:
@@ -3182,6 +3241,27 @@ def _write_food_guides(out_dir: str, by_entity: dict) -> list[dict]:
                         f"Verified Korean dishes for a {slug} diet — dish names cross-verified, "
                         "spice/dietary tags labeled KoreaAPI editorial.", body,
                         _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
+        # Korean counterpart (/ko/food-<slug>.html) — Korean answer engines + hreflang pairing.
+        ko_title, ko_q = _FOOD_KO.get(slug, (title, question))
+        ko_names = [rec.name.ko or rec.name.en_official for _, rec, _sp, _vg in matches[:8]]
+        ko_qas = [(ko_q, f"KoreaAPI가 '{ko_title}' 검증 음식 {len(matches)}개: {', '.join(ko_names)}. "
+                   "음식명은 교차검증, 맵기·식이 태그는 KoreaAPI 편집 분류(비교차검증)입니다.")]
+        ko_graph = [{"@type": "ItemList", "name": ko_title, "inLanguage": "ko",
+                     "itemListElement": [{"@type": "ListItem", "position": i + 1,
+                                          "url": f"{_SITE_BASE}/ko/artist/{_slug(eid)}.html",
+                                          "name": rec.name.ko or rec.name.en_official}
+                                         for i, (eid, rec, _s, _v) in enumerate(matches[:30])]},
+                    _faqpage_node(ko_qas),
+                    _breadcrumb(ko_title, f"{_SITE_BASE}/ko/food-{slug}.html",
+                                middle=("가이드", f"{_SITE_BASE}/ko/guides.html"))]
+        ko_body = (f'<p class=lede>{html.escape(f"“{ko_title}” 검증 한식 {len(matches)}개. 각 항목이 검증 프로필로 연결됩니다.")}</p>'
+                   '<p class=rom>음식명은 교차검증, 맵기·식이 태그는 KoreaAPI 편집 분류(비교차검증)입니다.</p>'
+                   f"<ul>{''.join(rows)}</ul>"
+                   '<p class=cite>기계가독: <a href="../reconcile.json">/reconcile.json</a> · '
+                   '<a href="../sitemap.xml">/sitemap.xml</a>.</p>')
+        _write_ko_list_page(out_dir, f"food-{slug}.html", ko_title,
+                            f"'{ko_title}' — 검증된 한식(음식명 교차검증, 태그는 편집 분류).", ko_body,
+                            _escape_jsonld({"@context": "https://schema.org", "@graph": ko_graph}))
         written.append({"slug": slug, "title": title, "count": len(matches), "url": url})
     return written
 
@@ -3417,12 +3497,15 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
         if s not in lseen:
             lseen.add(s)
             urls.append((f"{_SITE_BASE}/label/{s}.html", "0.7"))
-    # Region + food guide pages — the SAME set entity_pages() writes (via the shared selectors), no 404s.
-    urls.append((f"{_SITE_BASE}/guides.html", "0.7"))
+    # Region + food guide pages (EN + KO hreflang counterparts) — the SAME set entity_pages() writes
+    # (via the shared selectors), so the map never lists a phantom URL.
+    urls += [(f"{_SITE_BASE}/guides.html", "0.7"), (f"{_SITE_BASE}/ko/guides.html", "0.6")]
     for _region, gs, _n in _guide_slugs(_region_guides_data(by_entity)):
         urls.append((f"{_SITE_BASE}/guide-{gs}.html", "0.7"))
+        urls.append((f"{_SITE_BASE}/ko/guide-{gs}.html", "0.6"))
     for fslug, _t, _q, _m in _food_guide_matches(by_entity):
         urls.append((f"{_SITE_BASE}/food-{fslug}.html", "0.7"))
+        urls.append((f"{_SITE_BASE}/ko/food-{fslug}.html", "0.6"))
     body = "".join(
         f"  <url><loc>{u}</loc><lastmod>{today}</lastmod>"
         f"<changefreq>daily</changefreq><priority>{p}</priority></url>\n"
