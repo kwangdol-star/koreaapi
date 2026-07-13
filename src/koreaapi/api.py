@@ -232,11 +232,14 @@ async def metrics(request: Request) -> JSONResponse:
 
 async def answer(request: Request) -> JSONResponse:
     """Answer Products (engine 3). No params -> the catalog. ?q= -> run ALL products on the query.
-    ?product=&q= -> run one. Free; the underlying korea-rising signal is x402-metered separately."""
+    ?product=&q= -> run one. ?product=auto&q= -> natural-language ROUTE the free-text question to the
+    right product (best-effort LLM; keyword fallback). Free; korea-rising is x402-metered separately."""
     product = request.query_params.get("product")
     q = request.query_params.get("q", "")
     if not product and not q:
         return JSONResponse(answers.list_products())
+    if product == "auto":  # NL routing: pick the product from the free-text question, then run it
+        return JSONResponse(await answers.ask(q))
     if product:
         return JSONResponse(await answers.answer(product, q))
     return JSONResponse(await answers.answer_all(q))

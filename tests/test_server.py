@@ -35,6 +35,7 @@ EXPECTED_TOOLS = {
     "get_buy_options",
     "list_answer_products",  # engine 3: the Answer Products catalog
     "get_answer",            # engine 3: run one product (or all) -> decision envelope
+    "ask",                   # engine 3: natural-language router -> pick a product, run it
 }
 
 

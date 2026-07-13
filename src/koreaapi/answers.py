@@ -15,11 +15,17 @@ cite from `evidence`, and surface `answer` — uniformly across every product. T
 sibling KWeather oracle's decision-products pattern (signal/action/score/rationale/metrics),
 adapted from numeric weather to verifiable culture: `metrics` -> `answer` + `evidence`.
 
-Offline-testable: no keys, no network, no chain. Discoverable at /v1/answer and via the
-MCP tools list_answer_products + get_answer.
+Offline-testable: the products need no keys, no network, no chain. The optional natural-language
+router (ask / route) adds a best-effort LLM to PICK a product from free text, with a keyless keyword
+fallback — routing only chooses; the verified product still decides. Discoverable at /v1/answer and
+via the MCP tools list_answer_products + get_answer + ask.
 """
 
 from __future__ import annotations
+
+import json
+import os
+import re
 
 from . import service
 from .pipeline import store
@@ -403,9 +409,11 @@ def list_products() -> dict:
                      for p in _PRODUCTS],
         "envelope": ["product", "name", "signal", "action", "score", "rationale", "answer", "evidence"],
         "note": ("Each product turns the verified store into one decision. Call answer(product, query); "
-                 "omit product to run all. Free; the underlying korea-rising signal is x402-metered."),
+                 "omit product to run all; or ask(question) to auto-route free text to the right product. "
+                 "Free; the underlying korea-rising signal is x402-metered."),
         "note_ko": "각 제품은 검증 저장소를 하나의 결정으로 바꿉니다. answer(product, query) 호출; "
-                   "product 생략 시 전체 실행. 무료 (korea-rising 신호만 x402 과금).",
+                   "product 생략 시 전체 실행; 또는 ask(question)으로 자유 문장을 알맞은 제품에 자동 라우팅. "
+                   "무료 (korea-rising 신호만 x402 과금).",
     }
 
 
@@ -431,3 +439,92 @@ async def answer_all(query: str, *, db_path: str | None = None) -> dict:
         except Exception as e:  # one product failing must never break the batch
             results.append({"product": p["id"], "signal": "ERROR", "error": str(e)})
     return {"query": q, "count": len(results), "answers": results}
+
+
+# ---- natural-language router: free text -> (product, arg) ------------------------------------------
+# "Cheap AI as collection labor" applied to the REQUEST side: an agent that doesn't yet know WHICH
+# product it needs sends a free-text question; a cheap LLM (Haiku) picks one product + extracts its
+# argument. Best-effort — no ANTHROPIC_API_KEY / any failure falls back to a pure keyword router, so
+# ask() ALWAYS routes (offline, keyless too). The router only CHOOSES a product; the product itself
+# is the same verified, offline decision layer — routing never fabricates an answer.
+
+_ROUTE_MODEL = "claude-haiku-4-5-20251001"  # cheap; routing is a tiny classification task
+
+# (substrings -> product id); first match wins. Pure, offline, keyless — the fallback when the LLM is
+# unavailable, and independently unit-tested. Ordered most-specific first.
+_KEYWORD_ROUTES: list[tuple[tuple[str, ...], str]] = [
+    (("vegan", "vegetarian", "veggie", "not spicy", "non-spicy", "no seafood", "no meat", "meat-free",
+      "채식", "비건", "안 매", "안매", "매운", "해산물", "먹을"), "food-guide"),
+    (("trip", "itinerary", "visit", "travel", "things to do", "여행", "가볼", "관광", "일정", "코스"), "trip-plan"),
+    (("rising", "trending", "trend", "what's hot", "popular now", "뜨는", "인기", "요즘", "핫한"), "trend-radar"),
+    (("credit", "filmography", "starred", "acted in", "directed", "출연", "필모", "크레딧", "작품"), "person-credits"),
+    (("agency", "label", "roster", "artists under", "소속사", "레이블", "명단", "소속"), "agency-roster"),
+    (("related", "network", "same agency", "also on", "labelmate", "연관", "네트워크", "같은"), "related-network"),
+    (("spelling", "spell", "romaniz", "how do you write", "korean name", "표기", "한글로", "로마자"), "canonical-name"),
+    (("cite", "citable", "is it true", "fact-check", "verify", "사실", "인용", "검증", "맞아"), "fact-check"),
+]
+
+
+def _fallback_route(q: str) -> dict:
+    """Pure keyword router (no key, no network). Default: identity-resolve (map the mention to an id)."""
+    ql = q.casefold()
+    for subs, pid in _KEYWORD_ROUTES:
+        if any(s in ql for s in subs):
+            return {"product": pid, "query": q}
+    return {"product": "identity-resolve", "query": q}
+
+
+def _route_system() -> str:
+    """Router system prompt, built from the live product catalog (never drifts from _PRODUCTS)."""
+    catalog = "\n".join(f"- {p['id']}: {p['about']}" for p in _PRODUCTS)
+    return (
+        "You route a user's free-text request about Korean culture to exactly ONE KoreaAPI Answer "
+        "Product and extract the argument to pass it.\nProducts:\n" + catalog + "\n\n"
+        'Return ONLY a JSON object: {"product": "<one id from the list>", "query": "<argument>"}. '
+        "The query is the entity, region, category, person, agency, or dietary/spice filter the chosen "
+        "product needs — extract the shortest sufficient argument, not the whole sentence. If nothing "
+        'clearly fits, use "identity-resolve". No prose, no markdown, no code fences.'
+    )
+
+
+def route(question: str) -> dict:
+    """Route a free-text question to ONE Answer Product + its argument. Best-effort LLM (Haiku) with a
+    pure keyword fallback (no key / any failure). Returns {product, query, via: 'llm'|'keyword'|'empty'}."""
+    q = (question or "").strip()
+    if not q:
+        return {"product": None, "query": "", "via": "empty"}
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        try:
+            import anthropic
+
+            msg = anthropic.Anthropic().messages.create(
+                model=_ROUTE_MODEL, max_tokens=120, system=_route_system(),
+                messages=[{"role": "user", "content": q}],
+            )
+            text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
+            m = re.search(r"\{.*\}", text, re.DOTALL)
+            if m:
+                obj = json.loads(m.group(0))
+                pid = obj.get("product")
+                if pid in _BY_ID:
+                    return {"product": pid, "query": (obj.get("query") or "").strip() or q, "via": "llm"}
+        except Exception:
+            pass  # fall through to the deterministic keyword router
+    return {**_fallback_route(q), "via": "keyword"}
+
+
+async def ask(question: str, *, db_path: str | None = None) -> dict:
+    """Natural-language entry point: route a free-text question to the right Answer Product, run it, and
+    return the decision envelope annotated with how it routed (`routed`). The one call an agent makes
+    when it doesn't yet know WHICH product it needs — routing chooses; the verified product decides."""
+    q = (question or "").strip()
+    if not q:
+        return {"error": "question required"}
+    r = route(q)
+    pid = r.get("product")
+    if not pid:
+        return {"error": "question required"}
+    env = await answer(pid, r["query"], db_path=db_path)
+    if isinstance(env, dict):
+        env["routed"] = {"from": q, "to_product": pid, "query": r["query"], "via": r.get("via")}
+    return env

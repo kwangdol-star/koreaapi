@@ -159,6 +159,17 @@ async def get_answer(query: str, product: str = "") -> dict:
     return await answers.answer_all(query)
 
 
+@mcp.tool
+async def ask(question: str) -> dict:
+    """Natural-language front door — ask a free-text Korean-culture question and KoreaAPI ROUTES it to
+    the right Answer Product, runs it, and returns the decision envelope {signal, action, score(0..1),
+    rationale, answer, evidence} plus how it routed (`routed`). Use this when you don't yet know WHICH
+    product you need: 'is it 빈센조 or 빈첸초?', 'vegetarian Korean dishes', 'what's rising in K-pop?',
+    'plan a day in Busan', 'who's under HYBE?'. Routing only CHOOSES the product; the verified product
+    decides — never a fabricated answer. (Prefer get_answer when you already know the product.)"""
+    return await answers.ask(question)
+
+
 # ---- MCP resources: browsable verified data an MCP client can attach as context (not just call as a tool) ----
 @mcp.resource("koreaapi://catalog", mime_type="application/json",
               description="KoreaAPI Answer Products catalog — the named, citable DECISIONS runnable over the "
