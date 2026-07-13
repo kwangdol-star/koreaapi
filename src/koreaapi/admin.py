@@ -527,6 +527,7 @@ async def status_json(db_path: str | None = None, out_path: str = "status.json")
     facts = [bk["facts"] for bk in by_entity.values() if "facts" in bk]
     cross = sum(1 for r in facts if getattr(r.provenance, "agreeing_sources", 0) >= 2)
     triple = sum(1 for r in facts if getattr(r.provenance, "agreeing_sources", 0) >= 3)
+    reconciled = sum(1 for r in facts if r.data.get("source_disagreements"))
     doc = {
         "ok": True,
         "generated": datetime.now(timezone.utc).isoformat(),
@@ -535,11 +536,14 @@ async def status_json(db_path: str | None = None, out_path: str = "status.json")
         "avg_skill_score": s["avg_skill_score"],
         "cross_verified": cross,
         "triple_verified": triple,
+        "source_disagreements": reconciled,
         "low_confidence": s["low_confidence"],
         "fresh": s["fresh_entities"],
         "integrity": f"{_SITE_BASE}/integrity.json",
         "note": ("Health/freshness snapshot, regenerated each build. cross_verified = ≥2 agreeing "
-                 "sources; triple_verified = ≥3; fresh = entities within their freshness TTL."),
+                 "sources; triple_verified = ≥3; source_disagreements = entities where independent "
+                 "sources gave conflicting names (reconciled by authority, shown on the page); "
+                 "fresh = entities within their freshness TTL."),
     }
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=2)
@@ -1860,6 +1864,16 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     diet = primary.data.get("diet")
     diet_block = (f"<h2>Dietary</h2><p>{html.escape(str(diet))} "
                   "<span class=rom>— KoreaAPI editorial note (not cross-verified)</span></p>") if diet else ""
+    # SOURCE reconciliation: where independent sources DISAGREED on the canonical name (we chose one by
+    # source authority and SHOW which source differed) — "verification over trust" made visible.
+    dis = primary.data.get("source_disagreements") or []
+    reconcile_block = ("<h2>Source reconciliation</h2><ul class=attrs>" + "".join(
+        f"<li>{html.escape(str(d['source']))} lists the "
+        f"{'Korean' if d['field'] == 'name_ko' else 'English'} name as "
+        f"<b>{html.escape(str(d['value']))}</b>; KoreaAPI uses <b>{html.escape(str(d['chosen']))}</b> "
+        "(chosen by source authority).</li>"
+        for d in dis if d.get("source") and d.get("value") and d.get("chosen")) + "</ul>"
+        "<p class=rom>Independent sources disagreed here — shown, not hidden.</p>") if dis else ""
     # Trust tier from how many INDEPENDENT sources agreed on the name (Wikidata + Wikipedia + MusicBrainz…)
     n_agree = getattr(primary.provenance, "agreeing_sources", 0)
     verify_badge = (" · ✓✓✓ triple cross-verified" if n_agree >= 3
@@ -1973,6 +1987,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {geo_block}
 {spice_block}
 {diet_block}
+{reconcile_block}
 {people_block}
 {dir_block}
 {qa_block}

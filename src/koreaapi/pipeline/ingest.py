@@ -128,6 +128,31 @@ async def ingest_one(
         if cand_en and "(" not in cand_en:  # adopt the cleaner display name (no '(disambiguator)')
             chosen["name_en_official"] = cand_en
 
+    # SOURCE DISAGREEMENT (a trust signal, not hidden): same-work sources that gave a DIFFERENT canonical
+    # name than the one chosen above. "verification over trust" means SHOWING where independent sources
+    # conflict (e.g. Wikidata '빈첸초' vs the chosen '빈센조' from TMDB/Wikipedia), not silently dropping it.
+    chosen_ko_n = (chosen.get("name_ko") or "").casefold().replace(" ", "")
+    chosen_en_n = _en_norm(chosen.get("name_en_official"))
+    disagreements: list[dict] = []
+    seen_dis: set = set()
+    for i, p in enumerate(payloads):
+        if not _same_work(p, chosen):
+            continue
+        pko = p.get("name_ko")
+        if (pko and chosen.get("name_ko") and pko.casefold().replace(" ", "") != chosen_ko_n
+                and ("name_ko", pko) not in seen_dis):
+            seen_dis.add(("name_ko", pko))
+            disagreements.append({"source": srcnames[i], "field": "name_ko", "value": pko,
+                                  "chosen": chosen["name_ko"]})
+        pen = p.get("name_en_official")
+        if (pen and chosen.get("name_en_official") and _en_norm(pen) != chosen_en_n
+                and ("name_en", pen) not in seen_dis):
+            seen_dis.add(("name_en", pen))
+            disagreements.append({"source": srcnames[i], "field": "name_en_official", "value": pen,
+                                  "chosen": chosen["name_en_official"]})
+    if disagreements:
+        chosen["source_disagreements"] = disagreements[:6]  # honest reconciliation note, capped
+
     # Merge SUPPLEMENTARY content (the Wikipedia lead extract / per-vertical attrs) from payloads that
     # are the SAME WORK by English name — looser than full ko|en agreement (so a legit '빈센조'/'빈첸초'
     # label split doesn't strip the abstract) but still English-name-linked (so a drifted source can't
