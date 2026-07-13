@@ -50,7 +50,7 @@ from .pipeline import store
 from .reconcile import external_ids, name_keys, norm
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
-from .roster import ARTISTS, CERTIFIED, NAMES
+from .roster import ARTISTS, CERTIFIED, FOOD_SPICE, FOOD_VEG, NAMES
 from .sources.circlechart import CircleChartSource
 from .sources.kosis import KOSISSource
 from .sources.openlibrary import OpenLibrarySource
@@ -1188,7 +1188,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./songs.html">{_ICON['song']} Songs</a>
  <a class="pill" href="./concepts.html">{_ICON['concept']} Concepts</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
- <a class="pill" href="./guides.html">🧳 Region guides</a>
+ <a class="pill" href="./guides.html">🧳 Guides (region + food)</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./openapi.json">/openapi.json · OpenAPI 3.1</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -3023,26 +3023,36 @@ def _guide_li(items: list) -> str:
     return "".join(rows)
 
 
-def _write_guides_index(out_dir: str, guides: list[dict]) -> None:
-    """The /guides.html index — links every per-region guide (an internal-link hub) and is ALWAYS written
-    (even with zero guides) so the homepage 'Guides' pill never 404s before any region qualifies."""
-    if guides:
-        gs = sorted(guides, key=lambda g: g["region"])
+def _write_guides_index(out_dir: str, region_guides: list[dict], food_guides: list[dict]) -> None:
+    """The /guides.html index — links every region + dietary-food guide (internal-link hub), ALWAYS written
+    (even empty) so the homepage 'Guides' pill never 404s before any guide qualifies."""
+    sections: list[str] = []
+    items: list[dict] = []
+    if region_guides:
+        gs = sorted(region_guides, key=lambda g: g["region"])
         lis = "".join(f'<li><a href="guide-{g["slug"]}.html">{html.escape(g["region"])}</a>'
                       f' · {g["count"]} verified spot(s)</li>' for g in gs)
-        body = ("<p class=lede>Verified, citable travel guides by region — every spot cross-verified via "
-                f"KoreaAPI.</p><ul>{lis}</ul>")
-        graph = [{"@type": "ItemList", "name": "KoreaAPI region guides",
-                  "itemListElement": [{"@type": "ListItem", "position": i + 1, "name": g["region"],
-                                       "url": f"{_SITE_BASE}/guide-{g['slug']}.html"}
-                                      for i, g in enumerate(gs)]},
+        sections.append(f"<h2>By region</h2><ul>{lis}</ul>")
+        items += [{"@type": "ListItem", "position": len(items) + 1, "name": g["region"],
+                   "url": f"{_SITE_BASE}/guide-{g['slug']}.html"} for g in gs]
+    if food_guides:
+        fs = sorted(food_guides, key=lambda g: g["slug"])
+        lis = "".join(f'<li><a href="food-{g["slug"]}.html">{html.escape(g["title"])}</a>'
+                      f' · {g["count"]} verified dish(es)</li>' for g in fs)
+        sections.append(f"<h2>By diet</h2><ul>{lis}</ul>")
+        items += [{"@type": "ListItem", "position": len(items) + 1, "name": g["title"],
+                   "url": f"{_SITE_BASE}/food-{g['slug']}.html"} for g in fs]
+    if sections:
+        body = ("<p class=lede>Verified, citable KoreaAPI guides — every listing cross-verified.</p>"
+                + "".join(sections))
+        graph = [{"@type": "ItemList", "name": "KoreaAPI guides", "itemListElement": items},
                  _breadcrumb("Guides", f"{_SITE_BASE}/guides.html")]
     else:
-        body = ("<p class=lede>Region guides appear here as verified coverage grows "
-                "(3+ cross-verified spots per region).</p>")
+        body = ("<p class=lede>Guides appear here as verified coverage grows (region guides at 3+ spots; "
+                "food guides by dietary tag).</p>")
         graph = [_breadcrumb("Guides", f"{_SITE_BASE}/guides.html")]
-    _write_hub_html(out_dir, "guides.html", _ICON.get("place", ""), "Region guides",
-                    "Verified, citable Korean travel guides by region — every spot cross-verified.",
+    _write_hub_html(out_dir, "guides.html", _ICON.get("place", ""), "Guides",
+                    "Verified, citable Korean guides — travel by region + food by diet.",
                     body, _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
 
 
@@ -3096,7 +3106,76 @@ def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
                         _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
         written.append({"region": region, "slug": slug, "count": n_geo, "festivals": len(festivals),
                         "url": url})
-    _write_guides_index(out_dir, written)
+    return written
+
+
+_FOOD_FILTERS = [  # (slug, title, question, predicate(spice, veg)) — mirrors answers._run_food_guide
+    ("vegetarian", "Vegetarian Korean food", "Which verified Korean dishes are vegetarian?",
+     lambda sp, vg: "vegan" in vg or "vegetarian" in vg),
+    ("vegan", "Vegan Korean food", "Which verified Korean dishes are vegan?",
+     lambda sp, vg: "vegan" in vg),
+    ("not-spicy", "Korean food that isn't spicy", "Which verified Korean dishes are not spicy?",
+     lambda sp, vg: sp in ("none", "mild")),
+    ("no-seafood", "Korean food without seafood", "Which verified Korean dishes have no seafood?",
+     lambda sp, vg: bool(vg) and "seafood" not in vg),
+]
+
+
+def _food_guide_matches(by_entity: dict) -> list[tuple[str, str, str, list]]:
+    """(slug, title, question, [(eid, rec, spice, veg)]) for each dietary/spice filter with >=2 verified
+    dishes — the ONE set both entity_pages (renders) and sitemap (lists) read. Dish NAME is cross-verified;
+    the spice/dietary tag is a labeled KoreaAPI editorial classification (never presented as verified)."""
+    foods: list = []
+    for eid, by_kind in by_entity.items():
+        if not eid.startswith("food:"):
+            continue
+        rec = by_kind.get("facts")
+        if rec is None:
+            continue
+        foods.append((eid, rec, (FOOD_SPICE.get(eid) or "").casefold(), (FOOD_VEG.get(eid) or "").casefold()))
+    out: list = []
+    for slug, title, question, pred in _FOOD_FILTERS:
+        m = sorted((t for t in foods if pred(t[2], t[3])), key=lambda t: -t[1].provenance.skill_score)
+        if len(m) >= 2:
+            out.append((slug, title, question, m))
+    return out
+
+
+def _write_food_guides(out_dir: str, by_entity: dict) -> list[dict]:
+    """Per-diet FOOD guide pages (site/food-<slug>.html) — the food-guide decision as a CRAWLABLE, cited
+    asset ("vegetarian / not-spicy / no-seafood Korean food", a huge tourist query class). Each dish links
+    to its verified entity page; the spice + dietary tags are clearly labeled KoreaAPI editorial."""
+    disclaimer = ('<p class=rom>Dish names are cross-verified; the spice + dietary tags are KoreaAPI '
+                  'EDITORIAL classifications (not cross-verified).</p>')
+    written: list[dict] = []
+    for slug, title, question, matches in _food_guide_matches(by_entity):
+        rows = []
+        for eid, rec, sp, vg in matches[:40]:
+            en = rec.name.en_official or rec.name.ko
+            ko = f' <span class="ko">{html.escape(rec.name.ko)}</span>' if rec.name.ko and rec.name.ko != en else ""
+            tag = " · ".join(filter(None, [f"spice: {sp}" if sp else "", vg or ""]))
+            rows.append(f'<li><a href="artist/{_slug(eid)}.html">{html.escape(en)}</a>{ko}'
+                        + (f' <span class=rom>· {html.escape(tag)}</span>' if tag else "") + "</li>")
+        names = [rec.name.en_official or rec.name.ko for _, rec, _, _ in matches[:8]]
+        qas = [(question, f"KoreaAPI verifies {len(matches)} dish(es) tagged {slug}: {', '.join(names)}. "
+                "Each dish name is cross-verified; the spice + dietary tag is labeled KoreaAPI editorial.")]
+        url = f"{_SITE_BASE}/food-{slug}.html"
+        graph = [{"@type": "ItemList", "name": title,
+                  "itemListElement": [{"@type": "ListItem", "position": i + 1,
+                                       "url": f"{_SITE_BASE}/artist/{_slug(eid)}.html",
+                                       "name": rec.name.en_official or rec.name.ko}
+                                      for i, (eid, rec, _sp, _vg) in enumerate(matches[:30])]},
+                 _faqpage_node(qas),
+                 _breadcrumb(title, url, middle=("Guides", f"{_SITE_BASE}/guides.html"))]
+        body = (f'<p class=lede>{html.escape(f"{len(matches)} verified Korean dishes tagged “{slug}”. Every dish links to its cross-verified profile.")}</p>'
+                + disclaimer + f"<ul>{''.join(rows)}</ul>"
+                + '<p class=cite>Machine-readable: <a href="reconcile.json">/reconcile.json</a> · '
+                  '<a href="sitemap.xml">/sitemap.xml</a>.</p>')
+        _write_hub_html(out_dir, f"food-{slug}.html", _ICON["food"], title,
+                        f"Verified Korean dishes for a {slug} diet — dish names cross-verified, "
+                        "spice/dietary tags labeled KoreaAPI editorial.", body,
+                        _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
+        written.append({"slug": slug, "title": title, "count": len(matches), "url": url})
     return written
 
 
@@ -3280,11 +3359,15 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
                           _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
         labels_written.append({"name": L["name"], "slug": s, "url": lurl, "count": len(items)})
 
-    # Region GUIDE pages — the trip-plan decision made crawlable + citable ("things to do in <region>").
+    # Region + dietary-food GUIDE pages — Answer Products (trip-plan / food-guide) made crawlable + cited
+    # ("things to do in <region>", "vegetarian Korean food") + a /guides.html index linking them all.
     guides_written = _write_region_guides(out_dir, by_entity)
+    food_guides_written = _write_food_guides(out_dir, by_entity)
+    _write_guides_index(out_dir, guides_written, food_guides_written)
 
     return {"entities": written, "people": people_written, "hubs": hubs_written,
-            "labels": labels_written, "ko": len(ko_written), "guides": guides_written}
+            "labels": labels_written, "ko": len(ko_written), "guides": guides_written,
+            "food_guides": food_guides_written}
 
 
 async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> str:
@@ -3327,10 +3410,12 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
         if s not in lseen:
             lseen.add(s)
             urls.append((f"{_SITE_BASE}/label/{s}.html", "0.7"))
-    # Region guide pages — the SAME set entity_pages() writes (via _guide_slugs), so no 404 in the map.
+    # Region + food guide pages — the SAME set entity_pages() writes (via the shared selectors), no 404s.
     urls.append((f"{_SITE_BASE}/guides.html", "0.7"))
     for _region, gs, _n in _guide_slugs(_region_guides_data(by_entity)):
         urls.append((f"{_SITE_BASE}/guide-{gs}.html", "0.7"))
+    for fslug, _t, _q, _m in _food_guide_matches(by_entity):
+        urls.append((f"{_SITE_BASE}/food-{fslug}.html", "0.7"))
     body = "".join(
         f"  <url><loc>{u}</loc><lastmod>{today}</lastmod>"
         f"<changefreq>daily</changefreq><priority>{p}</priority></url>\n"
