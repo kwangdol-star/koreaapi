@@ -145,23 +145,28 @@ async def ingest_one(
     if merged_attrs:
         chosen["attrs"] = merged_attrs
 
-    # LLM enrichment (best-effort): pull grounded structured facts + alternate names OUT of the
-    # already-cited Wikipedia lead prose. attrs are GAP-FILL only (a cross-verified Wikidata/KTO
-    # value always wins); every value is grounded literally in the abstract, so a hallucination
-    # can't enter a verified record. No key / failure / nothing grounded -> no change.
+    # LLM enrichment (best-effort, RUN-ONCE): pull grounded structured facts + alternate names OUT of
+    # the already-cited Wikipedia lead prose. Derived once per entity; later builds CARRY FORWARD the
+    # stored grounded extract (data.enrichment) — no repeat LLM call, since the abstract is stable.
+    # attrs are GAP-FILL only (a cross-verified structured value always wins); every value is grounded
+    # literally in the abstract, so a hallucination can't enter. No key / failure / nothing -> no change.
     if chosen.get("abstract_en"):
-        extra = await asyncio.to_thread(
-            enrich, chosen["abstract_en"],
-            existing_keys=tuple((chosen.get("attrs") or {}).keys()),
-            known_names=(chosen.get("name_ko"), chosen.get("name_en_official"), chosen.get("name_romanized")),
-        )
-        if extra.get("attrs"):
+        prev = await store.latest(entity_id, kind, db_path=db_path)
+        enrichment = prev.data.get("enrichment") if prev else None
+        if enrichment is None:  # first sighting -> derive once (also backfills a pre-enrichment record)
+            enrichment = await asyncio.to_thread(
+                enrich, chosen["abstract_en"],
+                existing_keys=tuple((chosen.get("attrs") or {}).keys()),
+                known_names=(chosen.get("name_ko"), chosen.get("name_en_official"), chosen.get("name_romanized")),
+            )
+        chosen["enrichment"] = enrichment  # persist: run-once marker + carry-forward source (even if empty)
+        if enrichment.get("attrs"):
             gap = dict(chosen.get("attrs") or {})
-            for k, v in extra["attrs"].items():
+            for k, v in enrichment["attrs"].items():
                 gap.setdefault(k, v)  # gap-fill only — never override a structured-source attr
             chosen["attrs"] = gap
-        if extra.get("aliases"):
-            chosen["aliases"] = extra["aliases"]
+        if enrichment.get("aliases"):
+            chosen["aliases"] = enrichment["aliases"]
 
     if not chosen.get("name_romanized") and chosen.get("name_ko"):
         rom = await asyncio.to_thread(romanize, chosen["name_ko"])  # cheap LLM; best-effort

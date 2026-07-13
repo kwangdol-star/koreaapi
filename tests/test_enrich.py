@@ -132,6 +132,43 @@ def test_ingested_alias_resolves_via_the_resolve_tool(monkeypatch):
     assert r["found"] and r["id"] == "theater:sac" and r["matched_by"] == "name"
 
 
+def test_ingest_enrich_runs_once_then_carries_forward(monkeypatch):
+    calls = {"n": 0}
+
+    def fake(abstract, existing_keys=(), known_names=()):
+        calls["n"] += 1
+        return {"attrs": {"Founded": "1988"}, "aliases": ["SAC"]}
+
+    monkeypatch.setattr(ingest, "enrich", fake)
+    db = _tmp_db()
+    payload = {"name_ko": "예술의전당", "name_en_official": "Seoul Arts Center",
+               "name_en_source": "official", "summary_en": "x", "abstract_en": _ABSTRACT}
+    src = [MockSource("Wikidata", payload)]
+    asyncio.run(ingest.ingest_one("facts", "theater:sac", src, db_path=db))
+    r2 = asyncio.run(ingest.ingest_one("facts", "theater:sac", src, db_path=db))
+    assert calls["n"] == 1  # derived once; the second build carried the stored extract forward (no LLM)
+    assert r2.data["attrs"]["Founded"] == "1988" and r2.data["aliases"] == ["SAC"]  # carried forward
+    assert r2.data["enrichment"]["aliases"] == ["SAC"]  # provenance block persisted
+
+
+def test_ingest_enrich_empty_result_still_marks_run_once(monkeypatch):
+    # An entity whose abstract grounds nothing must ALSO be marked, or it re-calls the LLM every build.
+    calls = {"n": 0}
+
+    def fake(abstract, existing_keys=(), known_names=()):
+        calls["n"] += 1
+        return {"attrs": {}, "aliases": []}
+
+    monkeypatch.setattr(ingest, "enrich", fake)
+    db = _tmp_db()
+    payload = {"name_ko": "방탄소년단", "name_en_official": "BTS", "name_en_source": "official",
+               "summary_en": "x", "abstract_en": _ABSTRACT}
+    src = [MockSource("Wikidata", payload)]
+    asyncio.run(ingest.ingest_one("facts", "artist:bts", src, db_path=db))
+    asyncio.run(ingest.ingest_one("facts", "artist:bts", src, db_path=db))
+    assert calls["n"] == 1  # empty extract persisted as a marker -> no re-derivation next build
+
+
 def test_enrich_module_uses_haiku():
     assert emod._MODEL == "claude-haiku-4-5-20251001"  # cheap; enrichment is best-effort labor
 

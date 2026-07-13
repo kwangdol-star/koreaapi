@@ -11,8 +11,9 @@ Safety envelope (matches romanize.py / circlechart.py):
   - No `ANTHROPIC_API_KEY`, any error, or nothing grounded -> empty (never breaks ingest).
   - attrs are GAP-FILL ONLY: a key already carried by a structured source (Wikidata/KTO/KOSIS) is
     never overridden — the cross-verified value always wins.
-  - Runs at ingest as best-effort labor (like romanize.py): each snapshot re-derives it, so a later
-    abstract improvement is picked up — one cheap Haiku call per entity-with-abstract per build.
+  - RUN-ONCE per entity: the first snapshot derives it (one cheap Haiku call), and later builds carry
+    the stored grounded extract forward (ingest reuses `data.enrichment`) — no repeat call. The build
+    cost is one-time per entity, not per build.
   - `parse_enrichment` + `ground_enrichment` are pure and offline-tested; the live LLM call runs
     only where the key is set (GitHub runners / deploy).
 """
