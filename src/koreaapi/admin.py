@@ -1196,6 +1196,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./concepts.html">{_ICON['concept']} Concepts</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./guides.html">🧳 Guides (region + food)</a>
+ <a class="pill" href="./whats-new.html">🆕 What's new</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./openapi.json">/openapi.json · OpenAPI 3.1</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -3276,6 +3277,69 @@ def _write_food_guides(out_dir: str, by_entity: dict) -> list[dict]:
     return written
 
 
+def _write_whats_new(out_dir: str, recs: list, by_entity: dict) -> int:
+    """A crawlable /whats-new.html (+ /ko/) — verified CHANGE EVENTS (소속사 moves, renames) as a cited
+    freshness asset: the time-moat made VISIBLE. Each change is timestamped in an append-only history a
+    wholesale copy or an LLM's training cut-off can't backfill — exactly what answer engines cite for
+    'what recently changed' queries. Empty (no history yet) renders a graceful placeholder."""
+    changes = _compute_changes(recs)[:60]
+
+    def _en(eid: str) -> str:
+        r = (by_entity.get(eid) or {}).get("facts")
+        return (r.name.en_official or r.name.ko) if r else eid.split(":", 1)[-1]
+
+    def _ko(eid: str) -> str:
+        r = (by_entity.get(eid) or {}).get("facts")
+        return (r.name.ko or r.name.en_official) if r else eid.split(":", 1)[-1]
+
+    def _rows(namer) -> str:
+        return "".join(
+            f'<li><a href="artist/{_slug(c["entity_id"])}.html">{html.escape(namer(c["entity_id"]))}</a>: '
+            f'{html.escape(c["field"])} — {html.escape(str(c["from"]))} → {html.escape(str(c["to"]))} '
+            f'<span class=rom>({c["as_of"]})</span></li>' for c in changes)
+
+    en_items = [{"@type": "ListItem", "position": i + 1,
+                 "url": f"{_SITE_BASE}/artist/{_slug(c['entity_id'])}.html",
+                 "name": f"{_en(c['entity_id'])}: {c['field']} → {c['to']} ({c['as_of']})"}
+                for i, c in enumerate(changes[:30])]
+    ko_items = [{**it, "url": f"{_SITE_BASE}/ko/artist/{_slug(c['entity_id'])}.html"}
+                for it, c in zip(en_items, changes[:30])]
+    en_intro = ("<p class=lede>Verified change events — 소속사 moves, renames — each timestamped in an "
+                "append-only history a wholesale copy or an LLM's training cut-off can't backfill.</p>")
+    ko_intro = ("<p class=lede>검증된 변경 이벤트(소속사 이동·개명) — append-only 히스토리에 타임스탬프. "
+                "복사본이나 LLM 학습 데이터가 backfill 못 하는 신선도 해자입니다.</p>")
+    if changes:
+        en_qa = [("What has recently changed in Korean culture and entertainment?",
+                  "Recent verified changes include: " + "; ".join(
+                      f"{_en(c['entity_id'])} {c['field']} → {c['to']} ({c['as_of']})" for c in changes[:6])
+                  + " — each cross-verified and timestamped via KoreaAPI.")]
+        en_body = (en_intro + f"<ul>{_rows(_en)}</ul><p class=cite>Machine-readable: "
+                   '<a href="changes.json">/changes.json</a> · <a href="feed.xml">/feed.xml</a>.</p>')
+        en_graph: list = [{"@type": "ItemList", "name": "Recently verified changes", "itemListElement": en_items},
+                          _faqpage_node(en_qa), _breadcrumb("What's new", f"{_SITE_BASE}/whats-new.html")]
+        ko_qa = [("최근 한국 문화·엔터에서 무엇이 바뀌었나요?", "최근 검증된 변경: " + "; ".join(
+                    f"{_ko(c['entity_id'])} {c['field']} → {c['to']} ({c['as_of']})" for c in changes[:6])
+                  + " — 각 항목 교차검증 · 타임스탬프(KoreaAPI).")]
+        ko_body = (ko_intro + f"<ul>{_rows(_ko)}</ul><p class=cite>기계가독: "
+                   "<a href='../changes.json'>/changes.json</a> · <a href='../feed.xml'>/feed.xml</a>.</p>")
+        ko_graph: list = [{"@type": "ItemList", "name": "최근 검증 변경", "inLanguage": "ko",
+                           "itemListElement": ko_items}, _faqpage_node(ko_qa),
+                          _breadcrumb("새 소식", f"{_SITE_BASE}/ko/whats-new.html")]
+    else:
+        en_body = en_intro + ("<p>No change events tracked yet — as re-verification accumulates, verified "
+                              "changes (소속사 moves, renames) appear here, each timestamped.</p>")
+        en_graph = [_breadcrumb("What's new", f"{_SITE_BASE}/whats-new.html")]
+        ko_body = ko_intro + "<p>재검증이 쌓이면 검증된 변경이 타임스탬프와 함께 여기 표시됩니다.</p>"
+        ko_graph = [_breadcrumb("새 소식", f"{_SITE_BASE}/ko/whats-new.html")]
+    _write_hub_html(out_dir, "whats-new.html", _ICON.get("region", ""), "What's new — recently verified changes",
+                    "Verified, timestamped change events (소속사 moves, renames) — the freshness moat, crawlable.",
+                    en_body, _escape_jsonld({"@context": "https://schema.org", "@graph": en_graph}))
+    _write_ko_list_page(out_dir, "whats-new.html", "새 소식 — 최근 검증 변경",
+                        "검증된 타임스탬프 변경 이벤트(소속사 이동·개명) — 신선도 해자, 크롤 가능.",
+                        ko_body, _escape_jsonld({"@context": "https://schema.org", "@graph": ko_graph}))
+    return len(changes)
+
+
 async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dict:
     """Citable answer-pages — the AEO citation-surface multiplier — for BOTH entities and people.
 
@@ -3288,7 +3352,8 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     by_entity = await _load_by_entity(db_path)
     # Full snapshot list (one scan) -> per-entity verification history, so each entity page can render
     # the time moat (first-verified + change events) without a per-entity DB query.
-    histories = _entity_histories(await store.recent(100000, db_path=db_path))
+    _recs = await store.recent(100000, db_path=db_path)
+    histories = _entity_histories(_recs)
     people = _collect_credits(by_entity)
     entity_slugs = {_slug(eid) for eid in by_entity}
     linked = _linked_person_slugs(people, entity_slugs)
@@ -3461,10 +3526,12 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     guides_written = _write_region_guides(out_dir, by_entity)
     food_guides_written = _write_food_guides(out_dir, by_entity)
     _write_guides_index(out_dir, guides_written, food_guides_written)
+    # The freshness/time-moat made crawlable: verified change events (소속사 moves, renames), EN + KO.
+    n_changes = _write_whats_new(out_dir, _recs, by_entity)
 
     return {"entities": written, "people": people_written, "hubs": hubs_written,
             "labels": labels_written, "ko": len(ko_written), "guides": guides_written,
-            "food_guides": food_guides_written}
+            "food_guides": food_guides_written, "changes": n_changes}
 
 
 async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> str:
@@ -3516,6 +3583,8 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
     for fslug, _t, _q, _m in _food_guide_matches(by_entity):
         urls.append((f"{_SITE_BASE}/food-{fslug}.html", "0.7"))
         urls.append((f"{_SITE_BASE}/ko/food-{fslug}.html", "0.6"))
+    # Freshness page (high priority — it's the "what changed" surface) + its Korean counterpart.
+    urls += [(f"{_SITE_BASE}/whats-new.html", "0.8"), (f"{_SITE_BASE}/ko/whats-new.html", "0.6")]
     body = "".join(
         f"  <url><loc>{u}</loc><lastmod>{today}</lastmod>"
         f"<changefreq>daily</changefreq><priority>{p}</priority></url>\n"

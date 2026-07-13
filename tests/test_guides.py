@@ -81,6 +81,29 @@ def test_food_guide_pages_generate_and_label_editorial_tags(tmp_path, monkeypatc
     assert "/food-vegetarian.html" in smt and "/ko/food-vegetarian.html" in smt  # sitemap ⊇ EN + KO
 
 
+def test_whats_new_page_lists_verified_change_events(tmp_path):
+    # The time-moat made crawlable: two snapshots with a 소속사 change -> a timestamped verified change,
+    # surfaced on /whats-new.html (+ /ko/) with FAQPage — the freshness a wholesale copy can't backfill.
+    db = tempfile.mktemp(suffix=".db")
+    p1 = {"name_ko": "뉴진스", "name_en_official": "NewJeans", "name_en_source": "official", "agency_en": "ADOR"}
+    asyncio.run(ingest_one("facts", "artist:newjeans",
+                           [MockSource("Wikidata", p1), MockSource("Wikipedia", p1)], db_path=db))
+    p2 = {**p1, "agency_en": "NewJeans Corp"}
+    asyncio.run(ingest_one("facts", "artist:newjeans",
+                           [MockSource("Wikidata", p2), MockSource("Wikipedia", p2)], db_path=db))
+
+    out_dir = str(tmp_path / "site")
+    res = asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
+    assert res["changes"] >= 1
+    page = (tmp_path / "site" / "whats-new.html").read_text(encoding="utf-8")
+    assert "artist/newjeans.html" in page and "ADOR" in page and "NewJeans Corp" in page
+    assert '"@type": "FAQPage"' in page and "None" not in page
+    assert (tmp_path / "site" / "ko" / "whats-new.html").exists()   # Korean freshness counterpart
+    sm = tempfile.mktemp(suffix=".xml")
+    asyncio.run(admin.sitemap(db_path=db, out_path=sm))
+    assert "/whats-new.html" in open(sm, encoding="utf-8").read()
+
+
 def test_guides_have_korean_counterparts(tmp_path):
     db = tempfile.mktemp(suffix=".db")
     for eid, ko, en in [("place:haeundae", "해운대", "Haeundae"),
