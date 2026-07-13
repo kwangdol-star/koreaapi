@@ -1116,6 +1116,23 @@ KOPIS_NAMES = {
     "theater:jeongdong": "정동극장",
 }
 
+# 국가유산청 (Korea Heritage Service / CHA) search terms — the Korean 국가유산명 to query the official registry
+# by. A DORMANT seed (the KHS source is key-gated INERT); expand on activation. Names verified against the
+# well-known 국가유산 designations, so the identity guard has a correct target.
+KHERITAGE_NAMES = {
+    "temple:haeinsa": "해인사",
+    "temple:tongdosa": "통도사",
+    "temple:songgwangsa": "송광사",
+    "temple:jogyesa": "조계사",
+    "temple:bongeunsa": "봉은사",
+    "temple:beopjusa": "법주사",
+    "place:gyeongbokgung": "경복궁",
+    "place:changdeokgung": "창덕궁",
+    "place:jongmyo": "종묘",
+    "place:bulguksa": "불국사",
+    "heritage:hunminjeongeum": "훈민정음",
+}
+
 # Institutional certification — the strongest, NON-REPLICABLE moat. An organization (agency / brand /
 # museum / studio) officially vouches for an entity's data; that record then ranks ABOVE "triple
 # cross-verified" (an authority staked its name — faster + more official than a wiki edit, and a
