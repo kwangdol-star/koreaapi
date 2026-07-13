@@ -47,7 +47,7 @@ from .license import LICENSE
 from .models import Record
 from .payments.stripe import PLANS as _PRICING_PLANS
 from .pipeline import store
-from .reconcile import external_ids, name_keys
+from .reconcile import external_ids, name_keys, norm
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS, CERTIFIED, NAMES
@@ -3487,7 +3487,10 @@ async def reconcile_json(db_path: str | None = None, out_path: str = "reconcile.
     by_wikidata: dict[str, str] = {}
     for eid, r in sorted(facts.items()):
         ids = external_ids(r.provenance.sources)
-        aliases = sorted(name_keys(r.name.ko, r.name.en_official, r.name.romanized))
+        # grounded alternate names (enrich.py, from the Wikipedia lead) join the match keys — kept in
+        # sync with service.resolve()'s key set, incl. the <2-char junk guard, so the two never drift.
+        alias_names = [a for a in (r.data.get("aliases") or []) if len(norm(a)) >= 2]
+        aliases = sorted(name_keys(r.name.ko, r.name.en_official, r.name.romanized, *alias_names))
         entities.append({
             "id": eid,
             "kind": _entity_kind(eid),

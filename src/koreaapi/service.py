@@ -18,7 +18,7 @@ from datetime import datetime
 from . import certify, integrity
 from .license import LICENSE
 from .pipeline import store
-from .reconcile import external_ids, match_score, name_keys
+from .reconcile import external_ids, match_score, name_keys, norm
 from .roster import CERTIFIED, GEO_NAMESPACES
 
 _CALENDAR_KINDS = ("comeback", "release", "concert")
@@ -572,7 +572,11 @@ async def resolve(query: str, *, db_path: str | None = None) -> dict:
             continue
         if is_qid and external_ids(rec.provenance.sources).get("wikidata", "").lower() == q.lower():
             return {"query": query, **_resolved(e["entity_id"], rec, "wikidata")}
-        keys = name_keys(rec.name.ko, rec.name.en_official, rec.name.romanized)
+        # grounded alternate names (enrich.py, from the Wikipedia lead) widen recall — a query that
+        # uses an alias still resolves. Guard out <2-char junk ('Han' problem) so a stray short alias
+        # can't over-match. Names always take precedence (added first / exact check below is name-set).
+        aliases = [a for a in (rec.data.get("aliases") or []) if len(norm(a)) >= 2]
+        keys = name_keys(rec.name.ko, rec.name.en_official, rec.name.romanized, *aliases)
         if qn in keys:  # exact (disambiguator-insensitive: 'Vincenzo (TV series)' == 'Vincenzo')
             return {"query": query, **_resolved(e["entity_id"], rec, "name")}
         sc = match_score(qn, keys)

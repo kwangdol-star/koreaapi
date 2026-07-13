@@ -114,6 +114,24 @@ def test_ingest_skips_enrich_without_an_abstract(monkeypatch):
     assert calls["n"] == 0  # no abstract -> no LLM call
 
 
+def test_ingested_alias_resolves_via_the_resolve_tool(monkeypatch):
+    # The payoff: a grounded alias from the abstract widens recall — an agent that queries the
+    # alternate name still maps onto the canonical verified entity.
+    from koreaapi import service
+
+    monkeypatch.setattr(ingest, "enrich",
+                        lambda abstract, existing_keys=(), known_names=(): {
+                            "attrs": {}, "aliases": ["SAC"]})
+    db = _tmp_db()
+    payload = {"name_ko": "예술의전당", "name_en_official": "Seoul Arts Center",
+               "name_en_source": "official", "summary_en": "x", "abstract_en": _ABSTRACT}
+    asyncio.run(
+        ingest.ingest_one("facts", "theater:sac", [MockSource("Wikidata", payload)], db_path=db)
+    )
+    r = asyncio.run(service.resolve("SAC", db_path=db))
+    assert r["found"] and r["id"] == "theater:sac" and r["matched_by"] == "name"
+
+
 def test_enrich_module_uses_haiku():
     assert emod._MODEL == "claude-haiku-4-5-20251001"  # cheap; enrichment is best-effort labor
 
