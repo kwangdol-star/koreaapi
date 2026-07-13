@@ -87,6 +87,21 @@ def test_entity_and_person_pages_have_social_meta_and_breadcrumb(tmp_path):
     assert "/films.html" in par   # entity breadcrumb middle points at the vertical hub (3-level)
 
 
+def test_entity_jsonld_carries_freshness_provenance_and_license(tmp_path):
+    # Every citable entity node stamps freshness (dateModified), dataset membership (isPartOf a KoreaAPI
+    # Dataset), explicit reuse terms (license), and a machine-verifiable canonical id — so an answer engine
+    # lifting the node sees when it was verified, where it came from, and how it may reuse it.
+    db = tempfile.mktemp(suffix=".db")
+    _seed(db)
+    out_dir = str(tmp_path / "site")
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
+    par = (tmp_path / "site" / "artist" / "parasite.html").read_text(encoding="utf-8")
+    assert '"dateModified"' in par                                   # freshness on the citable node
+    assert '"isPartOf"' in par and "verified Korean-culture data" in par  # Dataset membership
+    assert "creativecommons.org/licenses/by/4.0" in par             # explicit reuse terms
+    assert '"propertyID": "KoreaAPI id"' in par                     # machine-verifiable identity
+
+
 def _label_seed(db: str) -> None:
     facts = [
         ("artist:bts", {"name_ko": "방탄소년단", "name_en_official": "BTS",

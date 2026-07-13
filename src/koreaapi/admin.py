@@ -636,6 +636,12 @@ def _entity_node(r) -> dict:
     when it answers 'who/what is X' — the highest-value citation-share placement. Typing in _entity_node_core."""
     node = _entity_node_core(r)
     node.setdefault("creditText", LICENSE["attribution"])
+    node.setdefault("license", LICENSE["url"])                   # explicit reuse terms on the citable node
+    node.setdefault("dateModified", r.snapshot_at.isoformat())  # freshness signal (geo node already sets it)
+    node.setdefault("isPartOf", {"@type": "Dataset",            # dataset membership -> provenance / authority
+                                 "name": "KoreaAPI — verified Korean-culture data", "url": _SITE_BASE})
+    node.setdefault("identifier", {"@type": "PropertyValue", "propertyID": "KoreaAPI id",
+                                   "value": r.entity_id})       # machine-verifiable canonical identity
     node.setdefault("additionalProperty", []).extend(_trust_props(r))
     return node
 
