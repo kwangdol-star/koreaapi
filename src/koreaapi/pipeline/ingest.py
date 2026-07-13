@@ -12,6 +12,7 @@ import re
 from collections import Counter
 from datetime import datetime, timezone
 
+from ..enrich import enrich
 from ..models import Name, Provenance, Record, TranslationProvenance
 from ..romanize import romanize
 from ..roster import FOOD_SPICE, FOOD_VEG
@@ -143,6 +144,24 @@ async def ingest_one(
     merged_attrs.update(chosen.get("attrs") or {})
     if merged_attrs:
         chosen["attrs"] = merged_attrs
+
+    # LLM enrichment (best-effort): pull grounded structured facts + alternate names OUT of the
+    # already-cited Wikipedia lead prose. attrs are GAP-FILL only (a cross-verified Wikidata/KTO
+    # value always wins); every value is grounded literally in the abstract, so a hallucination
+    # can't enter a verified record. No key / failure / nothing grounded -> no change.
+    if chosen.get("abstract_en"):
+        extra = await asyncio.to_thread(
+            enrich, chosen["abstract_en"],
+            existing_keys=tuple((chosen.get("attrs") or {}).keys()),
+            known_names=(chosen.get("name_ko"), chosen.get("name_en_official"), chosen.get("name_romanized")),
+        )
+        if extra.get("attrs"):
+            gap = dict(chosen.get("attrs") or {})
+            for k, v in extra["attrs"].items():
+                gap.setdefault(k, v)  # gap-fill only — never override a structured-source attr
+            chosen["attrs"] = gap
+        if extra.get("aliases"):
+            chosen["aliases"] = extra["aliases"]
 
     if not chosen.get("name_romanized") and chosen.get("name_ko"):
         rom = await asyncio.to_thread(romanize, chosen["name_ko"])  # cheap LLM; best-effort
