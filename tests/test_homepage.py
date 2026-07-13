@@ -102,6 +102,24 @@ def test_entity_jsonld_carries_freshness_provenance_and_license(tmp_path):
     assert '"propertyID": "KoreaAPI id"' in par                     # machine-verifiable identity
 
 
+def test_entity_faq_leads_with_grounded_what_is(tmp_path):
+    # "What is X?" — the most common query — answered from the CITED Wikipedia lead (grounded, no LLM),
+    # surfaced as extractable FAQPage Q&A; the Korean page gets a "무엇인가요?" from the verified summary.
+    db = tempfile.mktemp(suffix=".db")
+    p = {"name_ko": "경복궁", "name_en_official": "Gyeongbokgung", "name_en_source": "official",
+         "agency_en": "Seoul",
+         "abstract_en": "Gyeongbokgung is a royal palace located in northern Seoul. It was built in 1395."}
+    asyncio.run(ingest_one("facts", "place:gyeongbokgung",
+                           [MockSource("Wikidata", p), MockSource("Wikipedia", p)], db_path=db))
+    out_dir = str(tmp_path / "site")
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
+    en = (tmp_path / "site" / "artist" / "gyeongbokgung.html").read_text(encoding="utf-8")
+    assert "What is Gyeongbokgung?" in en                        # the top query, as extractable Q&A
+    assert "royal palace located in northern Seoul" in en        # grounded = the cited Wikipedia lead (1st sentence)
+    ko = (tmp_path / "site" / "ko" / "artist" / "gyeongbokgung.html").read_text(encoding="utf-8")
+    assert "무엇인가요?" in ko and '"@type": "FAQPage"' in ko     # Korean FAQ for Naver / Korean AEO
+
+
 def _label_seed(db: str) -> None:
     facts = [
         ("artist:bts", {"name_ko": "방탄소년단", "name_en_official": "BTS",

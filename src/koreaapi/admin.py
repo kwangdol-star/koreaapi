@@ -1634,9 +1634,16 @@ def _entity_qa(name: str, primary, by_kind: dict) -> list[tuple[str, str]]:
         "folklore": "a verified Korean folktale / myth",
         "region": "a verified South Korean region (the country or a first-level administrative division)",
     }
-    if _entity_kind(eid0) in _whatis:
-        ko = (primary.name.ko if primary else "") or ""
-        ko_part = f" ({ko})" if ko and ko != name else ""
+    ko = (primary.name.ko if primary else "") or ""
+    ko_part = f" ({ko})" if ko and ko != name else ""
+    abstract = (d.get("abstract_en") or "").strip()
+    if abstract:  # "What is X?" — the most common query — answered from the CITED Wikipedia lead (grounded,
+        first = re.split(r"(?<=[.!?])\s+", abstract)[0].strip()  # no LLM), surfaced as an extractable Q&A
+        if len(first) > 400:
+            first = first[:400].rsplit(" ", 1)[0] + "…"
+        qas.append((f"What is {name}?",
+                    f"{first} (Wikipedia lead; name cross-verified via {src}, as of {asof}, via KoreaAPI)."))
+    elif _entity_kind(eid0) in _whatis:
         qas.append((f"What is {name}?",
                     f"{name}{ko_part} is {_whatis[_entity_kind(eid0)]} (cross-checked via {src}, as of {asof})."))
     if _entity_kind(eid0) == "region":  # stable infobox facts -> citable Q&A (capital / language / …)
@@ -2295,7 +2302,10 @@ def _entity_qa_ko(primary) -> list[tuple[str, str]]:
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
     src = "; ".join(primary.provenance.sources)
     ns = _entity_kind(primary.entity_id)
-    if ns in _KO_WHATIS:
+    summary_ko = (primary.summary_ko or "").strip().rstrip(". ")
+    if summary_ko:  # every verified record carries a Korean summary -> a rich, extractable "무엇인가요?"
+        qas.append((f"{ko}은(는) 무엇인가요?", f"{summary_ko} (교차검증: {src}, {asof} 기준)."))
+    elif ns in _KO_WHATIS:
         qas.append((f"{ko}은(는) 무엇인가요?",
                     f"{ko}은(는) {_KO_WHATIS[ns]}입니다 (교차검증: {src}, {asof} 기준)."))
     if d.get("debut") and ns in _KO_DEBUT:
