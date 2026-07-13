@@ -60,6 +60,16 @@ def test_match_score_ranks_overlap():
     assert reconcile.match_score("zzz", {"vincenzo"}) == 0               # no overlap
 
 
+def test_sameas_urls_emits_only_unambiguous_forms():
+    from koreaapi import reconcile
+    urls = reconcile.sameas_urls({"wikidata": "Q123", "wikipedia": "Seoul Arts Center", "tmdb": "96162"})
+    # Wikidata + English Wikipedia have canonical URL forms; TMDB / MusicBrainz are type-ambiguous, so
+    # their URL is NOT guessed (the raw ID rides in `ids` instead) — never invent a URL.
+    assert urls == ["https://www.wikidata.org/entity/Q123",
+                    "https://en.wikipedia.org/wiki/Seoul_Arts_Center"]
+    assert reconcile.sameas_urls({}) == []
+
+
 def test_reconcile_empty_store_keeps_static_file():
     sentinel = tempfile.mktemp(suffix=".json")
     with open(sentinel, "w", encoding="utf-8") as f:

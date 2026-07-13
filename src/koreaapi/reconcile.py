@@ -27,6 +27,19 @@ def external_ids(sources: list[str]) -> dict:
     return ids
 
 
+def sameas_urls(ids: dict) -> list[str]:
+    """Canonical PUBLIC URLs for reconciled external IDs — Schema.org sameAs / citation links. Only the
+    unambiguous forms are emitted (Wikidata entity + English Wikipedia article); TMDB / MusicBrainz IDs
+    are type-ambiguous (movie vs tv, artist vs release), so their URL is NOT guessed — the raw ID rides
+    in `ids` instead. Pure; never invents a URL."""
+    out: list[str] = []
+    if ids.get("wikidata"):
+        out.append(f"https://www.wikidata.org/entity/{ids['wikidata']}")
+    if ids.get("wikipedia"):
+        out.append("https://en.wikipedia.org/wiki/" + ids["wikipedia"].strip().replace(" ", "_"))
+    return out
+
+
 _PAREN = re.compile(r"\s*\([^)]*\)\s*$")  # 'Vincenzo (TV series)' -> 'Vincenzo'
 
 

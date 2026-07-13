@@ -152,6 +152,27 @@ def test_food_guide_filters_by_dietary_and_spice():
     assert "food:hoe" not in {d["id"] for d in noseafood["answer"]["dishes"]}  # seafood excluded
 
 
+def test_evidence_pack_is_cite_ready_for_cross_verified():
+    out = asyncio.run(answers.answer("evidence-pack", "Vincenzo", db_path=_seed()))
+    assert out["signal"] == "CITE_READY"
+    a = out["answer"]
+    assert a["id"] == "drama:vincenzo" and a["tier"] == "triple-verified" and a["citable"] is True
+    assert a["content_hash"]                                              # tamper-evident hash rides along
+    assert "https://www.wikidata.org/entity/Q16741113" in a["same_as"]    # reconciled sameAs link
+    assert "빈센조" in a["citation"]["ko"] and "via KoreaAPI" in a["citation"]["en"]
+
+
+def test_evidence_pack_single_source_is_cautioned():
+    out = asyncio.run(answers.answer("evidence-pack", "NewJeans", db_path=_seed()))
+    assert out["signal"] == "CITE_WITH_CAUTION"
+    assert out["answer"]["citable"] is False and out["answer"]["tier"] == "single-source"
+
+
+def test_evidence_pack_not_found():
+    out = asyncio.run(answers.answer("evidence-pack", "Nonexistent Thing", db_path=_seed()))
+    assert out["signal"] == "NOT_FOUND" and out["score"] == 0.0
+
+
 def test_catalog_is_bilingual():
     cat = answers.list_products()
     assert all(p.get("name_ko") and p.get("about_ko") for p in cat["products"])

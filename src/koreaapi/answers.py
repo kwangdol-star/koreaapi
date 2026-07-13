@@ -29,6 +29,7 @@ import re
 
 from . import service
 from .pipeline import store
+from .reconcile import sameas_urls
 from .roster import FOOD_SPICE, FOOD_VEG, GEO_NAMESPACES
 
 
@@ -346,6 +347,62 @@ async def _run_food_guide(query: str, db_path: str | None = None) -> dict:
                         "editorial_note": "spice + dietary tags are KoreaAPI editorial, not cross-verified"})
 
 
+async def _run_evidence_pack(query: str, db_path: str | None = None) -> dict:
+    """Assemble the READY-TO-CITE bundle for an entity: the verified bilingual claim, the tier + Skill
+    Score, the reconciled source links (sameAs), the content_hash + as-of date, and a paste-ready
+    bilingual attribution line. The one call an agent makes right before it writes a cited sentence —
+    fact-check DECIDES if it's citable; evidence-pack DELIVERS the citation itself."""
+    r = await service.resolve(query, db_path=db_path)
+    if not r.get("found"):
+        return _env("evidence-pack", query, signal="NOT_FOUND",
+                    action="No verified entity — nothing to cite.", score=0.0,
+                    rationale=f"'{query}' resolves to no verified KoreaAPI entity.", answer={})
+    v = await service.verified(r["id"], db_path=db_path)
+    n = r.get("agreeing_sources", 0)
+    skill = r.get("skill_score", 0.0)
+    certified = bool(v.get("officially_certified"))
+    fuzzy = r.get("matched_by") == "fuzzy"
+    name = r.get("name", {})
+    disp_en = name.get("en_official") or name.get("ko") or r["id"]
+    disp_ko = name.get("ko") or disp_en
+    kind = r.get("kind", "entity")
+    as_of = r.get("as_of")
+    ids = r.get("ids", {}) or {}
+    if certified:
+        tier, tier_ko = "officially-certified", "공식 인증"
+    elif n >= 3:
+        tier, tier_ko = "triple-verified", "3중 검증"
+    elif n >= 2:
+        tier, tier_ko = "cross-verified", "교차 검증"
+    else:
+        tier, tier_ko = "single-source", "단일 출처"
+    citation_en = (f"{disp_en} ({disp_ko}) — verified Korean {kind}, as of {as_of} · "
+                   f"Skill Score {skill:.2f} ({tier}) · via KoreaAPI")
+    citation_ko = (f"{disp_ko} — 검증된 한국 {kind}, {as_of} 기준 · "
+                   f"Skill Score {skill:.2f} ({tier_ko}) · via KoreaAPI")
+    if fuzzy:
+        signal = "AMBIGUOUS"
+        action = f"Fuzzy name match only — confirm this is the right entity before citing 「{disp_ko}」."
+    elif certified:
+        signal, action = "CITE_READY", f"Cite freely — officially certified by {v.get('certified_by')}."
+    elif n >= 2:
+        signal, action = "CITE_READY", f"Cite with attribution — {n} independent sources agree ({tier})."
+    else:
+        signal = "CITE_WITH_CAUTION"
+        action = "Single-source — attribute and hedge; not cross-verified (Skill Score capped 0.7)."
+    answer = {
+        "id": r["id"], "name": name, "kind": kind, "tier": tier,
+        "citable": bool(certified or (n >= 2 and not fuzzy)),
+        "skill_score": skill, "agreeing_sources": n, "matched_by": r.get("matched_by"),
+        "as_of": as_of, "content_hash": r.get("content_hash"),
+        "ids": ids, "same_as": sameas_urls(ids), "sources": r.get("sources", []),
+        "license": r.get("license"), "citation": {"en": citation_en, "ko": citation_ko},
+    }
+    return _env("evidence-pack", query, signal=signal, action=action, score=skill,
+                rationale=f"{tier}; {n} source(s); ready-to-cite bundle assembled.",
+                answer=answer, evidence=_evidence(r))
+
+
 _PRODUCTS = [
     {"id": "canonical-name", "name": "Canonical Name Resolver", "name_ko": "공식 표기 확정", "emoji": "🪪",
      "sector": "Identity / AEO", "inputs": ["name or id"],
@@ -395,6 +452,14 @@ _PRODUCTS = [
               "labeled KoreaAPI editorial (not cross-verified).",
      "about_ko": "채식·비건·안 매운·해산물 없는 검증된 한식 필터 — 음식명은 교차검증, 맵기·식이 태그는 KoreaAPI 편집(비교차검증).",
      "run": _run_food_guide},
+    {"id": "evidence-pack", "name": "Evidence Pack (Cite-Ready)", "name_ko": "인용 패키지", "emoji": "📎",
+     "sector": "Trust / AEO", "inputs": ["name or id"],
+     "about": "One call → the complete ready-to-cite bundle: the verified bilingual claim, tier + Skill "
+              "Score, reconciled source links (sameAs), content-hash, as-of date, and a paste-ready "
+              "bilingual attribution line. What an agent needs right before it writes a cited sentence.",
+     "about_ko": "한 번 호출로 인용에 필요한 모든 것: 검증된 양국어 이름, 등급 + Skill Score, 출처 링크(sameAs), "
+                 "content-hash, 기준일, 붙여넣기용 양국어 출처 표기 — 인용 직전에 부르는 도구.",
+     "run": _run_evidence_pack},
 ]
 _BY_ID = {p["id"]: p for p in _PRODUCTS}
 
@@ -461,7 +526,9 @@ _KEYWORD_ROUTES: list[tuple[tuple[str, ...], str]] = [
     (("agency", "label", "roster", "artists under", "소속사", "레이블", "명단", "소속"), "agency-roster"),
     (("related", "network", "same agency", "also on", "labelmate", "연관", "네트워크", "같은"), "related-network"),
     (("spelling", "spell", "romaniz", "how do you write", "korean name", "표기", "한글로", "로마자"), "canonical-name"),
-    (("cite", "citable", "is it true", "fact-check", "verify", "사실", "인용", "검증", "맞아"), "fact-check"),
+    (("cite this", "citation for", "how do i cite", "how to cite", "sources for", "reference for",
+      "evidence for", "인용", "출처 표기", "레퍼런스"), "evidence-pack"),
+    (("citable", "is it true", "safe to cite", "fact-check", "verify", "사실", "검증", "맞아"), "fact-check"),
 ]
 
 
