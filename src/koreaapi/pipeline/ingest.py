@@ -178,20 +178,21 @@ async def ingest_one(
     if chosen.get("abstract_en"):
         prev = await store.latest(entity_id, kind, db_path=db_path)
         enrichment = prev.data.get("enrichment") if prev else None
-        if enrichment is None:  # first sighting -> derive once (also backfills a pre-enrichment record)
-            enrichment = await asyncio.to_thread(
+        if enrichment is None:  # not yet successfully derived -> attempt (enrich returns None if it
+            enrichment = await asyncio.to_thread(  # couldn't run: no key / transient error -> retry next build)
                 enrich, chosen["abstract_en"],
                 existing_keys=tuple((chosen.get("attrs") or {}).keys()),
                 known_names=(chosen.get("name_ko"), chosen.get("name_en_official"), chosen.get("name_romanized")),
             )
-        chosen["enrichment"] = enrichment  # persist: run-once marker + carry-forward source (even if empty)
-        if enrichment.get("attrs"):
-            gap = dict(chosen.get("attrs") or {})
-            for k, v in enrichment["attrs"].items():
-                gap.setdefault(k, v)  # gap-fill only — never override a structured-source attr
-            chosen["attrs"] = gap
-        if enrichment.get("aliases"):
-            chosen["aliases"] = enrichment["aliases"]
+        if enrichment is not None:  # store the run-once marker + apply ONLY on a real result (self-heals a
+            chosen["enrichment"] = enrichment  # transient first-sighting failure — that build stores no marker)
+            if enrichment.get("attrs"):
+                gap = dict(chosen.get("attrs") or {})
+                for k, v in enrichment["attrs"].items():
+                    gap.setdefault(k, v)  # gap-fill only — never override a structured-source attr
+                chosen["attrs"] = gap
+            if enrichment.get("aliases"):
+                chosen["aliases"] = enrichment["aliases"]
 
     if not chosen.get("name_romanized") and chosen.get("name_ko"):
         rom = await asyncio.to_thread(romanize, chosen["name_ko"])  # cheap LLM; best-effort

@@ -30,11 +30,12 @@ def _tmp_db() -> str:
     return path
 
 
-def test_enrich_returns_empty_without_key(monkeypatch):
+def test_enrich_returns_none_when_it_cannot_run(monkeypatch):
+    # None (not empty dict) signals "did not run" so the caller retries later — no key / no abstract.
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    assert enrich(_ABSTRACT) == {"attrs": {}, "aliases": []}
-    assert enrich(None) == {"attrs": {}, "aliases": []}
-    assert enrich("   ") == {"attrs": {}, "aliases": []}
+    assert enrich(_ABSTRACT) is None
+    assert enrich(None) is None
+    assert enrich("   ") is None
 
 
 def test_parse_enrichment_is_tolerant():
@@ -129,7 +130,8 @@ def test_ingested_alias_resolves_via_the_resolve_tool(monkeypatch):
         ingest.ingest_one("facts", "theater:sac", [MockSource("Wikidata", payload)], db_path=db)
     )
     r = asyncio.run(service.resolve("SAC", db_path=db))
-    assert r["found"] and r["id"] == "theater:sac" and r["matched_by"] == "name"
+    # an alias exact-match resolves but is labeled "alias" (not "name") — it never overstates confidence
+    assert r["found"] and r["id"] == "theater:sac" and r["matched_by"] == "alias"
 
 
 def test_ingest_enrich_runs_once_then_carries_forward(monkeypatch):
@@ -152,7 +154,7 @@ def test_ingest_enrich_runs_once_then_carries_forward(monkeypatch):
 
 
 def test_ingest_enrich_empty_result_still_marks_run_once(monkeypatch):
-    # An entity whose abstract grounds nothing must ALSO be marked, or it re-calls the LLM every build.
+    # A REAL run that grounded nothing ({} dict) IS marked -> no wasteful re-call next build.
     calls = {"n": 0}
 
     def fake(abstract, existing_keys=(), known_names=()):
@@ -166,7 +168,27 @@ def test_ingest_enrich_empty_result_still_marks_run_once(monkeypatch):
     src = [MockSource("Wikidata", payload)]
     asyncio.run(ingest.ingest_one("facts", "artist:bts", src, db_path=db))
     asyncio.run(ingest.ingest_one("facts", "artist:bts", src, db_path=db))
-    assert calls["n"] == 1  # empty extract persisted as a marker -> no re-derivation next build
+    assert calls["n"] == 1  # empty (but real) extract persisted as a marker -> no re-derivation next build
+
+
+def test_ingest_enrich_retries_when_it_could_not_run(monkeypatch):
+    # enrich() returns None when it couldn't run (no key / transient Haiku error) -> NO marker stored, so
+    # the next build RETRIES. A transient failure on first sighting must never freeze an entity forever.
+    calls = {"n": 0}
+
+    def fake(abstract, existing_keys=(), known_names=()):
+        calls["n"] += 1
+        return None
+
+    monkeypatch.setattr(ingest, "enrich", fake)
+    db = _tmp_db()
+    payload = {"name_ko": "예술의전당", "name_en_official": "Seoul Arts Center",
+               "name_en_source": "official", "summary_en": "x", "abstract_en": _ABSTRACT}
+    src = [MockSource("Wikidata", payload)]
+    rec1 = asyncio.run(ingest.ingest_one("facts", "theater:sac", src, db_path=db))
+    rec2 = asyncio.run(ingest.ingest_one("facts", "theater:sac", src, db_path=db))
+    assert calls["n"] == 2  # retried both builds — a can't-run result never poisons the run-once marker
+    assert "enrichment" not in rec1.data and "enrichment" not in rec2.data
 
 
 def test_enrich_module_uses_haiku():

@@ -8,12 +8,14 @@ abstract text (drops anything not literally present), exactly like the Circle Ch
 verified record: extraction is the labor, grounding is the gate. "verification over trust" holds.
 
 Safety envelope (matches romanize.py / circlechart.py):
-  - No `ANTHROPIC_API_KEY`, any error, or nothing grounded -> empty (never breaks ingest).
+  - `enrich()` returns None when it could NOT run (no abstract / no `ANTHROPIC_API_KEY` / any error) so
+    the caller retries on a later build (SELF-HEAL). It returns the grounded dict — possibly with empty
+    attrs & aliases — only on a REAL run (a completed call that grounded, even if it grounded nothing).
   - attrs are GAP-FILL ONLY: a key already carried by a structured source (Wikidata/KTO/KOSIS) is
     never overridden — the cross-verified value always wins.
-  - RUN-ONCE per entity: the first snapshot derives it (one cheap Haiku call), and later builds carry
-    the stored grounded extract forward (ingest reuses `data.enrichment`) — no repeat call. The build
-    cost is one-time per entity, not per build.
+  - RUN-ONCE per entity: the first SUCCESSFUL derivation is stored (data.enrichment) and later builds
+    carry it forward (no repeat call). A no-key / failed build stores NO marker, so it is retried — a
+    transient Haiku error on first sighting can never freeze an entity un-enriched forever.
   - `parse_enrichment` + `ground_enrichment` are pure and offline-tested; the live LLM call runs
     only where the key is set (GitHub runners / deploy).
 """
@@ -111,11 +113,14 @@ def ground_enrichment(
     return {"attrs": attrs, "aliases": aliases}
 
 
-def enrich(abstract: str | None, *, existing_keys: tuple = (), known_names: tuple = ()) -> dict:
+def enrich(abstract: str | None, *, existing_keys: tuple = (), known_names: tuple = ()) -> dict | None:
     """Best-effort: grounded structured attrs + aliases from a Wikipedia lead abstract.
-    {"attrs": {}, "aliases": []} without a key / on any error / when nothing grounds — never breaks ingest."""
+
+    Returns None when it could NOT run — no abstract / no `ANTHROPIC_API_KEY` / any error — so the caller
+    retries on a later build (never poisons the run-once marker with a transient failure). Returns the
+    grounded {"attrs": ..., "aliases": ...} (possibly empty) only on a REAL, completed run. Never raises."""
     if not abstract or not abstract.strip() or not os.environ.get("ANTHROPIC_API_KEY"):
-        return {"attrs": {}, "aliases": []}
+        return None
     try:
         import anthropic
 
@@ -129,4 +134,4 @@ def enrich(abstract: str | None, *, existing_keys: tuple = (), known_names: tupl
         parsed = parse_enrichment(text)
         return ground_enrichment(parsed, abstract, existing_keys=existing_keys, known_names=known_names)
     except Exception:
-        return {"attrs": {}, "aliases": []}  # best-effort: never break ingest on an enrichment failure
+        return None  # transient failure -> None so ingest retries next build (self-heal); never break ingest

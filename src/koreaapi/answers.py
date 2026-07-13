@@ -114,7 +114,8 @@ async def _run_fact_check(query: str, db_path: str | None = None) -> dict:
     n = v.get("agreeing_sources", 0)
     skill = v.get("skill_score", 0.0)
     if v.get("officially_certified"):
-        signal, action = "CERTIFIED", f"Citable — officially certified by {v.get('certified_by')}."
+        signal, action = "CERTIFIED", ("Citable — officially certified by "
+                                       f"{v.get('certified_by') or 'the rights-holder'}.")
     elif n >= 3:
         signal, action = "TRIPLE_VERIFIED", "Safe to cite — ≥3 independent sources agree."
     elif n >= 2:
@@ -305,8 +306,8 @@ async def _run_food_guide(query: str, db_path: str | None = None) -> dict:
             return False
         if want_mild and sp not in ("none", "mild"):
             return False
-        if no_seafood and "seafood" in vg:
-            return False
+        if no_seafood and (not vg or "seafood" in vg):  # require a dietary tag — don't assert "no seafood"
+            return False                                # about an unclassified dish (matches the /food- page)
         return True
 
     matches: list = []
@@ -384,7 +385,8 @@ async def _run_evidence_pack(query: str, db_path: str | None = None) -> dict:
         signal = "AMBIGUOUS"
         action = f"Fuzzy name match only — confirm this is the right entity before citing 「{disp_ko}」."
     elif certified:
-        signal, action = "CITE_READY", f"Cite freely — officially certified by {v.get('certified_by')}."
+        signal, action = "CITE_READY", ("Cite freely — officially certified by "
+                                        f"{v.get('certified_by') or 'the rights-holder'}.")
     elif n >= 2:
         signal, action = "CITE_READY", f"Cite with attribution — {n} independent sources agree ({tier})."
     else:

@@ -18,7 +18,7 @@ from datetime import datetime
 from . import certify, integrity
 from .license import LICENSE
 from .pipeline import store
-from .reconcile import external_ids, match_score, name_keys, norm
+from .reconcile import external_ids, match_score, name_keys
 from .roster import CERTIFIED, GEO_NAMESPACES
 
 _CALENDAR_KINDS = ("comeback", "release", "concert")
@@ -564,6 +564,7 @@ async def resolve(query: str, *, db_path: str | None = None) -> dict:
         if rec is not None:
             return {"query": query, **_resolved(q, rec, "entity_id")}
     candidates: list[tuple[int, float, str, object]] = []  # (fuzzy score, skill, entity_id, rec)
+    alias_hit: tuple | None = None  # a grounded-alias exact-match; used only if NO canonical name matches
     for e in await store.entities(db_path=db_path):
         if e["kind"] != "facts":
             continue
@@ -572,16 +573,22 @@ async def resolve(query: str, *, db_path: str | None = None) -> dict:
             continue
         if is_qid and external_ids(rec.provenance.sources).get("wikidata", "").lower() == q.lower():
             return {"query": query, **_resolved(e["entity_id"], rec, "wikidata")}
-        # grounded alternate names (enrich.py, from the Wikipedia lead) widen recall — a query that
-        # uses an alias still resolves. Guard out <2-char junk ('Han' problem) so a stray short alias
-        # can't over-match. Names always take precedence (added first / exact check below is name-set).
-        aliases = [a for a in (rec.data.get("aliases") or []) if len(norm(a)) >= 2]
-        keys = name_keys(rec.name.ko, rec.name.en_official, rec.name.romanized, *aliases)
-        if qn in keys:  # exact (disambiguator-insensitive: 'Vincenzo (TV series)' == 'Vincenzo')
+        # Canonical NAME exact-match returns in-loop -> a real name ALWAYS wins. Grounded alternate names
+        # (enrich.py, from the Wikipedia lead) widen recall but are a FALLBACK: an alias exact-match is
+        # remembered and used only if NO entity has a canonical exact-match, and is labeled matched_by=
+        # "alias" (never "name") — so an alias can't shadow another entity's real name nor overstate its
+        # confidence. <2-char junk keys ('Han' problem) are dropped.
+        name_only = name_keys(rec.name.ko, rec.name.en_official, rec.name.romanized)
+        if qn in name_only:  # exact (disambiguator-insensitive: 'Vincenzo (TV series)' == 'Vincenzo')
             return {"query": query, **_resolved(e["entity_id"], rec, "name")}
-        sc = match_score(qn, keys)
+        alias_keys = {k for k in name_keys(*(rec.data.get("aliases") or [])) - name_only if len(k) >= 2}
+        if alias_hit is None and qn in alias_keys:
+            alias_hit = (e["entity_id"], rec)  # remember; a later canonical exact-match still takes priority
+        sc = match_score(qn, name_only | alias_keys)
         if sc:
             candidates.append((sc, rec.provenance.skill_score, e["entity_id"], rec))
+    if alias_hit is not None:  # no canonical exact-match anywhere -> the grounded-alias exact-match is next
+        return {"query": query, **_resolved(alias_hit[0], alias_hit[1], "alias")}
     if candidates:
         candidates.sort(key=lambda c: (c[0], c[1]), reverse=True)
         _, _, eid, rec = candidates[0]
