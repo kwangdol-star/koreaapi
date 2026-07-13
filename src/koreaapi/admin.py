@@ -1184,6 +1184,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./songs.html">{_ICON['song']} Songs</a>
  <a class="pill" href="./concepts.html">{_ICON['concept']} Concepts</a>
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
+ <a class="pill" href="./guides.html">🧳 Region guides</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./openapi.json">/openapi.json · OpenAPI 3.1</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -2962,6 +2963,128 @@ def _write_certify(out_dir: str) -> None:
                                         "url": f"{_SITE_BASE}/ko/certify.html"}))
 
 
+def _region_guides_data(by_entity: dict) -> dict:
+    """Group verified GEO entities (+ festivals) by their located-in region (P131) — raw material for a
+    per-region guide. {region: {"geo": {ns: [(eid, rec)]}, "festivals": [(eid, rec)]}}."""
+    geo_ns = set(_GEO_NODE_TYPE)
+    regions: dict[str, dict] = {}
+    for entity_id, by_kind in by_entity.items():
+        rec = by_kind.get("facts")
+        if rec is None:
+            continue
+        ns = entity_id.split(":", 1)[0]
+        region = (rec.data.get("agency_en") or rec.data.get("agency_ko") or "").strip()
+        if not region:
+            continue
+        if ns in geo_ns:
+            regions.setdefault(region, {}).setdefault("geo", {}).setdefault(ns, []).append((entity_id, rec))
+        elif ns == "festival":
+            regions.setdefault(region, {}).setdefault("festivals", []).append((entity_id, rec))
+    return regions
+
+
+def _guide_slugs(regions: dict) -> list[tuple[str, str, int]]:
+    """Regions that earn a guide page: >=3 verified geo spots (substantive, no thin page) + an ASCII slug
+    (clean URL / valid sitemap). Returns [(region, slug, n_geo)] sorted by coverage then name — the ONE
+    set both entity_pages (renders) and sitemap (lists) read, so the two never drift."""
+    out: list[tuple[str, str, int]] = []
+    for region, groups in regions.items():
+        n_geo = sum(len(v) for v in groups.get("geo", {}).values())
+        slug = _person_slug(region)
+        if n_geo >= 3 and slug and slug.isascii():
+            out.append((region, slug, n_geo))
+    out.sort(key=lambda t: (-t[2], t[0]))
+    return out
+
+
+def _guide_li(items: list) -> str:
+    """<li> rows linking each verified spot to its entity page (one level down from the site root)."""
+    rows = []
+    for eid, r in items:
+        en = r.name.en_official or r.name.ko
+        ko = f' <span class="ko">{html.escape(r.name.ko)}</span>' if r.name.ko and r.name.ko != en else ""
+        rows.append(f'<li><a href="artist/{_slug(eid)}.html">{html.escape(en)}</a>{ko}'
+                    f' · Skill {r.provenance.skill_score:.2f}</li>')
+    return "".join(rows)
+
+
+def _write_guides_index(out_dir: str, guides: list[dict]) -> None:
+    """The /guides.html index — links every per-region guide (an internal-link hub) and is ALWAYS written
+    (even with zero guides) so the homepage 'Guides' pill never 404s before any region qualifies."""
+    if guides:
+        gs = sorted(guides, key=lambda g: g["region"])
+        lis = "".join(f'<li><a href="guide-{g["slug"]}.html">{html.escape(g["region"])}</a>'
+                      f' · {g["count"]} verified spot(s)</li>' for g in gs)
+        body = ("<p class=lede>Verified, citable travel guides by region — every spot cross-verified via "
+                f"KoreaAPI.</p><ul>{lis}</ul>")
+        graph = [{"@type": "ItemList", "name": "KoreaAPI region guides",
+                  "itemListElement": [{"@type": "ListItem", "position": i + 1, "name": g["region"],
+                                       "url": f"{_SITE_BASE}/guide-{g['slug']}.html"}
+                                      for i, g in enumerate(gs)]},
+                 _breadcrumb("Guides", f"{_SITE_BASE}/guides.html")]
+    else:
+        body = ("<p class=lede>Region guides appear here as verified coverage grows "
+                "(3+ cross-verified spots per region).</p>")
+        graph = [_breadcrumb("Guides", f"{_SITE_BASE}/guides.html")]
+    _write_hub_html(out_dir, "guides.html", _ICON.get("place", ""), "Region guides",
+                    "Verified, citable Korean travel guides by region — every spot cross-verified.",
+                    body, _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
+
+
+def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
+    """Per-region GUIDE pages (site/guide-<slug>.html) — the trip-plan decision as a CRAWLABLE, cited GEO
+    asset ("things to do in <region>", every item a verified entity linking to its page) + a /guides.html
+    index. Answer engines surface region guides for travel queries; here every listed spot is verified."""
+    regions = _region_guides_data(by_entity)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    written: list[dict] = []
+    for region, slug, n_geo in _guide_slugs(regions):
+        groups = regions[region]
+        geo = groups.get("geo", {})
+        festivals = sorted(groups.get("festivals", []), key=lambda t: -t[1].provenance.skill_score)
+        all_spots: list = []
+        sections: list[str] = []
+        for ns in sorted(geo):
+            items = sorted(geo[ns], key=lambda t: -t[1].provenance.skill_score)
+            all_spots.extend(items)
+            label = _VERTICALS.get(ns, (ns.title(),))[0]
+            sections.append(f"<h2>{html.escape(label)}</h2><ul>{_guide_li(items[:12])}</ul>")
+        if festivals:
+            sections.append(f"<h2>Festivals &amp; events</h2><ul>{_guide_li(festivals[:8])}</ul>")
+        all_spots.sort(key=lambda t: -t[1].provenance.skill_score)
+        top = [r.name.en_official or r.name.ko for _, r in all_spots[:6]]
+        qas = [(f"What are the top verified places to visit in {region}?",
+                f"KoreaAPI cross-verifies {n_geo} spot(s) in {region}, including {', '.join(top)}. "
+                "Each is an independently cross-verified, citable entity.")]
+        if festivals:
+            qas.append((f"What festivals are held in {region}?", "Verified festivals in "
+                        f"{region}: {', '.join(r.name.en_official or r.name.ko for _, r in festivals[:5])}."))
+        url = f"{_SITE_BASE}/guide-{slug}.html"
+        graph = [{"@type": "ItemList", "name": f"Verified places to visit in {region}",
+                  "itemListElement": [{"@type": "ListItem", "position": i + 1,
+                                       "url": f"{_SITE_BASE}/artist/{_slug(eid)}.html",
+                                       "name": r.name.en_official or r.name.ko}
+                                      for i, (eid, r) in enumerate(all_spots[:20])]},
+                 _faqpage_node(qas),
+                 _breadcrumb(f"{region} guide", url, middle=("Guides", f"{_SITE_BASE}/guides.html"))]
+        lede = html.escape(f"{region}: {n_geo} cross-verified places"
+                           + (f" + {len(festivals)} verified festivals" if festivals else "")
+                           + ". Every listing links to its verified, citable profile.")
+        cite = (f'<p class=cite>Cite: “{html.escape(region)} — verified spots, {today} · via KoreaAPI”. '
+                'Machine-readable: <a href="reconcile.json">/reconcile.json</a> · '
+                '<a href="sitemap.xml">/sitemap.xml</a>.</p>')
+        _write_hub_html(out_dir, f"guide-{slug}.html", _ICON.get("place", ""),
+                        f"{region} — verified travel guide",
+                        f"Every verified spot in {region}, grouped by type — each a cross-verified, citable "
+                        "KoreaAPI entity. Travel-decision raw material for agents & answer engines.",
+                        f'<p class=lede>{lede}</p>' + "".join(sections) + cite,
+                        _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
+        written.append({"region": region, "slug": slug, "count": n_geo, "festivals": len(festivals),
+                        "url": url})
+    _write_guides_index(out_dir, written)
+    return written
+
+
 async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dict:
     """Citable answer-pages — the AEO citation-surface multiplier — for BOTH entities and people.
 
@@ -3142,8 +3265,11 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
                           _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
         labels_written.append({"name": L["name"], "slug": s, "url": lurl, "count": len(items)})
 
+    # Region GUIDE pages — the trip-plan decision made crawlable + citable ("things to do in <region>").
+    guides_written = _write_region_guides(out_dir, by_entity)
+
     return {"entities": written, "people": people_written, "hubs": hubs_written,
-            "labels": labels_written, "ko": len(ko_written)}
+            "labels": labels_written, "ko": len(ko_written), "guides": guides_written}
 
 
 async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> str:
@@ -3186,6 +3312,10 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
         if s not in lseen:
             lseen.add(s)
             urls.append((f"{_SITE_BASE}/label/{s}.html", "0.7"))
+    # Region guide pages — the SAME set entity_pages() writes (via _guide_slugs), so no 404 in the map.
+    urls.append((f"{_SITE_BASE}/guides.html", "0.7"))
+    for _region, gs, _n in _guide_slugs(_region_guides_data(by_entity)):
+        urls.append((f"{_SITE_BASE}/guide-{gs}.html", "0.7"))
     body = "".join(
         f"  <url><loc>{u}</loc><lastmod>{today}</lastmod>"
         f"<changefreq>daily</changefreq><priority>{p}</priority></url>\n"
