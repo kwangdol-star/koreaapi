@@ -753,6 +753,11 @@ def _entity_node_core(r) -> dict:
     TVSeries, otherwise an artist -> MusicGroup (carrying the verified 소속사 edge)."""
     name = r.name.en_official or r.name.ko
     alt = [x for x in (r.name.ko, r.name.romanized) if x]
+    # grounded alternate names (enrich.py, literally present in the cited Wikipedia lead) join
+    # alternateName — the JSON-LD recall surface ('SAC' finds Seoul Arts Center on the crawled node too)
+    known = {name, *alt}
+    alt += [a for a in (r.data.get("aliases") or [])
+            if isinstance(a, str) and a.strip() and a not in known][:4]
     wd = _source_urls(r.provenance.sources)  # list of all verifying-source URLs -> Schema.org sameAs
     # Schema.org description: prefer the rich Wikipedia-sourced abstract (real substance an answer
     # engine can lift) over our terse facts line; fall back to the facts line when there's no abstract.
@@ -1908,6 +1913,11 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     content_hash = integrity.record_fingerprint(json.loads(primary.model_dump_json()))  # checkable row id
     ko_raw, en_raw = primary.name.ko or "", primary.name.en_official or ""
     ko, en, rom = html.escape(ko_raw), html.escape(en_raw), html.escape(primary.name.romanized or "")
+    # grounded alternate names (from the cited Wikipedia lead), visible — recall for readers AND engines
+    _aka = [a for a in (primary.data.get("aliases") or [])
+            if isinstance(a, str) and a.strip() and a not in (ko_raw, en_raw)][:4]
+    aka_block = (f'<div class=rom>Also known as: {html.escape(", ".join(_aka))} '
+                 '<span class=rom>(from the cited Wikipedia lead)</span></div>') if _aka else ""
     sc = primary.provenance.skill_score
     src = html.escape("; ".join(primary.provenance.sources))
     title = html.escape(f"{en_raw or ko_raw} ({ko_raw})")
@@ -2086,6 +2096,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 <p class=back><a href="../index.html">← KoreaAPI {_FLAG} · verifiable K-culture data</a></p>
 <h1>{en} <span class=ko>{ko}</span></h1>
 <div class=rom>{rom}</div>
+{aka_block}
 <div class=sub>Verified Korean-culture entity · as of {asof} · re-verified daily · cross-checked + Skill-scored · via KoreaAPI{cert_badge}{verify_badge}</div>
 {current_block}
 {about_block}
@@ -2444,6 +2455,10 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
     source-reconciliation note render here too — the Korean surface is not the thin one."""
     ko_raw, en_raw = primary.name.ko or "", primary.name.en_official or ""
     ko, en, rom = html.escape(ko_raw), html.escape(en_raw), html.escape(primary.name.romanized or "")
+    _aka = [a for a in (primary.data.get("aliases") or [])
+            if isinstance(a, str) and a.strip() and a not in (ko_raw, en_raw)][:4]
+    aka_block_ko = (f'<div class=rom>다른 이름: {html.escape(", ".join(_aka))} '
+                    '<span class=rom>(인용된 위키피디아 lead 기재)</span></div>') if _aka else ""
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
     sc = primary.provenance.skill_score
     src = html.escape("; ".join(primary.provenance.sources))
@@ -2552,6 +2567,7 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
 <p class=back><a href="../../index.html">← KoreaAPI {_FLAG} · 검증 가능한 한국문화 데이터</a> · <a href="../../artist/{slug}.html">English</a></p>
 <h1>{ko} <span class=ko>{en}</span></h1>
 <div class=rom>{rom}</div>
+{aka_block_ko}
 <div class=sub>검증된 한국문화 엔티티 · {asof} 기준 · 교차검증 + Skill Score · via KoreaAPI{cert_badge}{verify_badge}</div>
 {about}
 <h2>검증된 사실</h2><p>{summary_ko}</p>
@@ -3452,9 +3468,10 @@ _SEARCH_JS = """<p><input id=q type=search placeholder="__PLACEHOLDER__" autocom
 (function(){
 var idx=null, q=document.getElementById('q'), out=document.getElementById('hits'), BASE='__BASE__';
 function esc(s){var d=document.createElement('span');d.textContent=s;return d.innerHTML;}
+function dirOf(k){return k==='person'?'__PDIR__':k==='label'?'__LDIR__':'__ADIR__';}
 function render(list){out.innerHTML=list.map(function(e){
   var name=(e.en||e.ko)+((e.ko&&e.en&&e.ko!==e.en)?' \\u00b7 '+e.ko:'');
-  return "<li><a href='"+BASE+"artist/"+e.s+".html'>"+esc(name)+"</a> <span class=rom>\\u00b7 "+esc(e.k)+"</span></li>";
+  return "<li><a href='"+dirOf(e.k)+e.s+".html'>"+esc(name)+"</a> <span class=rom>\\u00b7 "+esc(e.k)+"</span></li>";
 }).join('')||'<li class=rom>__NOHIT__</li>';}
 function hay(e){return ((e.ko||'')+'\\n'+(e.en||'')+'\\n'+(e.r||'')+'\\n'+(e.a||'')).toLowerCase();}
 function search(){var v=q.value.trim().toLowerCase();if(!v){out.innerHTML='';return;}
@@ -3466,10 +3483,13 @@ q.addEventListener('input',function(){ if(idx){search();return;}
 </script>"""
 
 
-def _write_search(out_dir: str, by_entity: dict) -> int:
-    """A static, client-side SEARCH over every verified entity: /search-index.json (a slim name index —
-    Korean · English · romanized · grounded aliases) + /search.html (+ /ko/) that filters it in-browser.
-    Zero backend (fits the static GEO host); the index also serves agents as a lightweight name lookup."""
+def _write_search(out_dir: str, by_entity: dict, *, people: list[dict] | None = None,
+                  labels: list[dict] | None = None) -> int:
+    """A static, client-side SEARCH over the whole verified graph — entities AND person hubs AND
+    label/agency hubs: /search-index.json (a slim name index — Korean · English · romanized · grounded
+    aliases) + /search.html (+ /ko/) that filters it in-browser. Zero backend (fits the static GEO
+    host); the index also serves agents as a lightweight name lookup. `people`/`labels` are the exact
+    page sets entity_pages wrote, so a hit never links a phantom page."""
     index: list[dict] = []
     seen: set[str] = set()
     for entity_id, by_kind in sorted(by_entity.items()):
@@ -3489,24 +3509,34 @@ def _write_search(out_dir: str, by_entity: dict) -> int:
         if aliases:
             e["a"] = "\n".join(aliases)  # grounded alternate names widen search recall (SAC -> 예술의전당)
         index.append(e)
+    index += [{"s": p["slug"], "k": "person", "en": p["name"]} for p in (people or [])]
+    index += [{"s": lb["slug"], "k": "label", "en": lb["name"]} for lb in (labels or [])]
     with open(os.path.join(out_dir, "search-index.json"), "w", encoding="utf-8") as f:
         json.dump(index, f, ensure_ascii=False, separators=(",", ":"))
     n = len(index)
-    en_body = (f"<p class=lede>Search {n:,} verified entities by Korean, English, romanized name, or "
-               "alias — every hit is a cross-verified, citable profile.</p>"
-               + _SEARCH_JS.replace("__BASE__", "").replace("__NOHIT__", "no verified entity matches")
-                           .replace("__PLACEHOLDER__", "경복궁 · Gyeongbokgung · BTS · 비빔밥 …"))
+    en_body = (f"<p class=lede>Search {n:,} verified entities, people, and agency/label hubs by Korean, "
+               "English, romanized name, or alias — every hit is a verified, citable page.</p>"
+               + _SEARCH_JS.replace("__BASE__", "")
+                           .replace("__ADIR__", "artist/").replace("__PDIR__", "person/")
+                           .replace("__LDIR__", "label/")
+                           .replace("__NOHIT__", "no verified entity matches")
+                           .replace("__PLACEHOLDER__", "경복궁 · Gyeongbokgung · BTS · 봉준호 · 비빔밥 …"))
     _write_hub_html(out_dir, "search.html", "🔍", "Search verified entities",
-                    f"Find any of the {n:,} verified Korean-culture entities — by Korean, English, "
-                    "romanized name, or alias.", en_body,
+                    f"Find any of the {n:,} verified Korean-culture entities, people, and label hubs — "
+                    "by Korean, English, romanized name, or alias.", en_body,
                     _escape_jsonld({"@context": "https://schema.org", "@graph": [
                         _breadcrumb("Search", f"{_SITE_BASE}/search.html")]}))
-    ko_body = (f"<p class=lede>검증된 엔티티 {n:,}개를 한국어·영문·로마자·별칭으로 검색 — 모든 결과가 "
-               "교차검증된 인용 가능 프로필입니다.</p>"
-               + _SEARCH_JS.replace("__BASE__", "../").replace("__NOHIT__", "일치하는 검증 엔티티가 없습니다")
-                           .replace("__PLACEHOLDER__", "경복궁 · BTS · 비빔밥 …"))
+    # Korean twin: links stay INSIDE the /ko/ layer for entities + people (sibling dirs); label hubs
+    # exist only at the root, so those step out via ../label/.
+    ko_body = (f"<p class=lede>검증된 엔티티·인물·레이블 허브 {n:,}개를 한국어·영문·로마자·별칭으로 검색 — "
+               "모든 결과가 검증된 인용 가능 페이지입니다.</p>"
+               + _SEARCH_JS.replace("__BASE__", "../")
+                           .replace("__ADIR__", "artist/").replace("__PDIR__", "person/")
+                           .replace("__LDIR__", "../label/")
+                           .replace("__NOHIT__", "일치하는 검증 엔티티가 없습니다")
+                           .replace("__PLACEHOLDER__", "경복궁 · BTS · 봉준호 · 비빔밥 …"))
     _write_ko_list_page(out_dir, "search.html", "검증 엔티티 검색",
-                        f"검증된 한국문화 엔티티 {n:,}개 — 한국어·영문·로마자·별칭으로 검색.", ko_body,
+                        f"검증된 한국문화 엔티티·인물·레이블 {n:,}개 — 한국어·영문·로마자·별칭으로 검색.", ko_body,
                         _escape_jsonld({"@context": "https://schema.org", "@graph": [
                             _breadcrumb("검색", f"{_SITE_BASE}/ko/search.html")]}))
     return n
@@ -3797,8 +3827,8 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     _write_guides_index(out_dir, guides_written, food_guides_written)
     # The freshness/time-moat made crawlable: verified change events (소속사 moves, renames), EN + KO.
     n_changes = _write_whats_new(out_dir, _recs, by_entity)
-    # Client-side search over every verified entity (search-index.json + /search.html + /ko/search.html).
-    n_search = _write_search(out_dir, by_entity)
+    # Client-side search over the whole verified graph — entities + person hubs + label hubs.
+    n_search = _write_search(out_dir, by_entity, people=people_written, labels=labels_written)
 
     return {"entities": written, "people": people_written, "hubs": hubs_written,
             "labels": labels_written, "ko": len(ko_written), "guides": guides_written,
