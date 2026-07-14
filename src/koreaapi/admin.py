@@ -586,6 +586,20 @@ async def status_json(db_path: str | None = None, out_path: str = "status.json")
     cross = sum(1 for r in facts if getattr(r.provenance, "agreeing_sources", 0) >= 2)
     triple = sum(1 for r in facts if getattr(r.provenance, "agreeing_sources", 0) >= 3)
     reconciled = sum(1 for r in facts if r.data.get("source_disagreements"))
+    # Freshness detail — the operator's view of the refresh engine draining the stale pool: how many
+    # facts are past the TTL (stale), how many are past HALF the TTL (what `refresh` targets next),
+    # and the single oldest snapshot age. Watch stale -> 0 over ~3 days once refresh is running.
+    _now = datetime.now(timezone.utc)
+    _ttl = CADENCE.get("facts", 7 * 86400)
+
+    def _age_s(r) -> float:
+        dt = r.snapshot_at if r.snapshot_at.tzinfo else r.snapshot_at.replace(tzinfo=timezone.utc)
+        return (_now - dt).total_seconds()
+
+    ages = [_age_s(r) for r in facts]
+    stale_n = sum(1 for a in ages if a > _ttl)
+    pool_n = sum(1 for a in ages if a >= _ttl // 2)
+    oldest_days = round(max(ages) / 86400, 1) if ages else 0.0
     doc = {
         "ok": True,
         "generated": datetime.now(timezone.utc).isoformat(),
@@ -597,11 +611,16 @@ async def status_json(db_path: str | None = None, out_path: str = "status.json")
         "source_disagreements": reconciled,
         "low_confidence": s["low_confidence"],
         "fresh": s["fresh_entities"],
+        "stale": stale_n,
+        "refresh_pool": pool_n,
+        "oldest_snapshot_days": oldest_days,
         "integrity": f"{_SITE_BASE}/integrity.json",
         "note": ("Health/freshness snapshot, regenerated each build. cross_verified = ≥2 agreeing "
                  "sources; triple_verified = ≥3; source_disagreements = entities where independent "
                  "sources gave conflicting names (reconciled by authority, shown on the page); "
-                 "fresh = entities within their freshness TTL."),
+                 "fresh = entities within their freshness TTL; stale = facts past the TTL; "
+                 "refresh_pool = facts past half the TTL (what the collect-tick refresh re-verifies, "
+                 "oldest first) — expect stale to drain to ~0 within days of refresh running."),
     }
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=2)
@@ -3840,8 +3859,8 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
   returns the official representative + a canonical anti-scam key; logs buy-intent as the demand signal.
 - list_answer_products(): the catalog of named Answer Products — the decisions get_answer can run.
 - get_answer(query, product): run an Answer Product (canonical-name · fact-check · identity-resolve ·
-  trend-radar · agency-roster · trip-plan · food-guide · evidence-pack …) → one decision envelope
-  {signal, action, score, rationale, evidence}.
+  trend-radar · agency-roster · trip-plan · food-guide · evidence-pack · compare …) → one decision
+  envelope {signal, action, score, rationale, evidence}.
 - ask(question): the natural-language front door — free text ("vegetarian Korean dishes", "what's near
   Gyeongbokgung?", "is it 빈센조 or 빈첸초?") is ROUTED to the right Answer Product and run; the reply
   says how it routed. Use when you don't yet know which product you need.

@@ -355,6 +355,61 @@ async def _run_food_guide(query: str, db_path: str | None = None) -> dict:
                         "editorial_note": "spice + dietary tags are KoreaAPI editorial, not cross-verified"})
 
 
+_VS = re.compile(r"\s+vs\.?\s+|\s+versus\s+|\s+대\s+|\s*[,·]\s*", re.IGNORECASE)
+
+
+async def _run_compare(query: str, db_path: str | None = None) -> dict:
+    """Compare TWO verified entities side by side — names, tier, verified attrs, region/agency, debut —
+    strictly from the verified records (no editorial judgment; 'better verified' = more agreeing
+    sources). The 'X vs Y' query class, productized: both sides citable, differences legible."""
+    parts = [p.strip() for p in _VS.split(query or "") if p.strip()]
+    if len(parts) != 2:
+        return _env("compare", query, signal="NEED_TWO",
+                    action="Give two entities, e.g. 'Gyeongbokgung vs Changdeokgung'.", score=0.0,
+                    rationale=f"parsed {len(parts)} entity name(s) from the query; compare needs exactly 2.",
+                    answer={"parsed": parts})
+    sides: list[dict] = []
+    for name in parts:
+        r = await service.resolve(name, db_path=db_path)
+        if not r.get("found"):
+            return _env("compare", query, signal="NOT_FOUND",
+                        action=f"'{name}' resolves to no verified entity — cannot compare.", score=0.0,
+                        rationale=f"'{name}' is not in the verified store yet.", answer={"missing": name})
+        rec = await store.latest(r["id"], "facts", db_path=db_path)
+        d = rec.data if rec else {}
+        n = r.get("agreeing_sources", 0)
+        sides.append({
+            "id": r["id"], "kind": r.get("kind"), "name": r.get("name"),
+            "skill_score": r.get("skill_score", 0.0), "agreeing_sources": n,
+            "tier": ("triple-verified" if n >= 3 else "cross-verified" if n >= 2 else "single-source"),
+            "region_or_agency": d.get("agency_en") or d.get("agency_ko"),
+            "debut": d.get("debut"), "attrs": d.get("attrs") or {},
+            "as_of": r.get("as_of"), "sources": r.get("sources", []),
+        })
+    a, b = sides
+    shared = sorted(set(a["attrs"]) & set(b["attrs"]))
+    comparison = {k: {"a": a["attrs"][k], "b": b["attrs"][k]} for k in shared}
+    only_a = sorted(set(a["attrs"]) - set(b["attrs"]))
+    only_b = sorted(set(b["attrs"]) - set(a["attrs"]))
+    if a["agreeing_sources"] != b["agreeing_sources"]:
+        bv = a if a["agreeing_sources"] > b["agreeing_sources"] else b
+        better = {"id": bv["id"], "why": f"{bv['agreeing_sources']} agreeing independent sources"}
+    else:
+        better = None  # a tie — both equally verified
+    disp = "{} vs {}".format(a["name"].get("en_official") or a["name"].get("ko"),
+                             b["name"].get("en_official") or b["name"].get("ko"))
+    same_kind = a["kind"] == b["kind"]
+    return _env("compare", query, signal="COMPARED",
+                action=(f"Cite both sides of {disp}"
+                        + ("" if same_kind else f" (note: different kinds — {a['kind']} vs {b['kind']}")
+                        + (")" if not same_kind else ".")),
+                score=min(a["skill_score"], b["skill_score"]),
+                rationale=(f"{a['tier']} vs {b['tier']}; {len(shared)} shared verified attribute(s); "
+                           "'better verified' means more agreeing sources, not editorial preference."),
+                answer={"a": a, "b": b, "same_kind": same_kind, "shared_attrs": comparison,
+                        "only_a": only_a, "only_b": only_b, "better_verified": better})
+
+
 async def _run_evidence_pack(query: str, db_path: str | None = None) -> dict:
     """Assemble the READY-TO-CITE bundle for an entity: the verified bilingual claim, the tier + Skill
     Score, the reconciled source links (sameAs), the content_hash + as-of date, and a paste-ready
@@ -461,6 +516,14 @@ _PRODUCTS = [
               "labeled KoreaAPI editorial (not cross-verified).",
      "about_ko": "채식·비건·안 매운·해산물 없는 검증된 한식 필터 — 음식명은 교차검증, 맵기·식이 태그는 KoreaAPI 편집(비교차검증).",
      "run": _run_food_guide},
+    {"id": "compare", "name": "Compare (Side-by-Side)", "name_ko": "나란히 비교", "emoji": "⚖️",
+     "sector": "Knowledge Graph", "inputs": ["two entities, e.g. 'Gyeongbokgung vs Changdeokgung'"],
+     "about": "Compare two verified entities side by side — tier, verified attributes, region/agency, "
+              "debut — strictly from the verified records ('better verified' = more agreeing sources, "
+              "never editorial preference).",
+     "about_ko": "두 검증 엔티티를 나란히 비교 — 등급·검증 속성·지역/소속·시작연도. 검증 기록만 사용"
+                 "('더 검증됨' = 합의 출처 수, 편집 선호 아님).",
+     "run": _run_compare},
     {"id": "evidence-pack", "name": "Evidence Pack (Cite-Ready)", "name_ko": "인용 패키지", "emoji": "📎",
      "sector": "Trust / AEO", "inputs": ["name or id"],
      "about": "One call → the complete ready-to-cite bundle: the verified bilingual claim, tier + Skill "
@@ -533,6 +596,7 @@ _KEYWORD_ROUTES: list[tuple[tuple[str, ...], str]] = [
     (("rising", "trending", "trend", "what's hot", "popular now", "뜨는", "인기", "요즘", "핫한"), "trend-radar"),
     (("credit", "filmography", "starred", "acted in", "directed", "출연", "필모", "크레딧", "작품"), "person-credits"),
     (("agency", "label", "roster", "artists under", "소속사", "레이블", "명단", "소속"), "agency-roster"),
+    ((" vs ", " vs. ", " versus ", "compare", "difference between", "비교", "차이", " 대 "), "compare"),
     (("related", "network", "same agency", "also on", "labelmate", "near", "nearby", "close to",
       "연관", "네트워크", "같은", "근처", "가까운", "주변"), "related-network"),
     (("spelling", "spell", "romaniz", "how do you write", "korean name", "표기", "한글로", "로마자"), "canonical-name"),

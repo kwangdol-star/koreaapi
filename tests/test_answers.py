@@ -173,6 +173,30 @@ def test_evidence_pack_not_found():
     assert out["signal"] == "NOT_FOUND" and out["score"] == 0.0
 
 
+def test_compare_two_verified_entities_side_by_side():
+    out = asyncio.run(answers.answer("compare", "Vincenzo vs NewJeans", db_path=_seed()))
+    assert out["signal"] == "COMPARED"
+    a, b = out["answer"]["a"], out["answer"]["b"]
+    assert a["id"] == "drama:vincenzo" and b["id"] == "artist:newjeans"
+    assert a["tier"] == "triple-verified" and b["tier"] == "single-source"
+    assert out["answer"]["better_verified"]["id"] == "drama:vincenzo"   # = more agreeing sources
+    assert "editorial" in out["rationale"]                              # never a taste judgment
+    assert out["answer"]["same_kind"] is False and "different kinds" in out["action"]
+    assert out["score"] == b["skill_score"]                             # min(): the weaker side gates
+
+
+def test_compare_needs_exactly_two_and_names_the_missing_one():
+    assert asyncio.run(answers.answer("compare", "Vincenzo", db_path=_seed()))["signal"] == "NEED_TWO"
+    out = asyncio.run(answers.answer("compare", "Vincenzo vs Nonexistent Thing", db_path=_seed()))
+    assert out["signal"] == "NOT_FOUND" and out["answer"]["missing"] == "Nonexistent Thing"
+
+
+def test_compare_routes_from_free_text(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert answers.route("경복궁 vs 창덕궁")["product"] == "compare"
+    assert answers.route("difference between bibimbap and bulgogi")["product"] == "compare"
+
+
 def test_catalog_is_bilingual():
     cat = answers.list_products()
     assert all(p.get("name_ko") and p.get("about_ko") for p in cat["products"])
