@@ -1198,6 +1198,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./people.html">{_ICON['people']} People</a>
  <a class="pill" href="./guides.html">🧳 Guides (region + food)</a>
  <a class="pill" href="./whats-new.html">🆕 What's new</a>
+ <a class="pill" href="./search.html">🔍 Search</a>
  <a class="pill" href="./latest.json">/latest.json · open data</a>
  <a class="pill" href="./openapi.json">/openapi.json · OpenAPI 3.1</a>
  <a class="pill" href="./llms.txt">/llms.txt · agent index</a>
@@ -1825,7 +1826,8 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
                        related: list[tuple[str, str]] | None = None,
                        label_url: str | None = None, history: dict | None = None,
                        badge: str | None = None,
-                       nearby: list[tuple[str, str, float]] | None = None) -> None:
+                       nearby: list[tuple[str, str, float]] | None = None,
+                       region_guide: tuple[str, str] | None = None) -> None:
     entity_slugs, linked, related = entity_slugs or set(), linked or set(), related or []
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
     content_hash = integrity.record_fingerprint(json.loads(primary.model_dump_json()))  # checkable row id
@@ -1985,6 +1987,12 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
                               for n, s, km in (nearby or [])) + "</ul>"
                     "<p class=rom>Distances from verified coordinates (Wikidata P625), great-circle.</p>"
                     ) if nearby else ""
+    # backlink to the region guide (the guide already links here; this completes the graph both ways)
+    guide_block = ""
+    if region_guide:
+        _gr, _gs = region_guide
+        guide_block = (f'<p>Part of the <a href="../guide-{_gs}.html">{html.escape(_gr)} verified travel '
+                       "guide →</a></p>")
 
     doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>{title} — verified profile · KoreaAPI</title>
@@ -2021,6 +2029,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {badge_block}
 {rel_block}
 {nearby_block}
+{guide_block}
 <div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span><br><span class=rom>SHA-256: {content_hash} · verify at <a href="../integrity.json">/integrity.json</a></span></div>
 <footer>Provenance: {src} · Skill Score {sc:.2f} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
 </body></html>"""
@@ -3289,6 +3298,74 @@ def _write_food_guides(out_dir: str, by_entity: dict) -> list[dict]:
     return written
 
 
+_SEARCH_JS = """<p><input id=q type=search placeholder="__PLACEHOLDER__" autocomplete=off
+ style="width:100%;max-width:34rem;padding:.6rem .8rem;font-size:1.05rem;border:1px solid #8884;
+ border-radius:.5rem;background:inherit;color:inherit"></p>
+<ul id=hits class=people></ul>
+<script>
+(function(){
+var idx=null, q=document.getElementById('q'), out=document.getElementById('hits'), BASE='__BASE__';
+function esc(s){var d=document.createElement('span');d.textContent=s;return d.innerHTML;}
+function render(list){out.innerHTML=list.map(function(e){
+  var name=(e.en||e.ko)+((e.ko&&e.en&&e.ko!==e.en)?' \\u00b7 '+e.ko:'');
+  return "<li><a href='"+BASE+"artist/"+e.s+".html'>"+esc(name)+"</a> <span class=rom>\\u00b7 "+esc(e.k)+"</span></li>";
+}).join('')||'<li class=rom>__NOHIT__</li>';}
+function hay(e){return ((e.ko||'')+'\\n'+(e.en||'')+'\\n'+(e.r||'')+'\\n'+(e.a||'')).toLowerCase();}
+function search(){var v=q.value.trim().toLowerCase();if(!v){out.innerHTML='';return;}
+  var hits=[];for(var i=0;i<idx.length;i++){if(hay(idx[i]).indexOf(v)>-1){hits.push(idx[i]);if(hits.length>=50)break;}}
+  render(hits);}
+q.addEventListener('input',function(){ if(idx){search();return;}
+  fetch(BASE+'search-index.json').then(function(r){return r.json();}).then(function(j){idx=j;search();});});
+})();
+</script>"""
+
+
+def _write_search(out_dir: str, by_entity: dict) -> int:
+    """A static, client-side SEARCH over every verified entity: /search-index.json (a slim name index —
+    Korean · English · romanized · grounded aliases) + /search.html (+ /ko/) that filters it in-browser.
+    Zero backend (fits the static GEO host); the index also serves agents as a lightweight name lookup."""
+    index: list[dict] = []
+    seen: set[str] = set()
+    for entity_id, by_kind in sorted(by_entity.items()):
+        rec = by_kind.get("facts")
+        slug = _slug(entity_id)
+        if rec is None or slug in seen:
+            continue
+        seen.add(slug)
+        e: dict = {"s": slug, "k": _entity_kind(entity_id)}
+        if rec.name.ko:
+            e["ko"] = rec.name.ko
+        if rec.name.en_official:
+            e["en"] = rec.name.en_official
+        if rec.name.romanized:
+            e["r"] = rec.name.romanized
+        aliases = [a for a in (rec.data.get("aliases") or []) if isinstance(a, str) and a.strip()]
+        if aliases:
+            e["a"] = "\n".join(aliases)  # grounded alternate names widen search recall (SAC -> 예술의전당)
+        index.append(e)
+    with open(os.path.join(out_dir, "search-index.json"), "w", encoding="utf-8") as f:
+        json.dump(index, f, ensure_ascii=False, separators=(",", ":"))
+    n = len(index)
+    en_body = (f"<p class=lede>Search {n:,} verified entities by Korean, English, romanized name, or "
+               "alias — every hit is a cross-verified, citable profile.</p>"
+               + _SEARCH_JS.replace("__BASE__", "").replace("__NOHIT__", "no verified entity matches")
+                           .replace("__PLACEHOLDER__", "경복궁 · Gyeongbokgung · BTS · 비빔밥 …"))
+    _write_hub_html(out_dir, "search.html", "🔍", "Search verified entities",
+                    f"Find any of the {n:,} verified Korean-culture entities — by Korean, English, "
+                    "romanized name, or alias.", en_body,
+                    _escape_jsonld({"@context": "https://schema.org", "@graph": [
+                        _breadcrumb("Search", f"{_SITE_BASE}/search.html")]}))
+    ko_body = (f"<p class=lede>검증된 엔티티 {n:,}개를 한국어·영문·로마자·별칭으로 검색 — 모든 결과가 "
+               "교차검증된 인용 가능 프로필입니다.</p>"
+               + _SEARCH_JS.replace("__BASE__", "../").replace("__NOHIT__", "일치하는 검증 엔티티가 없습니다")
+                           .replace("__PLACEHOLDER__", "경복궁 · BTS · 비빔밥 …"))
+    _write_ko_list_page(out_dir, "search.html", "검증 엔티티 검색",
+                        f"검증된 한국문화 엔티티 {n:,}개 — 한국어·영문·로마자·별칭으로 검색.", ko_body,
+                        _escape_jsonld({"@context": "https://schema.org", "@graph": [
+                            _breadcrumb("검색", f"{_SITE_BASE}/ko/search.html")]}))
+    return n
+
+
 def _write_whats_new(out_dir: str, recs: list, by_entity: dict) -> int:
     """A crawlable /whats-new.html (+ /ko/) — verified CHANGE EVENTS (소속사 moves, renames) as a cited
     freshness asset: the time-moat made VISIBLE. Each change is timestamped in an append-only history a
@@ -3390,6 +3467,10 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
             geo_pts.append((_eid, _r.name.en_official or _r.name.ko, float(_g["lat"]), float(_g["lon"])))
         except (KeyError, TypeError, ValueError):
             continue
+    # region -> guide slug, so each geo entity page can BACKLINK its region guide (guide→entity links
+    # already exist; the reverse edge completes the internal-link graph). Same selector as the writer.
+    guide_by_region = {region: gslug
+                       for region, gslug, _n in _guide_slugs(_region_guides_data(by_entity))}
     written: list[dict] = []
     written_slugs: set[str] = set()
     ko_written: list[tuple[str, str]] = []  # (slug, ko_name) for the Korean home + counts
@@ -3441,9 +3522,16 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
             dists = [(nm, _slug(oid), haversine_km(_lat0, _lon0, la, lo))
                      for oid, nm, la, lo in geo_pts if oid != entity_id]
             nearby = sorted((t for t in dists if t[2] <= 30.0), key=lambda t: t[2])[:6]
+        # region-guide backlink (geo entities whose located-in region earned a guide page)
+        region_guide = None
+        if entity_id.split(":", 1)[0] in _GEO_NODE_TYPE:
+            _regname = (primary.data.get("agency_en") or primary.data.get("agency_ko") or "").strip()
+            if _regname in guide_by_region:
+                region_guide = (_regname, guide_by_region[_regname])
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
                            entity_slugs=entity_slugs, linked=linked, related=related, label_url=label_url,
-                           history=histories.get(entity_id), badge=svg, nearby=nearby)
+                           history=histories.get(entity_id), badge=svg, nearby=nearby,
+                           region_guide=region_guide)
         _write_entity_html_ko(out_dir, slug, url, primary,  # Korean-led counterpart (/ko/artist/…)
                               history=histories.get(entity_id))
         ko_written.append((slug, primary.name.ko or name))
@@ -3563,10 +3651,12 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     _write_guides_index(out_dir, guides_written, food_guides_written)
     # The freshness/time-moat made crawlable: verified change events (소속사 moves, renames), EN + KO.
     n_changes = _write_whats_new(out_dir, _recs, by_entity)
+    # Client-side search over every verified entity (search-index.json + /search.html + /ko/search.html).
+    n_search = _write_search(out_dir, by_entity)
 
     return {"entities": written, "people": people_written, "hubs": hubs_written,
             "labels": labels_written, "ko": len(ko_written), "guides": guides_written,
-            "food_guides": food_guides_written, "changes": n_changes}
+            "food_guides": food_guides_written, "changes": n_changes, "search_index": n_search}
 
 
 async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> str:
@@ -3620,6 +3710,7 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
         urls.append((f"{_SITE_BASE}/ko/food-{fslug}.html", "0.6"))
     # Freshness page (high priority — it's the "what changed" surface) + its Korean counterpart.
     urls += [(f"{_SITE_BASE}/whats-new.html", "0.8"), (f"{_SITE_BASE}/ko/whats-new.html", "0.6")]
+    urls += [(f"{_SITE_BASE}/search.html", "0.6"), (f"{_SITE_BASE}/ko/search.html", "0.5")]
     body = "".join(
         f"  <url><loc>{u}</loc><lastmod>{today}</lastmod>"
         f"<changefreq>daily</changefreq><priority>{p}</priority></url>\n"
@@ -3647,7 +3738,8 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
 - get_agency(name): artists verified under a Korean agency/label (소속사), e.g. 'JYP Entertainment'.
 - get_korea_rising(category): what is rising in Korea now (ranked by observed demand + Skill Score).
 - get_person(name): verified credits for a director/actor/idol member across works, with provenance.
-- get_related(entity_id): entities sharing a 소속사 (artists) or network/platform (drama·film).
+- get_related(entity_id): entities sharing a 소속사 (artists) or network/platform (drama·film); geo
+  entities also return same_region (region-mates) + nearby (verified-coordinate distance, km, ≤30 km).
 - get_verified(entity_id): cross-verification status — how many independent sources agreed, Skill
   Score, source list, cross_verified / triple_verified flags. Decide trust before citing.
 - get_history(entity_id): the append-only verified TIMELINE + change events (소속사 A→B, renames) — the

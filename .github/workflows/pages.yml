@@ -96,6 +96,7 @@ jobs:
           cp -r site/badge _site/badge   # embeddable "Verified by KoreaAPI" SVG badges (/badge/<slug>.svg)
           cp -r site/ko _site/ko   # Korean-led answer pages + /ko/ home (hreflang, 네이버/국내 질의)
           cp site/methodology.html site/for-agents.html site/agents.json site/pricing.html site/certify.html _site/   # trust + quickstart + manifest + pricing + certify storefront
+          cp site/search-index.json _site/search-index.json   # client-side search index (search.html fetches it; *.html glob below misses .json)
           cp -r site/person _site/person   # per-person credit pages (/person/<slug>.html)
           cp -r site/label _site/label   # per-label/agency/network hub pages (/label/<slug>.html)
           cp site/*.html _site/   # every generated top-level hub + standalone page (glob — no per-vertical list)
