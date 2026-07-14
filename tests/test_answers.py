@@ -124,6 +124,32 @@ def test_trip_plan_pulls_all_geo_verticals_grouped_by_type():
     assert bt["park"][0]["id"] == "park:seoraksan"
 
 
+def test_trip_plan_is_map_ready_with_walkable_clusters():
+    # Items carry verified coordinates (agents can plot/route) and close spots form walkable clusters
+    # (≤3 km, greedy from the highest-skill anchor) — day-plan raw material, pure math.
+    db = tempfile.mktemp(suffix=".db")
+    _add(db, "place:jagalchi", "자갈치시장", "Jagalchi Market", sources=["Wikidata Q1", "Wikipedia a"],
+         agree=2, skill=1.0, data={"agency_en": "Busan", "geo": {"lat": 35.0966, "lon": 129.0306}})
+    _add(db, "place:gamcheon", "감천문화마을", "Gamcheon Culture Village", sources=["Wikidata Q2", "Wikipedia b"],
+         agree=2, skill=0.99, data={"agency_en": "Busan", "geo": {"lat": 35.0975, "lon": 129.0106}})  # ~1.8 km
+    _add(db, "beach:haeundae", "해운대", "Haeundae Beach", sources=["Wikidata Q3", "Wikipedia c"],
+         agree=2, skill=0.98, data={"agency_en": "Busan", "geo": {"lat": 35.1587, "lon": 129.1604}})  # ~13 km
+    _add(db, "temple:nocoords", "무좌표사", "No Coords Temple", sources=["Wikidata Q4", "Wikipedia d"],
+         agree=2, skill=0.97, data={"agency_en": "Busan"})
+
+    out = asyncio.run(answers.answer("trip-plan", "Busan", db_path=db))
+    assert out["signal"] == "PLAN_READY"
+    by_id = {p["id"]: p for p in out["answer"]["places"]}
+    assert by_id["place:jagalchi"]["geo"]["lat"] == 35.0966          # coordinates ride on the item
+    assert "geo" not in by_id["temple:nocoords"]                     # absent stays absent (no invention)
+    clusters = out["answer"]["walkable_clusters"]
+    assert len(clusters) == 1                                        # haeundae + nocoords form no group
+    assert clusters[0]["anchor"]["id"] == "place:jagalchi"           # highest-skill spot anchors
+    spots = clusters[0]["spots"]
+    assert [s["id"] for s in spots] == ["place:gamcheon"] and 0 < spots[0]["km_from_anchor"] < 3.0
+    assert "walkable cluster" in out["rationale"]
+
+
 def test_trip_plan_geo_namespaces_stay_in_sync_with_the_geo_node_types():
     # A new geo vertical must join the trip plan too (else a whole category of verified spots silently
     # never surfaces in a region itinerary). _GEO_NS must match admin's geo-node type map exactly.

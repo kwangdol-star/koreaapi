@@ -274,8 +274,35 @@ async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
     all_geo = sorted((x for v in geo.values() for x in v), key=by_skill)
 
     def _li(items: list, n: int) -> list[dict]:
-        return [{"id": eid, "name": {"ko": r.name.ko, "en_official": r.name.en_official},
-                 "skill_score": r.provenance.skill_score} for eid, r in items[:n]]
+        out = []
+        for eid, r in items[:n]:
+            it = {"id": eid, "name": {"ko": r.name.ko, "en_official": r.name.en_official},
+                  "skill_score": r.provenance.skill_score}
+            c = service._coords(r)  # verified P625 -> map-ready item (agents can plot / cluster / route)
+            if c is not None:
+                it["geo"] = {"lat": c[0], "lon": c[1]}
+            out.append(it)
+        return out
+
+    # WALKABLE CLUSTERS: greedy proximity groups (≤3 km great-circle) over the spots with verified
+    # coordinates — day-plan raw material ("these are walkable together"), pure math, skill-seeded.
+    with_c = [(eid, r, service._coords(r)) for eid, r in all_geo]
+    with_c = [(eid, r, c) for eid, r, c in with_c if c is not None]
+    clusters: list[dict] = []
+    while with_c and len(clusters) < 4:
+        seed_eid, seed_r, seed_c = with_c.pop(0)  # highest-skill unassigned spot anchors the group
+        group = [(eid, r, c, service.haversine_km(seed_c[0], seed_c[1], c[0], c[1]))
+                 for eid, r, c in with_c
+                 if service.haversine_km(seed_c[0], seed_c[1], c[0], c[1]) <= 3.0]
+        grouped_ids = {eid for eid, _r, _c, _km in group}
+        with_c = [t for t in with_c if t[0] not in grouped_ids]
+        if group:  # a singleton is not a "walkable together" statement — it stays in places only
+            clusters.append({"anchor": {"id": seed_eid, "name": {"ko": seed_r.name.ko,
+                                                                 "en_official": seed_r.name.en_official}},
+                             "radius_km": 3.0,
+                             "spots": [{"id": eid, "name": {"ko": r.name.ko, "en_official": r.name.en_official},
+                                        "km_from_anchor": round(km, 1)}
+                                       for eid, r, _c, km in sorted(group, key=lambda t: t[3])[:6]]})
 
     by_type = {ns: _li(sorted(v, key=by_skill), 6) for ns, v in sorted(geo.items())}
     n_geo, n_fe = len(all_geo), len(festivals)
@@ -289,8 +316,10 @@ async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
     return _env("trip-plan", query, signal=signal, action=action,
                 score=_clamp01((n_geo + n_fe) / 8.0),
                 rationale=(f"{n_geo} spot(s) across {len(geo)} type(s) ({kinds}) + {n_fe} festival(s) "
-                           "matched; foods are national picks."),
+                           f"matched; {len(clusters)} walkable cluster(s) (≤3 km, verified coordinates); "
+                           "foods are national picks."),
                 answer={"region": query, "places": _li(all_geo, 8), "by_type": by_type,
+                        "walkable_clusters": clusters,
                         "festivals": _li(festivals, 4), "foods": _li(foods, 5)})
 
 
@@ -506,8 +535,10 @@ _PRODUCTS = [
     {"id": "trip-plan", "name": "Trip Plan (Region)", "name_ko": "여행 플랜", "emoji": "🧳",
      "sector": "Travel", "inputs": ["region or city name, e.g. 'Busan'"],
      "about": "Every verified spot in a region — places, parks, temples, museums, beaches, ski resorts… "
-              "grouped by type — plus festivals + signature dishes; itinerary raw material.",
-     "about_ko": "지역의 검증된 모든 명소(장소·공원·절·박물관·해변 등)를 유형별로 + 축제 + 대표 음식 — 여행 일정 재료.",
+              "grouped by type — plus festivals + signature dishes; map-ready (verified coordinates on "
+              "items + walkable ≤3 km clusters) itinerary raw material.",
+     "about_ko": "지역의 검증된 모든 명소(장소·공원·절·박물관·해변 등)를 유형별로 + 축제 + 대표 음식 — 검증 좌표와 "
+                 "도보권(≤3km) 클러스터가 실린 지도-대응 여행 일정 재료.",
      "run": _run_trip_plan},
     {"id": "food-guide", "name": "Food Guide (Dietary)", "name_ko": "음식 가이드", "emoji": "🍚",
      "sector": "Travel", "inputs": ["a dietary/spice filter, e.g. 'vegetarian', 'not spicy', 'no seafood'"],
