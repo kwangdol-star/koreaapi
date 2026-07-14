@@ -1,0 +1,85 @@
+"""The freshness engine: admin.refresh re-verifies the STALEST verified entities, oldest first.
+
+pull covers only the curated roster and sweep/discover only ADD — so a discovered entity used to get
+exactly one snapshot and age past the facts TTL forever ('everything is stale'). refresh closes that:
+bounded per run, threshold at half-TTL (refresh-before-stale), the memoized Wikidata Q-id from
+provenance as the re-ingest context, a failed refresh appends nothing (retried next run). Offline via
+injected sources."""
+
+from __future__ import annotations
+
+import asyncio
+import tempfile
+from datetime import datetime, timedelta, timezone
+
+from koreaapi import admin
+from koreaapi.models import Name, Provenance, Record
+from koreaapi.pipeline import store
+from koreaapi.sources.mock import MockSource
+
+NOW = datetime.now(timezone.utc)
+
+
+def _add(db: str, eid: str, ko: str, en: str, *, age_days: float, qid: str = "Q1") -> None:
+    at = NOW - timedelta(days=age_days)
+    asyncio.run(store.append_record(Record(
+        entity_id=eid, kind="facts", name=Name(ko=ko, en_official=en), snapshot_at=at,
+        summary_en=en, data={}, provenance=Provenance(
+            sources=[f"Wikidata {qid} 2026-01-01 00:00 UTC", "Wikipedia x 2026-01-01 00:00 UTC"],
+            fetched_at=at, skill_score=1.0, confidence="high", agreeing_sources=2)), db_path=db))
+
+
+class _Boom:
+    name = "Wikidata"
+    is_fallback = False
+
+    async def fetch(self, entity_id: str, kind: str) -> dict:
+        raise ValueError("network down")
+
+
+def test_refresh_targets_stalest_first_and_appends_new_snapshots():
+    db = tempfile.mktemp(suffix=".db")
+    _add(db, "place:old", "옛곳", "Old Place", age_days=20)      # stalest -> first
+    _add(db, "temple:mid", "중간", "Mid Temple", age_days=10)    # stale -> second
+    _add(db, "artist:fresh", "신곡", "Fresh Artist", age_days=1)  # inside half-TTL -> untouched
+
+    p = {"name_ko": "옛곳", "name_en_official": "Old Place", "name_en_source": "official", "summary_en": "x"}
+    src = [MockSource("Wikidata", p), MockSource("Wikipedia", p)]
+    out = asyncio.run(admin.refresh(db_path=db, max_n=1, sources=src))
+    assert out["attempted"] == ["place:old"]                     # oldest FIRST, bounded by max_n
+    assert out["refreshed"] == ["place:old"] and out["stale"] == 2
+    latest = asyncio.run(store.latest("place:old", "facts", db_path=db))
+    assert (NOW - latest.snapshot_at.replace(tzinfo=timezone.utc)).total_seconds() < 3600  # re-verified now
+
+    fresh = asyncio.run(store.latest("artist:fresh", "facts", db_path=db))
+    assert (NOW - fresh.snapshot_at.replace(tzinfo=timezone.utc)).days >= 1  # fresh one untouched
+
+
+def test_refresh_failure_appends_nothing_and_stays_in_the_pool():
+    db = tempfile.mktemp(suffix=".db")
+    _add(db, "place:old", "옛곳", "Old Place", age_days=20)
+    out = asyncio.run(admin.refresh(db_path=db, max_n=5, sources=[_Boom()]))
+    assert out["failed"] == ["place:old"] and out["refreshed"] == []
+    latest = asyncio.run(store.latest("place:old", "facts", db_path=db))
+    assert (NOW - latest.snapshot_at.replace(tzinfo=timezone.utc)).days >= 19  # unchanged -> retried next run
+
+
+def test_refresh_threshold_is_half_ttl_by_default():
+    db = tempfile.mktemp(suffix=".db")
+    _add(db, "place:aging", "노화", "Aging Place", age_days=4)    # > 3.5d (half of 7d) -> in the pool
+    _add(db, "place:young", "젊음", "Young Place", age_days=3)    # < 3.5d -> not yet
+    p = {"name_ko": "노화", "name_en_official": "Aging Place", "name_en_source": "official", "summary_en": "x"}
+    out = asyncio.run(admin.refresh(db_path=db, max_n=10,
+                                    sources=[MockSource("Wikidata", p), MockSource("Wikipedia", p)]))
+    assert out["attempted"] == ["place:aging"]                    # refresh-BEFORE-stale, not after
+
+
+def test_collect_workflow_runs_refresh_every_tick():
+    wf = open("/home/user/koreaapi-build/.github/workflows/collect.yml", encoding="utf-8").read()
+    assert "koreaapi.admin refresh" in wf                         # the freshness engine is wired into collect
+
+
+if __name__ == "__main__":
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

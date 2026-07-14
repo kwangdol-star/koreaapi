@@ -126,6 +126,62 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
     return {"requested": ids, "ingested": ingested, "failed": failed}
 
 
+async def refresh(*, db_path: str | None = None, max_n: int = 400,
+                  min_age_seconds: int | None = None, sources: list | None = None) -> dict:
+    """Re-verify the STALEST verified entities, oldest-first — the freshness engine for DISCOVERED
+    entities. `pull` refreshes only the curated roster every run, and sweep/discover only ADD; before
+    this, a discovered entity got exactly one snapshot at discovery and aged past the facts TTL (7d)
+    forever — the 'everything is stale' failure mode. Each collect tick now re-ingests up to `max_n`
+    entities whose latest snapshot is older than half the TTL (refresh-before-stale), through the SAME
+    cross-verification path they were discovered with (stored name as the search alias + the memoized
+    Wikidata Q-id from provenance — the identity guard still applies, so drift -> miss, never wrong).
+    A failed refresh appends nothing and stays oldest-first, so it is retried next run. Bounded + paced:
+    at 400/run x 4 runs/day the whole 5k store cycles in ~3 days, inside the 7-day freshness TTL."""
+    ttl = CADENCE.get("facts", 7 * 86400)
+    threshold = (ttl // 2) if min_age_seconds is None else min_age_seconds
+    now = datetime.now(timezone.utc)
+    stale: list[tuple[float, str]] = []
+    for e in await store.entities(db_path=db_path):
+        if e["kind"] != "facts":
+            continue
+        try:
+            dt = datetime.fromisoformat(e["latest_at"])
+        except (TypeError, ValueError):
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        age = (now - dt).total_seconds()
+        if age >= threshold:
+            stale.append((age, e["entity_id"]))
+    stale.sort(key=lambda t: (-t[0], t[1]))  # oldest first (deterministic tie-break)
+    todo = [eid for _age, eid in stale[:max_n]]
+    aliases: dict[str, str] = {}
+    qids: dict[str, str] = {}
+    for eid in todo:
+        r = await store.latest(eid, "facts", db_path=db_path)
+        if r is None:
+            continue
+        aliases[eid] = r.name.en_official or r.name.ko or eid.split(":", 1)[-1]
+        q = external_ids(r.provenance.sources).get("wikidata")
+        if q:
+            qids[eid] = q  # memoized Q-id -> fetch the exact item, no search drift, one call saved
+    if sources is None:  # injectable for offline tests; live = the discover-path source list
+        sources = [WikidataSource(aliases=aliases, qids=qids), WikipediaSource(aliases=aliases),
+                   MusicBrainzSource(aliases=aliases), NominatimSource(aliases=aliases),
+                   TMDBSource(aliases=aliases), TourAPISource(aliases=aliases),
+                   KopisSource(aliases=aliases), KHeritageSource(aliases=aliases),
+                   OpenLibrarySource(aliases=aliases)]
+    refreshed: list[str] = []
+    failed: list[str] = []
+    for i, eid in enumerate(todo):
+        if i:
+            await asyncio.sleep(0.2)  # pace like pull() so Wikimedia never throttles the batch tail
+        rec = await ingest_one("facts", eid, sources, db_path=db_path)
+        (refreshed if rec is not None else failed).append(eid)
+    return {"stale": len(stale), "attempted": todo, "refreshed": refreshed, "failed": failed,
+            "threshold_seconds": threshold}
+
+
 async def youtube(entity_ids: list[str] | None = None, *, db_path: str | None = None) -> dict:
     """Live-pull each artist's OFFICIAL YouTube channel (stats + latest release) -> kind='release'.
 
@@ -4350,6 +4406,12 @@ def _main(argv: list[str]) -> int:
             print("  failed (no snapshot):", ", ".join(out["failed"]))
             print("  → if ALL failed, egress to www.wikidata.org is likely blocked (sandbox allowlist).")
             print("    Run where the network is open: a deploy, or a Full-network session.")
+    elif cmd == "refresh":
+        n = int(sys.argv[2]) if len(sys.argv) > 2 else 400
+        out = asyncio.run(refresh(max_n=n))
+        print(f"refresh: {len(out['refreshed'])}/{len(out['attempted'])} re-verified "
+              f"(stale pool {out['stale']}, threshold {out['threshold_seconds'] // 3600}h, oldest first)"
+              + (f"; failed: {', '.join(out['failed'][:10])}" if out["failed"] else ""))
     elif cmd == "load":
         n = asyncio.run(load_latest())
         print(f"load: re-seeded {n} record(s) from data/latest.json -> {store._db_path(None)}")
