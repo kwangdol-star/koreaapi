@@ -74,6 +74,22 @@ def test_refresh_threshold_is_half_ttl_by_default():
     assert out["attempted"] == ["place:aging"]                    # refresh-BEFORE-stale, not after
 
 
+def test_status_json_reports_the_stale_pool(tmp_path):
+    # Operator observability for the freshness engine: status.json exposes stale (past TTL),
+    # refresh_pool (past half-TTL — what refresh targets next), and the oldest snapshot age.
+    import json
+    db = tempfile.mktemp(suffix=".db")
+    _add(db, "place:old", "옛곳", "Old Place", age_days=20)     # past the 7d TTL -> stale
+    _add(db, "temple:mid", "중간", "Mid Temple", age_days=5)    # past half-TTL only -> pool, not stale
+    _add(db, "artist:new", "신곡", "Fresh Artist", age_days=1)  # fresh
+    out = str(tmp_path / "status.json")
+    asyncio.run(admin.status_json(db_path=db, out_path=out))
+    doc = json.load(open(out, encoding="utf-8"))
+    assert doc["stale"] == 1
+    assert doc["refresh_pool"] == 2
+    assert doc["oldest_snapshot_days"] >= 19
+
+
 def test_collect_workflow_runs_refresh_every_tick():
     wf = open("/home/user/koreaapi-build/.github/workflows/collect.yml", encoding="utf-8").read()
     assert "koreaapi.admin refresh" in wf                         # the freshness engine is wired into collect
