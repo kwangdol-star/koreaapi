@@ -308,6 +308,28 @@ def _coords(rec) -> tuple[float, float] | None:
         return None
 
 
+def cluster_walkable(items: list, *, radius_km: float = 3.0, max_clusters: int = 4,
+                     max_spots: int = 6) -> list[dict]:
+    """Greedy proximity clusters over (entity_id, record) pairs (assumed relevance-sorted): the first
+    unassigned spot with verified coordinates anchors a group of everything within radius_km of it —
+    'walkable together' day-plan raw material. Pure math over verified P625 coords (records without
+    coordinates are skipped, never guessed); a spot with no close neighbor forms NO cluster (a
+    singleton is not a 'walkable together' statement). Shared by the trip-plan Answer Product and the
+    crawlable region-guide pages, so the two surfaces never drift.
+    Returns [{"anchor": (eid, rec), "spots": [(eid, rec, km)], "radius_km": r}], spots distance-sorted."""
+    pool = [(eid, r, c) for eid, r in items if (c := _coords(r)) is not None]
+    out: list[dict] = []
+    while pool and len(out) < max_clusters:
+        eid0, r0, c0 = pool.pop(0)
+        near = [(eid, r, haversine_km(c0[0], c0[1], c[0], c[1])) for eid, r, c in pool]
+        group = sorted((t for t in near if t[2] <= radius_km), key=lambda t: t[2])
+        gids = {eid for eid, _r, _km in group}
+        pool = [t for t in pool if t[0] not in gids]
+        if group:
+            out.append({"anchor": (eid0, r0), "spots": group[:max_spots], "radius_km": radius_km})
+    return out
+
+
 async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None) -> dict:
     """Entities related to a verified entity via the same HUB edge — artists sharing a 소속사, or
     dramas/films sharing an original network/platform (the same Wikidata P264/P449 value). The

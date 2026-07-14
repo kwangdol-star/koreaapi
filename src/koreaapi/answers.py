@@ -284,25 +284,16 @@ async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
             out.append(it)
         return out
 
-    # WALKABLE CLUSTERS: greedy proximity groups (≤3 km great-circle) over the spots with verified
-    # coordinates — day-plan raw material ("these are walkable together"), pure math, skill-seeded.
-    with_c = [(eid, r, service._coords(r)) for eid, r in all_geo]
-    with_c = [(eid, r, c) for eid, r, c in with_c if c is not None]
-    clusters: list[dict] = []
-    while with_c and len(clusters) < 4:
-        seed_eid, seed_r, seed_c = with_c.pop(0)  # highest-skill unassigned spot anchors the group
-        group = [(eid, r, c, service.haversine_km(seed_c[0], seed_c[1], c[0], c[1]))
-                 for eid, r, c in with_c
-                 if service.haversine_km(seed_c[0], seed_c[1], c[0], c[1]) <= 3.0]
-        grouped_ids = {eid for eid, _r, _c, _km in group}
-        with_c = [t for t in with_c if t[0] not in grouped_ids]
-        if group:  # a singleton is not a "walkable together" statement — it stays in places only
-            clusters.append({"anchor": {"id": seed_eid, "name": {"ko": seed_r.name.ko,
-                                                                 "en_official": seed_r.name.en_official}},
-                             "radius_km": 3.0,
-                             "spots": [{"id": eid, "name": {"ko": r.name.ko, "en_official": r.name.en_official},
-                                        "km_from_anchor": round(km, 1)}
-                                       for eid, r, _c, km in sorted(group, key=lambda t: t[3])[:6]]})
+    # WALKABLE CLUSTERS (service.cluster_walkable — shared with the crawlable region-guide pages):
+    # greedy ≤3 km groups over verified coordinates, skill-seeded — day-plan raw material.
+    clusters = [
+        {"anchor": {"id": c["anchor"][0], "name": {"ko": c["anchor"][1].name.ko,
+                                                   "en_official": c["anchor"][1].name.en_official}},
+         "radius_km": c["radius_km"],
+         "spots": [{"id": eid, "name": {"ko": r.name.ko, "en_official": r.name.en_official},
+                    "km_from_anchor": round(km, 1)} for eid, r, km in c["spots"]]}
+        for c in service.cluster_walkable(all_geo)
+    ]
 
     by_type = {ns: _li(sorted(v, key=by_skill), 6) for ns, v in sorted(geo.items())}
     n_geo, n_fe = len(all_geo), len(festivals)

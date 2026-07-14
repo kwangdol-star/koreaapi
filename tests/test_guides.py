@@ -88,6 +88,34 @@ def test_food_guide_pages_generate_and_label_editorial_tags(tmp_path, monkeypatc
     assert "/food-vegetarian.html" in smt and "/ko/food-vegetarian.html" in smt  # sitemap ⊇ EN + KO
 
 
+def test_region_guide_renders_walkable_clusters_with_touristtrip(tmp_path):
+    # The crawlable version of trip-plan's walkable_clusters (shared service.cluster_walkable): close
+    # spots render as a "Walkable together" section + schema.org TouristTrip itinerary nodes (EN + KO);
+    # a far spot joins no cluster. Distances only from verified coordinates.
+    db = tempfile.mktemp(suffix=".db")
+
+    def g(eid, ko, en, lat=None, lon=None):
+        p = {"name_ko": ko, "name_en_official": en, "name_en_source": "official", "agency_en": "Busan"}
+        if lat is not None:
+            p["geo"] = {"lat": lat, "lon": lon}
+        asyncio.run(ingest_one("facts", eid, [MockSource("Wikidata", p), MockSource("Wikipedia", p)],
+                               db_path=db))
+
+    g("place:jagalchi", "자갈치시장", "Jagalchi Market", 35.0966, 129.0306)
+    g("place:gamcheon", "감천문화마을", "Gamcheon Culture Village", 35.0975, 129.0106)  # ~1.8 km
+    g("beach:haeundae", "해운대해수욕장", "Haeundae Beach", 35.1587, 129.1604)          # ~13 km away
+
+    out_dir = str(tmp_path / "site")
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
+    en = (tmp_path / "site" / "guide-busan.html").read_text(encoding="utf-8")
+    assert "Walkable together" in en and '"@type": "TouristTrip"' in en
+    cluster = en.split("Walkable together")[1].split("</ul>")[0]
+    assert "gamcheon" in cluster and " km" in cluster            # the close pair, with distance
+    assert "haeundae" not in cluster                             # 13 km -> not walkable together
+    ko = (tmp_path / "site" / "ko" / "guide-busan.html").read_text(encoding="utf-8")
+    assert "도보권 묶음" in ko and '"@type": "TouristTrip"' in ko  # Korean parity, same shared clusters
+
+
 def test_entity_page_nearby_block_from_verified_coordinates(tmp_path):
     # Physical proximity (verified P625, great-circle km) rendered on the geo entity page: close spots
     # listed with km, far spots excluded — the crawlable "what's near X?" answer.

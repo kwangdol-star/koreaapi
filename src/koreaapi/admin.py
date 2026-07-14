@@ -51,7 +51,7 @@ from .reconcile import external_ids, name_keys, norm
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS, CERTIFIED, FOOD_SPICE, FOOD_VEG, NAMES
-from .service import haversine_km
+from .service import cluster_walkable, haversine_km
 from .sources.circlechart import CircleChartSource
 from .sources.kosis import KOSISSource
 from .sources.openlibrary import OpenLibrarySource
@@ -3245,6 +3245,45 @@ def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
         if festivals:
             sections.append(f"<h2>Festivals &amp; events</h2><ul>{_guide_li(festivals[:8])}</ul>")
         all_spots.sort(key=lambda t: -t[1].provenance.skill_score)
+        # Walkable clusters (shared service.cluster_walkable, same as the trip-plan product): the
+        # "these are walkable together" statement, crawlable — plus schema.org TouristTrip nodes.
+        clusters = cluster_walkable(all_spots)
+
+        def _cluster_ul() -> str:  # relative links work from BOTH the root (EN) and /ko/ guide pages
+            rows = ""
+            for c in clusters:
+                a_eid, a_r = c["anchor"]
+                a_nm = a_r.name.en_official or a_r.name.ko
+                mem = ", ".join(
+                    f'<a href="artist/{_slug(eid)}.html">{html.escape(r.name.en_official or r.name.ko)}</a>'
+                    f' <span class=rom>({km:.1f} km)</span>' for eid, r, km in c["spots"])
+                rows += (f'<li><a href="artist/{_slug(a_eid)}.html">{html.escape(a_nm)}</a>'
+                         f' <span class=rom>+</span> {mem}</li>')
+            return f"<ul>{rows}</ul>"
+
+        def _trip_nodes(base: str, lang: str) -> list[dict]:
+            nodes = []
+            for c in clusters:
+                a_eid, a_r = c["anchor"]
+                stops = [(a_eid, a_r)] + [(eid, r) for eid, r, _km in c["spots"]]
+                nodes.append({
+                    "@type": "TouristTrip", "inLanguage": lang,
+                    "name": f"Walkable cluster around {a_r.name.en_official or a_r.name.ko} ({region})",
+                    "description": (f"Verified spots within {c['radius_km']:.0f} km of each other "
+                                    "(great-circle, verified coordinates) — via KoreaAPI."),
+                    "itinerary": {"@type": "ItemList", "itemListElement": [
+                        {"@type": "ListItem", "position": j + 1,
+                         "item": {"@type": "TouristAttraction",
+                                  "name": r.name.en_official or r.name.ko,
+                                  "url": f"{base}/artist/{_slug(eid)}.html"}}
+                        for j, (eid, r) in enumerate(stops)]},
+                })
+            return nodes
+
+        if clusters:
+            sections.append("<h2>Walkable together (&le;3 km)</h2>" + _cluster_ul()
+                            + "<p class=rom>Great-circle distances from verified coordinates "
+                              "(Wikidata P625).</p>")
         top = [r.name.en_official or r.name.ko for _, r in all_spots[:6]]
         qas = [(f"What are the top verified places to visit in {region}?",
                 f"KoreaAPI cross-verifies {n_geo} spot(s) in {region}, including {', '.join(top)}. "
@@ -3259,6 +3298,7 @@ def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
                                        "name": r.name.en_official or r.name.ko}
                                       for i, (eid, r) in enumerate(all_spots[:20])]},
                  _faqpage_node(qas),
+                 *_trip_nodes(_SITE_BASE, "en"),
                  _breadcrumb(f"{region} guide", url, middle=("Guides", f"{_SITE_BASE}/guides.html"))]
         lede = html.escape(f"{region}: {n_geo} cross-verified places"
                            + (f" + {len(festivals)} verified festivals" if festivals else "")
@@ -3279,6 +3319,9 @@ def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
                        for ns in sorted(geo)]
         if festivals:
             ko_sections.append(f"<h2>축제·행사</h2><ul>{_guide_li(festivals[:8])}</ul>")
+        if clusters:
+            ko_sections.append("<h2>도보권 묶음 (&le;3km)</h2>" + _cluster_ul()
+                               + "<p class=rom>검증된 좌표(Wikidata P625) 기준 대권 거리.</p>")
         ko_qas = [(f"{region}에서 가볼 만한 검증된 곳은?",
                    f"KoreaAPI가 {region}의 {n_geo}곳을 교차검증했습니다: {', '.join(ko_top)}. "
                    "각 항목은 독립적으로 교차검증된 인용 가능 엔티티입니다.")]
@@ -3288,6 +3331,7 @@ def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
                                           "name": r.name.ko or r.name.en_official}
                                          for i, (eid, r) in enumerate(all_spots[:20])]},
                     _faqpage_node(ko_qas),
+                    *_trip_nodes(f"{_SITE_BASE}/ko", "ko"),
                     _breadcrumb(f"{region} 가이드", f"{_SITE_BASE}/ko/guide-{slug}.html",
                                 middle=("가이드", f"{_SITE_BASE}/ko/guides.html"))]
         ko_lede = html.escape(f"{region}의 교차검증 명소 {n_geo}곳"
