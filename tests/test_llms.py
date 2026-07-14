@@ -49,6 +49,23 @@ def test_llms_coverage_reflects_live_roster_and_graph():
     assert "/person/<slug>.html" in text and "/sitemap.xml" in text       # discovery pointers
     assert "/guides.html" in text and "/whats-new.html" in text  # the crawlable guide + freshness assets
     assert "ask(question)" in text                               # the NL front door is discoverable
+    assert "llms-<vertical>.txt" in text                         # per-vertical corpus chunks advertised
+
+
+def test_llms_full_writes_per_vertical_chunks(tmp_path):
+    # The full corpus is one large file an LLM crawler may truncate; each vertical also gets a complete,
+    # ingestible chunk (same block format) advertised from /llms.txt and cp'd by the pages glob.
+    db = tempfile.mktemp(suffix=".db")
+    _seed(db)
+    out = str(tmp_path / "llms-full.txt")
+    asyncio.run(admin.llms_full_txt(db_path=db, out_path=out))
+    chunk = (tmp_path / "llms-film.txt").read_text(encoding="utf-8")
+    assert "verified" in chunk and "Parasite" in chunk and "Cite" in chunk   # complete citable blocks
+    assert "llms-full.txt" in chunk and "llms.txt" in chunk                  # links back to the index
+    assert (tmp_path / "llms-artist.txt").exists()                           # one chunk per present vertical
+    assert not (tmp_path / "llms-temple.txt").exists()                       # absent vertical -> no file
+    wf = open("/home/user/koreaapi-build/.github/workflows/pages.yml", encoding="utf-8").read()
+    assert "cp llms*.txt _site/" in wf                                       # deploy copies the chunks (glob)
 
 
 def test_llms_head_declares_license_and_attribution():

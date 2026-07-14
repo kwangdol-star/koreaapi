@@ -687,6 +687,9 @@ async def ask(question: str, *, db_path: str | None = None) -> dict:
     pid = r.get("product")
     if not pid:
         return {"error": "question required"}
+    # Free-text demand is a signal the moat was missing: products log their own structured queries, but
+    # WHAT people ask in natural language (and where it routes) only surfaces here. Best-effort.
+    await service._log("query", f"ask:{pid}:{q[:100]}", db_path)
     env = await answer(pid, r["query"], db_path=db_path)
     if isinstance(env, dict):
         env["routed"] = {"from": q, "to_product": pid, "query": r["query"], "via": r.get("via")}

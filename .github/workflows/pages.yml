@@ -75,8 +75,7 @@ jobs:
           mkdir -p _site
           cp report.html _site/index.html
           cp monitor.html _site/monitor.html   # human data-quality cockpit at /monitor.html
-          cp llms.txt _site/llms.txt   # agent-discoverable at /llms.txt (AEO/GEO)
-          cp llms-full.txt _site/llms-full.txt   # full LLM-ingestible corpus at /llms-full.txt
+          cp llms*.txt _site/   # /llms.txt index + /llms-full.txt + per-vertical llms-<v>.txt chunks (glob — no per-file list)
           cp reconcile.json _site/reconcile.json   # reconciliation index (name/external-ID -> canonical entity)
           cp status.json _site/status.json   # health/freshness snapshot
           cp feed.xml _site/feed.xml   # RSS freshness feed at /feed.xml

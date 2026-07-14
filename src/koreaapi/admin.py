@@ -4005,6 +4005,8 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
 - Guides (verified region travel + dietary food, EN/KO): {_SITE_BASE}/guides.html
 - Recently verified changes (the freshness moat, crawlable): {_SITE_BASE}/whats-new.html
+- Per-vertical corpus chunks (a complete, ingestible unit per vertical — smaller than the full corpus):
+  {_SITE_BASE}/llms-<vertical>.txt, e.g. /llms-food.txt · /llms-place.txt · /llms-artist.txt
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml
 """
     tail = f"""
@@ -4092,17 +4094,36 @@ async def llms_full_txt(db_path: str | None = None, out_path: str = "llms-full.t
         "transparent Skill Score + provenance. To cite a row, quote the Cite line under it.",
         f"As of {today} · {len(facts)} verified entities · {_SITE_BASE}/ · machine-readable JSON: {_SITE_BASE}/latest.json",
     ]
+    sections = []
     for prefix, label in _CORPUS_VERTICALS:
         items = sorted(
             ((e, r) for e, r in facts.items() if e.startswith(prefix)),
             key=lambda er: (er[1].name.en_official or er[1].name.ko or "").lower(),
         )
-        if not items:
-            continue
+        if items:
+            sections.append((prefix, label, items))
+    for _prefix, label, items in sections:
         out.append(f"\n## {label} ({len(items)})\n")
         out.extend(_corpus_block(e, r) + "\n" for e, r in items)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(out).rstrip() + "\n")
+    # Per-vertical corpus CHUNKS (llms-<vertical>.txt, same block format): the full corpus is one large
+    # file an LLM crawler may truncate; a chunk is a complete, ingestible unit ("all verified Korean
+    # food") — same dir as out_path, advertised from /llms.txt.
+    base_dir = os.path.dirname(out_path) or "."
+    for prefix, label, items in sections:
+        ns = prefix.rstrip(":")
+        chunk = [
+            f"# KoreaAPI — verified {label} corpus (/llms-{ns}.txt)",
+            "",
+            f"All {len(items)} verified {label} entities — one citable block each (bilingual name, "
+            "verified facts, provenance + Skill Score, Cite line). A per-vertical chunk of "
+            f"{_SITE_BASE}/llms-full.txt; index: {_SITE_BASE}/llms.txt. As of {today}.",
+            "",
+        ]
+        chunk.extend(_corpus_block(e, r) + "\n" for e, r in items)
+        with open(os.path.join(base_dir, f"llms-{ns}.txt"), "w", encoding="utf-8") as f:
+            f.write("\n".join(chunk).rstrip() + "\n")
     return out_path
 
 

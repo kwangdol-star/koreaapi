@@ -107,6 +107,21 @@ def test_ask_empty_question_errors():
     assert asyncio.run(answers.ask("   ")) == {"error": "question required"}
 
 
+def test_ask_logs_the_freetext_demand_signal(monkeypatch):
+    # Products log their own structured queries; the NL question + where it routed is demand signal the
+    # moat would otherwise miss. ask() logs 'ask:<product>:<question>' (best-effort, via service._log).
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    logged = []
+
+    async def rec(kind, key, db_path):
+        logged.append((kind, key))
+
+    from koreaapi import service
+    monkeypatch.setattr(service, "_log", rec)
+    asyncio.run(answers.ask("vegetarian Korean dishes", db_path=_tmp_db()))
+    assert ("query", "ask:food-guide:vegetarian Korean dishes") in logged
+
+
 def test_route_system_prompt_lists_every_product():
     sysmsg = answers._route_system()
     for p in answers._PRODUCTS:            # the catalog drives the prompt -> never drifts from _PRODUCTS
