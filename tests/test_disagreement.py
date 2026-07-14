@@ -50,6 +50,8 @@ def test_disagreement_surfaces_on_page_and_in_status(tmp_path):
     asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
     page = (tmp_path / "site" / "artist" / "vincenzo.html").read_text(encoding="utf-8")
     assert "Source reconciliation" in page and "빈첸초" in page and "빈센조" in page
+    ko_page = (tmp_path / "site" / "ko" / "artist" / "vincenzo.html").read_text(encoding="utf-8")
+    assert "출처 조정" in ko_page and "빈첸초" in ko_page   # Korean-surface parity for the trust signal
 
     st = _tmp(".json")
     asyncio.run(admin.status_json(db_path=db, out_path=st))

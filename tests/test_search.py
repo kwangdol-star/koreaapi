@@ -51,6 +51,10 @@ def test_search_index_and_pages_are_written(tmp_path):
     smt = open(sm, encoding="utf-8").read()
     assert "/search.html" in smt and "/ko/search.html" in smt
 
+    # the Korean home links every Korean asset (search / guides / whats-new) — no orphaned /ko/ pages
+    ko_home = (tmp_path / "site" / "ko" / "index.html").read_text(encoding="utf-8")
+    assert './search.html' in ko_home and './guides.html' in ko_home and './whats-new.html' in ko_home
+
 
 def test_pages_workflow_copies_the_search_index():
     # The deploy copies site/*.html by glob — a .json at site root must be copied explicitly, or search

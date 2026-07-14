@@ -48,6 +48,8 @@ def test_region_guide_generates_for_a_covered_region(tmp_path):
     assert "../guide-busan.html" in spot                # entity page BACKLINKS its region guide (both ways)
     seoul_spot = (tmp_path / "site" / "artist" / "gyeongbokgung.html").read_text(encoding="utf-8")
     assert "guide-" not in seoul_spot                   # Seoul earned no guide -> no dangling backlink
+    ko_spot = (tmp_path / "site" / "ko" / "artist" / "haeundae.html").read_text(encoding="utf-8")
+    assert "../guide-busan.html" in ko_spot and "여행 가이드" in ko_spot  # Korean page backlinks the KO guide
 
     sm = tempfile.mktemp(suffix=".xml")
     asyncio.run(admin.sitemap(db_path=db, out_path=sm))
@@ -107,6 +109,10 @@ def test_entity_page_nearby_block_from_verified_coordinates(tmp_path):
     block = page.split("Nearby verified spots")[1].split("</ul>")[0]
     assert "haeundae" not in block                       # beyond the 30 km cap -> not in the nearby block
     assert "P625" in page                                # distances attributed to verified coordinates
+    # Korean-surface parity: the /ko/ page renders the same proximity data, Korean-labeled, linking
+    # within the Korean layer (sibling ko/artist pages).
+    ko = (tmp_path / "site" / "ko" / "artist" / "gyeongbokgung.html").read_text(encoding="utf-8")
+    assert "근처 검증 명소" in ko and 'href="jogyesa.html"' in ko and " km" in ko
 
 
 def test_whats_new_page_lists_verified_change_events(tmp_path):

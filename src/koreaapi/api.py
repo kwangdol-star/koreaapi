@@ -84,7 +84,10 @@ def openapi_spec() -> dict:
                 "Verified credits for a person", "What a director / actor / idol member is credited on.",
                 [_pp("name", "Bong Joon-ho")]),
             "/v1/related/{entity_id}": _op(
-                "Related entities via the same hub edge", "Same 소속사 (artists) or network (drama / film).",
+                "Related entities via the same hub edge",
+                "Same 소속사 (artists) or network (drama / film). Geo entities also return same_region "
+                "(region-mates across the geo verticals) and nearby (verified-coordinate great-circle "
+                "km, ≤30 km, distance-ranked).",
                 [_pp("entity_id", "artist:bts")]),
             "/v1/agency/{name}": _op(
                 "Artists under a Korean agency / label (소속사)", "The agency roster, cross-verified.",
@@ -121,9 +124,11 @@ def openapi_spec() -> dict:
                 [_pp("item", "artist:bts")]),
             "/v1/answer": _op(
                 "Answer Products — named, citable decisions over the verified store",
-                "No params → the catalog; ?product=&q= runs one decision; ?q= runs all.",
-                [_qp("product", "string", "e.g. canonical-name, fact-check, identity-resolve"),
-                 _qp("q", "string", "the query")]),
+                "No params → the catalog; ?product=&q= runs one decision; ?q= runs all; "
+                "?product=auto&q= routes a free-text question to the right product (the ask front door).",
+                [_qp("product", "string", "e.g. canonical-name, fact-check, evidence-pack — or 'auto' "
+                                          "to route free text"),
+                 _qp("q", "string", "the query (or the free-text question when product=auto)")]),
             "/v1/korea-rising": {"get": {
                 "summary": "PREMIUM — Korea-rising verified demand signal (x402-metered)",
                 "description": ("The proprietary demand signal (queries + buy-intent). Metered per call via "

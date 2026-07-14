@@ -2359,10 +2359,14 @@ def _entity_qa_ko(primary) -> list[tuple[str, str]]:
     return qas
 
 
-def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, history: dict | None = None) -> None:
+def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, history: dict | None = None,
+                          nearby: list[tuple[str, str, float]] | None = None,
+                          region_guide: tuple[str, str] | None = None) -> None:
     """Korean-led answer page (/ko/artist/<slug>.html) for Naver / 국내 질의: Korean h1 + summary_ko +
     Korean headings/cite, hreflang-paired with the English page. Reuses the verified record and the
-    language-neutral Schema.org node (identity is the same; language targeting is via lang + hreflang)."""
+    language-neutral Schema.org node (identity is the same; language targeting is via lang + hreflang).
+    Parity with the English page: nearby verified spots (km), the region-guide backlink, and the
+    source-reconciliation note render here too — the Korean surface is not the thin one."""
     ko_raw, en_raw = primary.name.ko or "", primary.name.en_official or ""
     ko, en, rom = html.escape(ko_raw), html.escape(en_raw), html.escape(primary.name.romanized or "")
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
@@ -2434,6 +2438,25 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
             f"<p class=rom>추가 전용(append-only)·타임스탬프 — 사실이 <b>언제</b> 바뀌었는지의 기록으로, "
             f"후발주자가 backfill 불가. 전체 피드: <a href=\"../../changes.json\">/changes.json</a> · "
             f"기계 판독: get_history(&quot;{html.escape(primary.entity_id)}&quot;).</p>")
+    # 출처 조정 — 독립 출처가 정식 명칭에서 불일치한 지점(영문 페이지의 Source reconciliation과 동일 데이터).
+    dis = primary.data.get("source_disagreements") or []
+    reconcile_block_ko = ("<h2>출처 조정</h2><ul class=attrs>" + "".join(
+        f"<li>{html.escape(str(d['source']))}는 "
+        f"{'한국어' if d['field'] == 'name_ko' else '영문'} 명칭을 <b>{html.escape(str(d['value']))}</b>로 "
+        f"기재; KoreaAPI는 출처 권위에 따라 <b>{html.escape(str(d['chosen']))}</b>를 사용합니다.</li>"
+        for d in dis if d.get("source") and d.get("value") and d.get("chosen")) + "</ul>"
+        "<p class=rom>독립 출처 간 불일치 지점 — 숨기지 않고 표시합니다.</p>") if dis else ""
+    # 근처 검증 명소 — 검증 좌표(P625) 기반 대권 거리(km); 한국어 레이어 내부로 링크(동일 디렉터리).
+    nearby_block_ko = ("<h2>근처 검증 명소</h2><ul class=people>"
+                       + "".join(f'<li><a href="{s}.html">{html.escape(n)}</a>'
+                                 f' <span class=rom>· {km:.1f} km</span></li>'
+                                 for n, s, km in (nearby or [])) + "</ul>"
+                       "<p class=rom>검증된 좌표(Wikidata P625) 기준 대권 거리.</p>") if nearby else ""
+    guide_block_ko = ""
+    if region_guide:
+        _gr, _gs = region_guide
+        guide_block_ko = (f'<p><a href="../guide-{_gs}.html">{html.escape(_gr)} 검증 여행 가이드 →</a>의 '
+                          "일부입니다.</p>")
     summary_ko = html.escape(primary.summary_ko or primary.summary_en or "")
     cite = html.escape(f"{ko_raw or en_raw} ({en_raw}) — 검증됨, {asof} 기준 · {'; '.join(primary.provenance.sources)} "
                        f"· Skill {sc:.2f} · via KoreaAPI")
@@ -2459,10 +2482,13 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
 <h2>검증된 사실</h2><p>{summary_ko}</p>
 {details}
 {geo_block}
+{reconcile_block_ko}
 {ppl}
 {dirb}
 {sources_block}
 {history_block_ko}
+{nearby_block_ko}
+{guide_block_ko}
 {qa_block}
 <div class=cite><b>이렇게 인용하세요:</b> {cite}<br><span class=rom>{ko_url}</span><br><span class=rom>SHA-256: {content_hash} · <a href="../../integrity.json">/integrity.json</a>에서 검증</span></div>
 <footer>출처(provenance): {src} · Skill Score {sc:.2f} · <a href="../../latest.json">/latest.json</a> &middot; <a href="../../llms.txt">/llms.txt</a></footer>
@@ -2499,6 +2525,7 @@ def _write_ko_home(out_dir: str, total: int, sample: list[tuple[str, str]]) -> N
 <h2>KoreaAPI란?</h2>
 <p>모든 항목은 독립 출처(Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB · 한국관광공사)로 <b>교차검증</b>되고, 양국어(한국어 / 공식 영문 / 로마자)로 제공되며, 투명한 <b>Skill Score</b>와 출처(provenance)가 붙습니다. 현재 약 {total}개 검증 엔티티.</p>
 <h2>둘러보기</h2>
+<p><a href="./search.html">🔍 검색</a> · <a href="./guides.html">🧳 가이드 (지역·식단)</a> · <a href="./whats-new.html">🆕 새 소식 (검증된 변경)</a></p>
 <p>{pills}</p>
 <h2>데이터 · 에이전트</h2>
 <p><a href="../llms.txt">/llms.txt</a> · <a href="../llms-full.txt">/llms-full.txt</a> · <a href="../latest.json">/latest.json</a> · <a href="../feed.xml">/feed.xml</a></p>
@@ -3533,7 +3560,7 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
                            history=histories.get(entity_id), badge=svg, nearby=nearby,
                            region_guide=region_guide)
         _write_entity_html_ko(out_dir, slug, url, primary,  # Korean-led counterpart (/ko/artist/…)
-                              history=histories.get(entity_id))
+                              history=histories.get(entity_id), nearby=nearby, region_guide=region_guide)
         ko_written.append((slug, primary.name.ko or name))
         written.append({"slug": slug, "name": name, "url": url})
 
