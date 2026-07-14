@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
+from math import asin, cos, radians, sin, sqrt
 
 from . import certify, integrity
 from .license import LICENSE
@@ -288,10 +289,31 @@ async def person(name: str, *, db_path: str | None = None) -> dict:
     }
 
 
+_NEARBY_KM = 30.0  # nearby radius: same city / day-trip distance
+
+
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in km between two WGS84 points (pure math; used for the nearby graph)."""
+    rlat1, rlon1, rlat2, rlon2 = map(radians, (lat1, lon1, lat2, lon2))
+    a = sin((rlat2 - rlat1) / 2) ** 2 + cos(rlat1) * cos(rlat2) * sin((rlon2 - rlon1) / 2) ** 2
+    return 2 * 6371.0088 * asin(sqrt(a))
+
+
+def _coords(rec) -> tuple[float, float] | None:
+    """Verified P625 coordinates of a record as (lat, lon) floats, or None (defensive coercion)."""
+    g = rec.data.get("geo") or {}
+    try:
+        return float(g["lat"]), float(g["lon"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None) -> dict:
     """Entities related to a verified entity via the same HUB edge — artists sharing a 소속사, or
     dramas/films sharing an original network/platform (the same Wikidata P264/P449 value). The
-    graph edge made queryable ('what else is on Netflix / under HYBE?'); each carries provenance."""
+    graph edge made queryable ('what else is on Netflix / under HYBE?'); each carries provenance.
+    Geo entities with verified coordinates (P625) additionally get `nearby`: physically close verified
+    spots across ALL geo verticals, distance-ranked with km — 'what's near Gyeongbokgung?'."""
     await _log("query", f"related:{entity_id}", db_path)
     rec = await store.latest(entity_id, "facts", db_path=db_path)
     if rec is None:
@@ -299,41 +321,56 @@ async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None
     label = rec.data.get("agency_en") or rec.data.get("agency_ko")
     key = _norm_name(label)
     is_artist = entity_id.startswith("artist:")
-    if not key:
-        return {"entity_id": entity_id, "found": True, "related_by": None, "key": None,
-                "count": 0, "related": [], "note": "no agency/network edge on this entity"}
     fam = _family(entity_id)
     is_geo = entity_id.split(":", 1)[0] in GEO_NAMESPACES
-    out: list[dict] = []       # same-KIND hub edge (so속사 / network / place↔place)
+    anchor = _coords(rec) if is_geo else None  # verified P625 -> physical-proximity edge
+    if not key and anchor is None:  # no hub edge AND no coordinates -> nothing to relate on
+        return {"entity_id": entity_id, "found": True, "related_by": None, "key": None,
+                "count": 0, "related": [], "note": "no agency/network edge on this entity"}
+    out: list[dict] = []       # same-KIND hub edge (소속사 / network / place↔place)
     seen: set[str] = set()
-    same_region: list[dict] = []   # same-REGION neighbors ACROSS the geo verticals (nearby verified spots)
+    same_region: list[dict] = []   # same-REGION neighbors ACROSS the geo verticals (region-edge based)
     seen_sr: set[str] = set()
+    nearby: list[dict] = []        # physically close (haversine ≤ _NEARBY_KM), across the geo verticals
     for e in await store.entities(db_path=db_path):
         oid = e["entity_id"]
         if oid == entity_id:
             continue
-        related_hit = oid not in seen and _family(oid) == fam          # same family, dedup
-        region_hit = is_geo and oid not in seen_sr and oid.split(":", 1)[0] in GEO_NAMESPACES  # any geo vertical
-        if not (related_hit or region_hit):
+        other_geo = oid.split(":", 1)[0] in GEO_NAMESPACES
+        related_hit = bool(key) and oid not in seen and _family(oid) == fam      # same family, dedup
+        region_hit = bool(key) and is_geo and oid not in seen_sr and other_geo   # any geo vertical
+        nearby_hit = anchor is not None and other_geo
+        if not (related_hit or region_hit or nearby_hit):
             continue
         r = await store.latest(oid, "facts", db_path=db_path)
-        if r is None or _norm_name(r.data.get("agency_en") or r.data.get("agency_ko")) != key:
+        if r is None:
             continue
-        if related_hit:
-            seen.add(oid)
-            out.append(_item(r))
-        if region_hit:
-            seen_sr.add(oid)
-            same_region.append(_item(r))
+        if (related_hit or region_hit) and \
+                _norm_name(r.data.get("agency_en") or r.data.get("agency_ko")) == key:
+            if related_hit:
+                seen.add(oid)
+                out.append(_item(r))
+            if region_hit:
+                seen_sr.add(oid)
+                same_region.append(_item(r))
+        if nearby_hit:
+            pt = _coords(r)
+            if pt is not None:
+                km = haversine_km(anchor[0], anchor[1], pt[0], pt[1])
+                if km <= _NEARBY_KM:
+                    nearby.append({**_item(r), "km": round(km, 1)})
     out.sort(key=lambda it: (it["name"]["en_official"] or it["name"]["ko"] or "").lower())
     same_region.sort(key=lambda it: (it["name"]["en_official"] or it["name"]["ko"] or "").lower())
+    nearby.sort(key=lambda it: it["km"])
     return {
         "entity_id": entity_id, "found": True,
-        "related_by": ("agency" if is_artist else "network" if fam == "video" else "hub"),
+        "related_by": (("agency" if is_artist else "network" if fam == "video" else "hub") if key else None),
         "key": label, "count": len(out), "related": out[:limit],
         # nearby verified spots in the same region, across ALL geo verticals (park·temple·museum·beach…)
         # — the per-entity companion to the region trip-plan. Empty for non-geo entities.
         "same_region": same_region[:limit], "same_region_count": len(same_region),
+        # physically close verified spots (verified P625 coords, great-circle km, ≤30 km) — distance-ranked.
+        "nearby": nearby[:limit], "nearby_count": len(nearby),
         "license": LICENSE,
     }
 

@@ -297,6 +297,42 @@ def test_related_surfaces_same_region_geo_neighbors():
     assert asyncio.run(service.related("artist:bts", db_path=db))["same_region"] == []
 
 
+def test_related_nearby_ranks_by_verified_coordinates():
+    # Physical proximity from verified P625 coords: nearby is distance-ranked with km, capped at 30 km,
+    # across geo verticals — and works even for an entity with NO agency/region edge (coords suffice).
+    db = tempfile.mktemp(suffix=".db")
+    now = datetime(2026, 5, 1, tzinfo=timezone.utc)
+
+    def geo(eid, ko, en, lat=None, lon=None, region=None):
+        data = {}
+        if region:
+            data["agency_en"] = region
+        if lat is not None:
+            data["geo"] = {"lat": lat, "lon": lon}
+        asyncio.run(store.append_record(Record(
+            entity_id=eid, kind="facts", name=Name(ko=ko, en_official=en), snapshot_at=now,
+            summary_en=en, data=data, provenance=Provenance(
+                sources=["Wikidata Q1", "Wikipedia x"], fetched_at=now,
+                skill_score=1.0, confidence="high", agreeing_sources=2)), db_path=db))
+
+    # NO region edge on the anchor — nearby must still work (coords are the edge)
+    geo("place:gyeongbokgung", "경복궁", "Gyeongbokgung", lat=37.5796, lon=126.9770)
+    geo("temple:jogyesa", "조계사", "Jogyesa", lat=37.5738, lon=126.9820, region="Seoul")      # ~0.8 km
+    geo("place:changdeokgung", "창덕궁", "Changdeokgung", lat=37.5794, lon=126.9910, region="Seoul")  # ~1.2 km
+    geo("beach:haeundae", "해운대", "Haeundae Beach", lat=35.1587, lon=129.1604, region="Busan")  # ~325 km
+    geo("museum:nocoords", "무좌표", "No Coords Museum", region="Seoul")                      # no P625 -> skipped
+
+    out = asyncio.run(service.related("place:gyeongbokgung", db_path=db))
+    names = [it["name"]["en_official"] for it in out["nearby"]]
+    assert names == ["Jogyesa", "Changdeokgung"]                    # distance-ranked, ≤30 km only
+    assert out["nearby"][0]["km"] < out["nearby"][1]["km"] < 3.0    # km carried, ascending, sane magnitude
+    assert "Haeundae Beach" not in names                            # 325 km away -> beyond the cap
+    assert out["nearby_count"] == 2 and out["found"] is True        # no-edge anchor still resolves
+    # a non-geo entity gets no nearby (and artists keep their agency behavior)
+    geo("artist:bts", "방탄", "BTS", region="HYBE")
+    assert asyncio.run(service.related("artist:bts", db_path=db))["nearby"] == []
+
+
 def test_korea_rising_category_filter_and_buy_intent_weight():
     db = _agency_db()  # seeds 4 artists
     asyncio.run(store.log_signal("query", "artist:aespa", db_path=db))

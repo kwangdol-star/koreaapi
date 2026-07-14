@@ -218,16 +218,23 @@ async def _run_related_network(query: str, db_path: str | None = None) -> dict:
     rel = await service.related(r["id"], db_path=db_path)
     items = rel.get("related", [])
     count = rel.get("count", 0)
+    nearby = rel.get("nearby", [])
     if count:
         signal = "FOUND"
         action = f"{count} entit(ies) share the same {rel.get('related_by')} ({rel.get('key')})."
+    elif nearby:
+        signal = "FOUND"
+        action = f"{len(nearby)} verified spot(s) within {nearby[-1]['km']} km (verified coordinates)."
     else:
         signal, action = "NONE", "No shared agency/network edge found."
     answer = {"id": r["id"], "related_by": rel.get("related_by"), "key": rel.get("key"),
               "count": count, "related": [{"name": it["name"], "kind": it["kind"]} for it in items]}
+    if nearby:  # physical proximity (verified P625, great-circle km) — 'what's near X?'
+        answer["nearby"] = [{"name": it["name"], "kind": it["kind"], "km": it["km"]} for it in nearby]
     return _env("related-network", query, signal=signal, action=action,
-                score=_clamp01(count / 12.0),
-                rationale=f"{count} related via {rel.get('related_by')}.", answer=answer)
+                score=_clamp01(max(count, len(nearby)) / 12.0),
+                rationale=f"{count} related via {rel.get('related_by')}; {len(nearby)} nearby (≤30 km).",
+                answer=answer)
 
 
 async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
@@ -526,7 +533,8 @@ _KEYWORD_ROUTES: list[tuple[tuple[str, ...], str]] = [
     (("rising", "trending", "trend", "what's hot", "popular now", "뜨는", "인기", "요즘", "핫한"), "trend-radar"),
     (("credit", "filmography", "starred", "acted in", "directed", "출연", "필모", "크레딧", "작품"), "person-credits"),
     (("agency", "label", "roster", "artists under", "소속사", "레이블", "명단", "소속"), "agency-roster"),
-    (("related", "network", "same agency", "also on", "labelmate", "연관", "네트워크", "같은"), "related-network"),
+    (("related", "network", "same agency", "also on", "labelmate", "near", "nearby", "close to",
+      "연관", "네트워크", "같은", "근처", "가까운", "주변"), "related-network"),
     (("spelling", "spell", "romaniz", "how do you write", "korean name", "표기", "한글로", "로마자"), "canonical-name"),
     (("cite this", "citation for", "how do i cite", "how to cite", "sources for", "reference for",
       "evidence for", "인용", "출처 표기", "레퍼런스"), "evidence-pack"),
