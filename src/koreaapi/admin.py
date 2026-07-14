@@ -51,6 +51,7 @@ from .reconcile import external_ids, name_keys, norm
 from .pipeline.ingest import ingest_chart, ingest_one, ingest_youtube
 from .pipeline.scheduler import CADENCE
 from .roster import ARTISTS, CERTIFIED, FOOD_SPICE, FOOD_VEG, NAMES
+from .service import haversine_km
 from .sources.circlechart import CircleChartSource
 from .sources.kosis import KOSISSource
 from .sources.openlibrary import OpenLibrarySource
@@ -1823,7 +1824,8 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
                        entity_slugs: set | None = None, linked: set | None = None,
                        related: list[tuple[str, str]] | None = None,
                        label_url: str | None = None, history: dict | None = None,
-                       badge: str | None = None) -> None:
+                       badge: str | None = None,
+                       nearby: list[tuple[str, str, float]] | None = None) -> None:
     entity_slugs, linked, related = entity_slugs or set(), linked or set(), related or []
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
     content_hash = integrity.record_fingerprint(json.loads(primary.model_dump_json()))  # checkable row id
@@ -1976,6 +1978,13 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
     rel_block = (f"<h2>{rel_head}</h2><ul class=people>"
                  + "".join(f'<li><a href="../artist/{s}.html">{html.escape(n)}</a></li>'
                            for n, s in related) + "</ul>") if related else ""
+    # Physically close verified spots (P625 great-circle km) — the "what's near X?" answer, citable.
+    nearby_block = ("<h2>Nearby verified spots</h2><ul class=people>"
+                    + "".join(f'<li><a href="../artist/{s}.html">{html.escape(n)}</a>'
+                              f' <span class=rom>· {km:.1f} km</span></li>'
+                              for n, s, km in (nearby or [])) + "</ul>"
+                    "<p class=rom>Distances from verified coordinates (Wikidata P625), great-circle.</p>"
+                    ) if nearby else ""
 
     doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>{title} — verified profile · KoreaAPI</title>
@@ -2011,6 +2020,7 @@ def _write_entity_html(out_dir: str, slug: str, url: str, primary, by_kind: dict
 {history_block}
 {badge_block}
 {rel_block}
+{nearby_block}
 <div class=cite><b>Cite as:</b> {cite}<br><span class=rom>{url}</span><br><span class=rom>SHA-256: {content_hash} · verify at <a href="../integrity.json">/integrity.json</a></span></div>
 <footer>Provenance: {src} · Skill Score {sc:.2f} · <a href="../latest.json">/latest.json</a> &middot; <a href="../llms.txt">/llms.txt</a></footer>
 </body></html>"""
@@ -2729,6 +2739,8 @@ def _agents_manifest() -> dict:
             "feed_json": f"{_SITE_BASE}/feed.json",
             "reconcile": f"{_SITE_BASE}/reconcile.json",
             "status": f"{_SITE_BASE}/status.json",
+            "guides": f"{_SITE_BASE}/guides.html",
+            "whats_new": f"{_SITE_BASE}/whats-new.html",
         },
         "verification": {
             "methodology": f"{_SITE_BASE}/methodology.html",
@@ -3366,6 +3378,18 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     os.makedirs(os.path.join(out_dir, "ko", "artist"), exist_ok=True)  # Korean answer pages (hreflang)
     os.makedirs(os.path.join(out_dir, "ko", "person"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "badge"), exist_ok=True)  # embeddable "Verified by KoreaAPI" SVG badges
+    # Physical-proximity graph: every geo entity with verified P625 coords, precomputed ONCE so each geo
+    # page can render "Nearby verified spots" (distance-ranked, km) without a per-page store scan.
+    geo_pts: list[tuple[str, str, float, float]] = []  # (entity_id, display name, lat, lon)
+    for _eid, _bk in by_entity.items():
+        if _eid.split(":", 1)[0] not in _GEO_NODE_TYPE:
+            continue
+        _r = _bk.get("facts")
+        _g = (_r.data.get("geo") or {}) if _r is not None else {}
+        try:
+            geo_pts.append((_eid, _r.name.en_official or _r.name.ko, float(_g["lat"]), float(_g["lon"])))
+        except (KeyError, TypeError, ValueError):
+            continue
     written: list[dict] = []
     written_slugs: set[str] = set()
     ko_written: list[tuple[str, str]] = []  # (slug, ko_name) for the Korean home + counts
@@ -3406,9 +3430,20 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
         svg = badge_svg(tier, primary.provenance.skill_score)
         with open(os.path.join(out_dir, "badge", f"{slug}.svg"), "w", encoding="utf-8") as bf:
             bf.write(svg)
+        # Nearby verified spots (physical proximity, verified P625 coords): top 6 within 30 km.
+        nearby: list[tuple[str, str, float]] = []
+        _g0 = primary.data.get("geo") or {}
+        try:
+            _lat0, _lon0 = float(_g0["lat"]), float(_g0["lon"])
+        except (KeyError, TypeError, ValueError):
+            _lat0 = _lon0 = None
+        if _lat0 is not None and entity_id.split(":", 1)[0] in _GEO_NODE_TYPE:
+            dists = [(nm, _slug(oid), haversine_km(_lat0, _lon0, la, lo))
+                     for oid, nm, la, lo in geo_pts if oid != entity_id]
+            nearby = sorted((t for t in dists if t[2] <= 30.0), key=lambda t: t[2])[:6]
         _write_entity_html(out_dir, slug, url, primary, by_kind, qas, _escape_jsonld(doc),
                            entity_slugs=entity_slugs, linked=linked, related=related, label_url=label_url,
-                           history=histories.get(entity_id), badge=svg)
+                           history=histories.get(entity_id), badge=svg, nearby=nearby)
         _write_entity_html_ko(out_dir, slug, url, primary,  # Korean-led counterpart (/ko/artist/…)
                               history=histories.get(entity_id))
         ko_written.append((slug, primary.name.ko or name))
@@ -3630,7 +3665,11 @@ agent can decide whether to trust and cite the data. Data is bilingual: Korean o
   returns the official representative + a canonical anti-scam key; logs buy-intent as the demand signal.
 - list_answer_products(): the catalog of named Answer Products — the decisions get_answer can run.
 - get_answer(query, product): run an Answer Product (canonical-name · fact-check · identity-resolve ·
-  trend-radar · agency-roster …) → one decision envelope {signal, action, score, rationale, evidence}.
+  trend-radar · agency-roster · trip-plan · food-guide · evidence-pack …) → one decision envelope
+  {signal, action, score, rationale, evidence}.
+- ask(question): the natural-language front door — free text ("vegetarian Korean dishes", "what's near
+  Gyeongbokgung?", "is it 빈센조 or 빈첸초?") is ROUTED to the right Answer Product and run; the reply
+  says how it routed. Use when you don't yet know which product you need.
 
 ## Verification (why cite us)
 - Cross-verified: a fact clears the single-source cap only when ≥2 independent sources agree on the
@@ -3696,6 +3735,8 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 {sample_lines}
 - Per-entity answer pages (Schema.org + FAQPage): {_SITE_BASE}/artist/<slug>.html
 - Per-person credit pages (Schema.org Person): {_SITE_BASE}/person/<slug>.html
+- Guides (verified region travel + dietary food, EN/KO): {_SITE_BASE}/guides.html
+- Recently verified changes (the freshness moat, crawlable): {_SITE_BASE}/whats-new.html
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml
 """
     tail = f"""

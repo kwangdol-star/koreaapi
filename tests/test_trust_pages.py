@@ -51,6 +51,8 @@ def test_for_agents_page_and_manifest(tmp_path):
     assert any(t["name"] == "get_verified" for t in man["mcp"]["tools"])
     assert man["mcp"]["command"] == "python -m koreaapi.server"
     assert man["data"]["open_json"].endswith("/latest.json")
+    assert man["data"]["guides"].endswith("/guides.html")            # crawlable guide assets, discoverable
+    assert man["data"]["whats_new"].endswith("/whats-new.html")      # the freshness page, discoverable
     assert man["verification"]["integrity"].endswith("/integrity.json")
     assert man["premium"]["protocol"] == "x402" and man["cite_as"]
 

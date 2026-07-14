@@ -47,6 +47,8 @@ def test_llms_coverage_reflects_live_roster_and_graph():
     assert "1 verified people" in text                  # Bong directed 2 films -> 1 qualifying hub
     assert "BTS" in text and "Squid Game" in text and "Parasite" in text  # vertical samples
     assert "/person/<slug>.html" in text and "/sitemap.xml" in text       # discovery pointers
+    assert "/guides.html" in text and "/whats-new.html" in text  # the crawlable guide + freshness assets
+    assert "ask(question)" in text                               # the NL front door is discoverable
 
 
 def test_llms_head_declares_license_and_attribution():

@@ -81,6 +81,29 @@ def test_food_guide_pages_generate_and_label_editorial_tags(tmp_path, monkeypatc
     assert "/food-vegetarian.html" in smt and "/ko/food-vegetarian.html" in smt  # sitemap ⊇ EN + KO
 
 
+def test_entity_page_nearby_block_from_verified_coordinates(tmp_path):
+    # Physical proximity (verified P625, great-circle km) rendered on the geo entity page: close spots
+    # listed with km, far spots excluded — the crawlable "what's near X?" answer.
+    db = tempfile.mktemp(suffix=".db")
+
+    def g(eid, ko, en, lat, lon):
+        p = {"name_ko": ko, "name_en_official": en, "name_en_source": "official",
+             "agency_en": "Seoul", "geo": {"lat": lat, "lon": lon}}
+        asyncio.run(ingest_one("facts", eid, [MockSource("Wikidata", p), MockSource("Wikipedia", p)],
+                               db_path=db))
+
+    g("place:gyeongbokgung", "경복궁", "Gyeongbokgung", 37.5796, 126.9770)
+    g("temple:jogyesa", "조계사", "Jogyesa", 37.5738, 126.9820)            # ~0.8 km -> listed
+    g("beach:haeundae", "해운대해수욕장", "Haeundae Beach", 35.1587, 129.1604)  # ~325 km -> excluded
+    out_dir = str(tmp_path / "site")
+    asyncio.run(admin.entity_pages(db_path=db, out_dir=out_dir))
+    page = (tmp_path / "site" / "artist" / "gyeongbokgung.html").read_text(encoding="utf-8")
+    assert "Nearby verified spots" in page and "artist/jogyesa.html" in page and " km" in page
+    block = page.split("Nearby verified spots")[1].split("</ul>")[0]
+    assert "haeundae" not in block                       # beyond the 30 km cap -> not in the nearby block
+    assert "P625" in page                                # distances attributed to verified coordinates
+
+
 def test_whats_new_page_lists_verified_change_events(tmp_path):
     # The time-moat made crawlable: two snapshots with a 소속사 change -> a timestamped verified change,
     # surfaced on /whats-new.html (+ /ko/) with FAQPage — the freshness a wholesale copy can't backfill.
