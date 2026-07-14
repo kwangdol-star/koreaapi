@@ -60,9 +60,10 @@ async def get_person(name: str) -> dict:
 async def get_related(entity_id: str) -> dict:
     """Entities related via the same hub edge — artists sharing a 소속사, or dramas/films sharing an
     original network/platform — with provenance. Answers 'what else is on Netflix / under HYBE?'. For a
-    GEO entity (place / park / temple / museum / beach …) it ALSO returns `same_region`: nearby verified
-    spots in the same region ACROSS all geo verticals — 'what else is verified near this?' (the per-entity
-    companion to the trip-plan region view). entity_id e.g. 'artist:bts', 'drama:squidgame', 'temple:naksansa'."""
+    GEO entity (place / park / temple / museum / beach …) it ALSO returns `same_region` (region-mates
+    across all geo verticals) AND `nearby`: physically close verified spots ranked by great-circle km
+    from verified coordinates (P625), ≤30 km — 'what's near Gyeongbokgung?'. entity_id e.g. 'artist:bts',
+    'drama:squidgame', 'temple:naksansa'."""
     return await service.related(entity_id)
 
 
