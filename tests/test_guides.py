@@ -44,6 +44,11 @@ def test_region_guide_generates_for_a_covered_region(tmp_path):
     idx = (tmp_path / "site" / "guides.html").read_text(encoding="utf-8")
     assert "guide-busan.html" in idx                    # the index links the guide
 
+    spot = (tmp_path / "site" / "artist" / "haeundae.html").read_text(encoding="utf-8")
+    assert "../guide-busan.html" in spot                # entity page BACKLINKS its region guide (both ways)
+    seoul_spot = (tmp_path / "site" / "artist" / "gyeongbokgung.html").read_text(encoding="utf-8")
+    assert "guide-" not in seoul_spot                   # Seoul earned no guide -> no dangling backlink
+
     sm = tempfile.mktemp(suffix=".xml")
     asyncio.run(admin.sitemap(db_path=db, out_path=sm))
     smt = open(sm, encoding="utf-8").read()
