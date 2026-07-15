@@ -146,9 +146,17 @@ def test_label_hub_pages_and_crosslinks(tmp_path):
     assert '"@type": "Organization"' in page and '"@type": "ItemList"' in page
     bts = (tmp_path / "site" / "artist" / "bts.html").read_text(encoding="utf-8")
     assert "../label/big-hit-music.html" in bts  # entity links to its label hub
+    # Korean parity: /ko/label/ hub ('하이브 소속?' for Naver), linked from the Korean entity page,
+    # links staying inside the /ko/ layer, hreflang-paired, in the sitemap.
+    ko_hub = (tmp_path / "site" / "ko" / "label" / "big-hit-music.html").read_text(encoding="utf-8")
+    assert '<html lang="ko">' in ko_hub and "../artist/bts.html" in ko_hub
+    assert "소속 검증" in ko_hub or "검증 엔티티" in ko_hub
+    ko_bts = (tmp_path / "site" / "ko" / "artist" / "bts.html").read_text(encoding="utf-8")
+    assert "../label/big-hit-music.html" in ko_bts and "소속 검증 명단" in ko_bts
     sm = tempfile.mktemp(suffix=".xml")
     asyncio.run(admin.sitemap(db_path=db, out_path=sm))
-    assert "/label/big-hit-music.html" in open(sm, encoding="utf-8").read()
+    smt = open(sm, encoding="utf-8").read()
+    assert "/label/big-hit-music.html" in smt and "/ko/label/big-hit-music.html" in smt
 
 
 def test_vertical_hub_pages_with_itemlist(tmp_path):

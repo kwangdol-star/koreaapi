@@ -2360,6 +2360,45 @@ def _write_label_html(out_dir: str, name: str, items: list, jsonld: str) -> None
         f.write(doc)
 
 
+def _write_label_html_ko(out_dir: str, name: str, items: list, jsonld: str) -> None:
+    """Korean label hub (/ko/label/<slug>.html) — the '하이브 소속 아티스트는?' answer surface for Naver /
+    Korean answer engines, hreflang-paired with the English hub. Korean names lead the chips; links stay
+    inside the /ko/ layer."""
+    slug = _person_slug(name)
+    ko_url = f"{_SITE_BASE}/ko/label/{slug}.html"
+    en_url = f"{_SITE_BASE}/label/{slug}.html"
+    nm = html.escape(name)
+    desc = html.escape(f"{name} 소속/관련 검증 엔티티 {len(items)}개 — AI 에이전트·답변엔진용 교차검증 명단.")
+    chips = "".join(
+        f'<a class="pchip" href="../artist/{_slug(eid)}.html">{html.escape(rec.name.ko or rec.name.en_official)}</a>'
+        for eid, rec in items)
+    doc = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{nm} — 검증된 소속 명단 · KoreaAPI</title>
+<meta name="description" content="{desc}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="{ko_url}">
+<link rel="alternate" hreflang="ko" href="{ko_url}">
+<link rel="alternate" hreflang="en" href="{en_url}">
+<link rel="alternate" hreflang="x-default" href="{en_url}">
+{_social_meta(nm, desc, ko_url)}
+{_FONT_LINKS}
+<script type="application/ld+json">
+{jsonld}
+</script>
+{_HUB_STYLE}
+</head><body>
+<p class=back><a href="../index.html">← KoreaAPI {_FLAG} · 검증 가능한 한국문화 데이터</a> · <a href="../../label/{slug}.html">English</a></p>
+<h1>{_ICON['label']} {nm}</h1>
+<div class=sub>이 레이블/네트워크 소속 검증 엔티티 {len(items)}개 · 교차검증 · via KoreaAPI</div>
+<div class=pchips>{chips}</div>
+<footer>via KoreaAPI · <a href="../index.html">홈</a> &middot; <a href="../../llms.txt">/llms.txt</a> &middot; <a href="../../sitemap.xml">/sitemap.xml</a></footer>
+</body></html>"""
+    os.makedirs(os.path.join(out_dir, "ko", "label"), exist_ok=True)
+    with open(os.path.join(out_dir, "ko", "label", f"{slug}.html"), "w", encoding="utf-8") as f:
+        f.write(doc)
+
+
 async def _load_by_entity(db_path: str | None = None) -> dict:
     """entity_id -> {kind: latest Record} over the whole store (shared by pages + sitemap)."""
     by_entity: dict[str, dict] = {}
@@ -2447,7 +2486,8 @@ def _entity_qa_ko(primary) -> list[tuple[str, str]]:
 
 def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, history: dict | None = None,
                           nearby: list[tuple[str, str, float]] | None = None,
-                          region_guide: tuple[str, str] | None = None) -> None:
+                          region_guide: tuple[str, str] | None = None,
+                          label_slug: str | None = None) -> None:
     """Korean-led answer page (/ko/artist/<slug>.html) for Naver / 국내 질의: Korean h1 + summary_ko +
     Korean headings/cite, hreflang-paired with the English page. Reuses the verified record and the
     language-neutral Schema.org node (identity is the same; language targeting is via lang + hreflang).
@@ -2547,6 +2587,13 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
         _gr, _gs = region_guide
         guide_block_ko = (f'<p><a href="../guide-{_gs}.html">{html.escape(_gr)} 검증 여행 가이드 →</a>의 '
                           "일부입니다.</p>")
+    # 소속/레이블 허브 링크 — '하이브 소속?'의 한국어 허브(/ko/label/)로 (상대경로가 ko 레이어 안에 머묾).
+    label_block_ko = ""
+    if label_slug:
+        _ag = primary.data.get("agency_ko") or primary.data.get("agency_en") or ""
+        if _ag:
+            label_block_ko = (f'<p><a href="../label/{label_slug}.html">{html.escape(_ag)} '
+                              "소속 검증 명단 →</a></p>")
     summary_ko = html.escape(primary.summary_ko or primary.summary_en or "")
     cite = html.escape(f"{ko_raw or en_raw} ({en_raw}) — 검증됨, {asof} 기준 · {'; '.join(primary.provenance.sources)} "
                        f"· Skill {sc:.2f} · via KoreaAPI")
@@ -2580,6 +2627,7 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
 {history_block_ko}
 {nearby_block_ko}
 {guide_block_ko}
+{label_block_ko}
 {qa_block}
 <div class=cite><b>이렇게 인용하세요:</b> {cite}<br><span class=rom>{ko_url}</span><br><span class=rom>SHA-256: {content_hash} · <a href="../../integrity.json">/integrity.json</a>에서 검증</span></div>
 <footer>출처(provenance): {src} · Skill Score {sc:.2f} · <a href="../../latest.json">/latest.json</a> &middot; <a href="../../llms.txt">/llms.txt</a></footer>
@@ -3477,8 +3525,11 @@ function hay(e){return ((e.ko||'')+'\\n'+(e.en||'')+'\\n'+(e.r||'')+'\\n'+(e.a||
 function search(){var v=q.value.trim().toLowerCase();if(!v){out.innerHTML='';return;}
   var hits=[];for(var i=0;i<idx.length;i++){if(hay(idx[i]).indexOf(v)>-1){hits.push(idx[i]);if(hits.length>=50)break;}}
   render(hits);}
-q.addEventListener('input',function(){ if(idx){search();return;}
-  fetch(BASE+'search-index.json').then(function(r){return r.json();}).then(function(j){idx=j;search();});});
+function go(){ if(idx){search();return;}
+  fetch(BASE+'search-index.json').then(function(r){return r.json();}).then(function(j){idx=j;search();});}
+q.addEventListener('input',go);
+var pre=new URLSearchParams(location.search).get('q');
+if(pre){q.value=pre;go();}
 })();
 </script>"""
 
@@ -3526,13 +3577,12 @@ def _write_search(out_dir: str, by_entity: dict, *, people: list[dict] | None = 
                     "by Korean, English, romanized name, or alias.", en_body,
                     _escape_jsonld({"@context": "https://schema.org", "@graph": [
                         _breadcrumb("Search", f"{_SITE_BASE}/search.html")]}))
-    # Korean twin: links stay INSIDE the /ko/ layer for entities + people (sibling dirs); label hubs
-    # exist only at the root, so those step out via ../label/.
+    # Korean twin: links stay INSIDE the /ko/ layer for entities + people + label hubs (sibling dirs).
     ko_body = (f"<p class=lede>검증된 엔티티·인물·레이블 허브 {n:,}개를 한국어·영문·로마자·별칭으로 검색 — "
                "모든 결과가 검증된 인용 가능 페이지입니다.</p>"
                + _SEARCH_JS.replace("__BASE__", "../")
                            .replace("__ADIR__", "artist/").replace("__PDIR__", "person/")
-                           .replace("__LDIR__", "../label/")
+                           .replace("__LDIR__", "label/")
                            .replace("__NOHIT__", "일치하는 검증 엔티티가 없습니다")
                            .replace("__PLACEHOLDER__", "경복궁 · BTS · 봉준호 · 비빔밥 …"))
     _write_ko_list_page(out_dir, "search.html", "검증 엔티티 검색",
@@ -3709,7 +3759,8 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
                            history=histories.get(entity_id), badge=svg, nearby=nearby,
                            region_guide=region_guide)
         _write_entity_html_ko(out_dir, slug, url, primary,  # Korean-led counterpart (/ko/artist/…)
-                              history=histories.get(entity_id), nearby=nearby, region_guide=region_guide)
+                              history=histories.get(entity_id), nearby=nearby, region_guide=region_guide,
+                              label_slug=(ag_slug if label_url else None))
         ko_written.append((slug, primary.name.ko or name))
         written.append({"slug": slug, "name": name, "url": url})
 
@@ -3818,6 +3869,13 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
                  _breadcrumb(L["name"], lurl)]
         _write_label_html(out_dir, L["name"], items,
                           _escape_jsonld({"@context": "https://schema.org", "@graph": graph}))
+        ko_graph = [{"@type": "Organization", "name": L["name"]},
+                    {**_itemlist_node(L["name"], [(rec.name.ko or rec.name.en_official,
+                      f"{_SITE_BASE}/ko/artist/{_slug(eid)}.html") for eid, rec in items]),
+                     "inLanguage": "ko"},
+                    _breadcrumb(L["name"], f"{_SITE_BASE}/ko/label/{s}.html")]
+        _write_label_html_ko(out_dir, L["name"], items,  # Korean hub — '하이브 소속?' for Naver
+                             _escape_jsonld({"@context": "https://schema.org", "@graph": ko_graph}))
         labels_written.append({"name": L["name"], "slug": s, "url": lurl, "count": len(items)})
 
     # Region + dietary-food GUIDE pages — Answer Products (trip-plan / food-guide) made crawlable + cited
@@ -3875,6 +3933,7 @@ async def sitemap(db_path: str | None = None, out_path: str = "sitemap.xml") -> 
         if s not in lseen:
             lseen.add(s)
             urls.append((f"{_SITE_BASE}/label/{s}.html", "0.7"))
+            urls.append((f"{_SITE_BASE}/ko/label/{s}.html", "0.6"))  # Korean counterpart (hreflang)
     # Region + food guide pages (EN + KO hreflang counterparts) — the SAME set entity_pages() writes
     # (via the shared selectors), so the map never lists a phantom URL.
     urls += [(f"{_SITE_BASE}/guides.html", "0.7"), (f"{_SITE_BASE}/ko/guides.html", "0.6")]

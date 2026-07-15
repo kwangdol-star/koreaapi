@@ -51,9 +51,10 @@ def test_search_index_and_pages_are_written(tmp_path):
     en = (tmp_path / "site" / "search.html").read_text(encoding="utf-8")
     assert "search-index.json" in en and 'id=q' in en            # the page fetches the index, has the box
     assert "'artist/'" in en and "'person/'" in en and "'label/'" in en  # per-kind link dirs
+    assert "URLSearchParams" in en                               # /search.html?q=봉준호 deep links work
     ko = (tmp_path / "site" / "ko" / "search.html").read_text(encoding="utf-8")
     assert 'lang="ko"' in ko and "BASE='../'" in ko              # Korean twin fetches the ROOT index (../)
-    assert "'../label/'" in ko                                   # labels exist only at root -> step out
+    assert "'label/'" in ko and "'../label/'" not in ko          # /ko/label/ exists now -> stay inside /ko/
     assert "search-index.json" in ko
 
     sm = tempfile.mktemp(suffix=".xml")
