@@ -44,17 +44,20 @@ _PAREN = re.compile(r"\s*\([^)]*\)\s*$")  # 'Vincenzo (TV series)' -> 'Vincenzo'
 
 
 def norm(s: str | None) -> str:
-    """Casefold + strip spaces — the alias match key (e.g. 'Big Hit' == 'big hit' == 'BIGHIT')."""
-    return (s or "").casefold().replace(" ", "")
+    """Casefold + strip spaces — the alias match key (e.g. 'Big Hit' == 'big hit' == 'BIGHIT').
+    Non-string input -> '' (defense-in-depth: data.aliases is an unvalidated dict re-loadable from a
+    file, so a junk element must degrade to a non-match, never crash a build or the resolve tool)."""
+    return s.casefold().replace(" ", "") if isinstance(s, str) else ""
 
 
 def name_keys(*names: str | None) -> set[str]:
     """Normalized match keys for an entity's names — each name casefolded+spaceless, PLUS a
     disambiguator-stripped variant ('Vincenzo (TV series)' -> 'vincenzo'), so a title with a suffix
-    still resolves. Used for both /reconcile.json aliases and the resolve tool's matching."""
+    still resolves. Used for both /reconcile.json aliases and the resolve tool's matching.
+    Non-string elements are skipped (same defense-in-depth as norm)."""
     keys: set[str] = set()
     for n in names:
-        if n:
+        if isinstance(n, str) and n:
             keys.add(norm(n))
             keys.add(norm(_PAREN.sub("", n)))
     keys.discard("")

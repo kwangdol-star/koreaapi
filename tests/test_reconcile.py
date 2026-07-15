@@ -53,6 +53,14 @@ def test_name_keys_strips_disambiguator():
     assert "vincenzo" in k and "vincenzo(tvseries)" in k and "빈센조" in k
 
 
+def test_norm_and_name_keys_survive_junk_elements():
+    # data.aliases is unvalidated (re-loadable from a file) — a non-string element must degrade to a
+    # non-match, never crash reconcile_json / the resolve tool (found by the adversarial-data build QA).
+    from koreaapi import reconcile
+    assert reconcile.norm(7) == "" and reconcile.norm(None) == "" and reconcile.norm(["x"]) == ""
+    assert reconcile.name_keys("BTS", 7, None, ["x"], "  ") == {"bts"}
+
+
 def test_match_score_ranks_overlap():
     from koreaapi import reconcile
     assert reconcile.match_score("vincenzo", {"vincenzo"}) == 100        # exact
