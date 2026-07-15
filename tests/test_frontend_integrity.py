@@ -84,8 +84,11 @@ def test_generated_frontend_is_sound(tmp_path):
             target = link.split("?")[0]
             if not target:
                 continue
-            if not (os.path.exists(os.path.normpath(os.path.join(os.path.dirname(h), target)))
-                    or os.path.basename(target) in _OTHER_BUILD):
+            if target.startswith("/"):  # root-absolute (the 404 page — served at any URL depth)
+                resolved = os.path.normpath(os.path.join(site, target.lstrip("/")))
+            else:
+                resolved = os.path.normpath(os.path.join(os.path.dirname(h), target))
+            if not (os.path.exists(resolved) or os.path.basename(target) in _OTHER_BUILD):
                 issues.append(f"[link] {rel} -> {link}")
 
     for s in glob.glob(site + "/badge/*.svg"):  # badges must be well-formed XML (safe to <img> embed)

@@ -3675,6 +3675,46 @@ def _write_whats_new(out_dir: str, recs: list, by_entity: dict) -> int:
     return len(changes)
 
 
+def verify_site(site_dir: str = "_site", min_entities: int = 100) -> dict:
+    """Pre-deploy gate: validate the ASSEMBLED site directory before it is uploaded, so a generator
+    regression (or a lost DB cache) fails the build LOUDLY instead of silently deploying a broken or
+    skeleton site — GitHub Pages then keeps serving the previous good deployment (freeze > broken;
+    the 5-week-freeze lesson, inverted). Pure filesystem checks; returns {ok, failures, stats}."""
+    failures: list[str] = []
+    stats: dict = {}
+
+    def need(cond: bool, msg: str) -> None:
+        if not cond:
+            failures.append(msg)
+
+    idx = os.path.join(site_dir, "index.html")
+    need(os.path.exists(idx) and os.path.getsize(idx) > 5000, "index.html missing or suspiciously small")
+    for f in ("guides.html", "whats-new.html", "search.html", "llms.txt", "llms-full.txt",
+              "search-index.json", "sitemap.xml", "agents.json", "reconcile.json", "status.json"):
+        need(os.path.exists(os.path.join(site_dir, f)), f"{f} missing")
+    try:
+        entries = json.load(open(os.path.join(site_dir, "search-index.json"), encoding="utf-8"))
+        stats["search_entries"] = len(entries)
+        need(len(entries) >= min_entities, f"search index has {len(entries)} < {min_entities} entries")
+    except Exception as e:  # noqa: BLE001 - any parse/read failure is a deploy-blocking finding
+        failures.append(f"search-index.json unreadable: {e}")
+    try:
+        from xml.etree import ElementTree as ET
+        root = ET.parse(os.path.join(site_dir, "sitemap.xml")).getroot()
+        locs = [el.text or "" for el in root.iter() if el.tag.endswith("loc")]
+        stats["sitemap_urls"] = len(locs)
+        need(len(locs) >= min_entities, f"sitemap has {len(locs)} < {min_entities} URLs")
+        need(all(u.startswith(_SITE_BASE) for u in locs), "sitemap contains foreign-host URLs")
+    except Exception as e:  # noqa: BLE001
+        failures.append(f"sitemap.xml unreadable: {e}")
+    for sub in ("artist", os.path.join("ko", "artist")):
+        d = os.path.join(site_dir, sub)
+        n = len([f for f in os.listdir(d) if f.endswith(".html")]) if os.path.isdir(d) else 0
+        stats[sub.replace(os.sep, "/")] = n
+        need(n >= min_entities, f"{sub}/ has {n} < {min_entities} entity pages")
+    return {"ok": not failures, "failures": failures, "stats": stats}
+
+
 async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dict:
     """Citable answer-pages — the AEO citation-surface multiplier — for BOTH entities and people.
 
@@ -3907,6 +3947,25 @@ async def entity_pages(db_path: str | None = None, out_dir: str = "site") -> dic
     n_changes = _write_whats_new(out_dir, _recs, by_entity)
     # Client-side search over the whole verified graph — entities + person hubs + label hubs.
     n_search = _write_search(out_dir, by_entity, people=people_written, labels=labels_written)
+    # Custom 404 (GitHub Pages serves /404.html): recover a lost visitor/crawler into search + guides.
+    # Deliberately NOT via _write_hub_html — that would declare a hreflang /ko/404.html that never
+    # exists (the hreflang-to-404 class); a 404 is noindex and needs no language pairing.
+    with open(os.path.join(out_dir, "404.html"), "w", encoding="utf-8") as f:
+        f.write(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Not found · KoreaAPI</title>
+<meta name="robots" content="noindex,follow">
+{_HUB_STYLE}
+</head><body>
+<h1>404 — no verified page here</h1>
+<p class=lede>이 주소에는 페이지가 없습니다. 찾던 항목은 검색으로 바로 찾을 수 있습니다.</p>
+<ul>
+<li><a href="/search.html">🔍 Search every verified entity, person, and label / 검증 엔티티 검색</a></li>
+<li><a href="/guides.html">🧳 Region &amp; food guides / 가이드</a></li>
+<li><a href="/">KoreaAPI home</a> · <a href="/ko/">한국어 홈</a> · <a href="/sitemap.xml">sitemap</a></li>
+</ul>
+<footer>via KoreaAPI</footer>
+</body></html>""")
 
     return {"entities": written, "people": people_written, "hubs": hubs_written,
             "labels": labels_written, "ko": len(ko_written), "guides": guides_written,
@@ -4599,6 +4658,15 @@ def _main(argv: list[str]) -> int:
             print("  failed (no snapshot):", ", ".join(out["failed"]))
             print("  → if ALL failed, egress to www.wikidata.org is likely blocked (sandbox allowlist).")
             print("    Run where the network is open: a deploy, or a Full-network session.")
+    elif cmd == "verifysite":
+        site_dir = sys.argv[2] if len(sys.argv) > 2 else "_site"
+        min_n = int(sys.argv[3]) if len(sys.argv) > 3 else 100
+        out = verify_site(site_dir, min_entities=min_n)
+        print(f"verifysite: {'OK' if out['ok'] else 'FAIL'} {out['stats']}")
+        for f in out["failures"]:
+            print(f"  ✗ {f}")
+        if not out["ok"]:
+            raise SystemExit(1)  # fail the deploy — Pages keeps serving the previous good site
     elif cmd == "refresh":
         n = int(sys.argv[2]) if len(sys.argv) > 2 else 400
         out = asyncio.run(refresh(max_n=n))

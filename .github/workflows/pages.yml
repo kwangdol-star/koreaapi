@@ -101,6 +101,10 @@ jobs:
           cp site/*.html _site/   # every generated top-level hub + standalone page (glob — no per-vertical list)
           uv run python -m koreaapi.admin sitemap   # sitemap.xml incl. every entity + person page (daily lastmod)
           cp sitemap.xml _site/sitemap.xml
+          # PRE-DEPLOY GATE: validate the assembled _site (index size, sitemap, search index, entity-page
+          # counts, key files). A generator regression or a lost DB cache FAILS the build here, and
+          # GitHub Pages keeps serving the previous good deployment — freeze beats broken.
+          uv run python -m koreaapi.admin verifysite _site 100
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3 # publishes ./_site by default
