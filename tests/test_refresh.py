@@ -131,6 +131,8 @@ def test_status_json_reports_the_stale_pool(tmp_path):
     assert doc["stale"] == 1
     assert doc["refresh_pool"] == 2
     assert doc["oldest_snapshot_days"] >= 19
+    # physical-AI readiness metric: 2 geo entities seeded (place + temple), neither carries coordinates
+    assert doc["geo_coverage"] == {"geo_entities": 2, "with_coordinates": 0}
 
 
 def test_collect_workflow_runs_refresh_every_tick():

@@ -55,6 +55,10 @@ def test_for_agents_page_and_manifest(tmp_path):
     assert man["data"]["whats_new"].endswith("/whats-new.html")      # the freshness page, discoverable
     assert man["verification"]["integrity"].endswith("/integrity.json")
     assert man["premium"]["protocol"] == "x402" and man["cite_as"]
+    au = man["autonomous_use"]                                  # the agent-economy question, answered
+    assert au["allowed"] is True and "via KoreaAPI" in au["attribution"]
+    assert "content_hash" in au["agent_to_agent"]               # downstream re-verification path
+    assert "P625" in au["physical_ai"]                          # grounded spatial data for embodied agents
 
 
 def test_pricing_pages(tmp_path):

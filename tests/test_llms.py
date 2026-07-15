@@ -50,6 +50,7 @@ def test_llms_coverage_reflects_live_roster_and_graph():
     assert "/guides.html" in text and "/whats-new.html" in text  # the crawlable guide + freshness assets
     assert "ask(question)" in text                               # the NL front door is discoverable
     assert "llms-<vertical>.txt" in text                         # per-vertical corpus chunks advertised
+    assert "autonomous_use" in text and "P625" in text           # agent-economy terms + physical-AI line
 
 
 def test_llms_full_writes_per_vertical_chunks(tmp_path):

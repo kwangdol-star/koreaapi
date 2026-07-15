@@ -608,6 +608,10 @@ async def status_json(db_path: str | None = None, out_path: str = "status.json")
     stale_n = sum(1 for a in ages if a > _ttl)
     pool_n = sum(1 for a in ages if a >= _ttl // 2)
     oldest_days = round(max(ages) / 86400, 1) if ages else 0.0
+    # Physical-AI readiness: how much of the geo store carries verified coordinates (P625) — the
+    # substrate for nearby / walkable clusters / map-ready plans (embodied agents need geometry).
+    geo_facts = [r for r in facts if r.entity_id.split(":", 1)[0] in _GEO_NODE_TYPE]
+    geo_with_coords = sum(1 for r in geo_facts if (r.data.get("geo") or {}).get("lat") is not None)
     doc = {
         "ok": True,
         "generated": datetime.now(timezone.utc).isoformat(),
@@ -622,6 +626,7 @@ async def status_json(db_path: str | None = None, out_path: str = "status.json")
         "stale": stale_n,
         "refresh_pool": pool_n,
         "oldest_snapshot_days": oldest_days,
+        "geo_coverage": {"geo_entities": len(geo_facts), "with_coordinates": geo_with_coords},
         "integrity": f"{_SITE_BASE}/integrity.json",
         "note": ("Health/freshness snapshot, regenerated each build. cross_verified = ≥2 agreeing "
                  "sources; triple_verified = ≥3; source_disagreements = entities where independent "
@@ -2900,6 +2905,23 @@ def _agents_manifest() -> dict:
                           "sources and emits provenance + a Skill Score, so an agent gets one trusted, "
                           "citable answer instead of N unverified APIs to reconcile itself"),
         },
+        # The agent-economy question, answered machine-readably: MAY an autonomous agent (or an agent
+        # spawned by an agent) use this, and how — terms, bulk lanes, payment, downstream re-verification.
+        "autonomous_use": {
+            "allowed": True,
+            "attribution": LICENSE["attribution"],
+            "license": LICENSE["url"],
+            "bulk": ("GET /v1/batch (≤100 ids/round-trip) · full corpus /latest.json · "
+                     "per-vertical /llms-<vertical>.txt chunks"),
+            "payment": ("free for the verified data; the premium demand signal (/v1/korea-rising) is "
+                        "x402 — USDC per call, no account, agent-native"),
+            "agent_to_agent": ("every response carries provenance + a content_hash chained in "
+                               f"{_SITE_BASE}/integrity.json — a downstream agent can re-verify what an "
+                               "upstream agent hands it instead of trusting the relay"),
+            "physical_ai": ("geo verticals carry verified coordinates (Wikidata P625): nearby graph, "
+                            "walkable clusters, map-ready trip plans — grounded spatial data for "
+                            "embodied agents planning real-world movement"),
+        },
         "mcp": {
             "transport": "stdio",
             "command": "python -m koreaapi.server",
@@ -4140,6 +4162,10 @@ async def llms_txt(db_path: str | None = None, out_path: str = "llms.txt") -> st
 - Recently verified changes (the freshness moat, crawlable): {_SITE_BASE}/whats-new.html
 - Per-vertical corpus chunks (a complete, ingestible unit per vertical — smaller than the full corpus):
   {_SITE_BASE}/llms-<vertical>.txt, e.g. /llms-food.txt · /llms-place.txt · /llms-artist.txt
+- Autonomous-agent terms, machine-readable (may an agent use this, bulk lanes, x402 payment,
+  downstream re-verification): {_SITE_BASE}/agents.json → autonomous_use
+- Physical-AI ready: geo verticals carry verified coordinates (Wikidata P625) — the nearby graph,
+  walkable clusters, and map-ready trip plans give embodied agents grounded spatial data.
 - Full index of every page (daily lastmod): {_SITE_BASE}/sitemap.xml
 """
     tail = f"""

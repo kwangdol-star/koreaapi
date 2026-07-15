@@ -343,7 +343,34 @@ routes = [
     Route("/billing/stripe/checkout", stripe_checkout, methods=["POST"]),
 ]
 
-app = Starlette(routes=routes)
+# Machine-actionable errors — the caller is an autonomous agent, not a human reading a browser page:
+# every error carries what went wrong AND the next action (Starlette's defaults are text/plain).
+async def _json_404(request: Request, exc) -> JSONResponse:
+    return JSONResponse({
+        "error": f"no such endpoint: {request.url.path}",
+        "hint": "the endpoint catalog is at GET / ; the machine spec is at GET /openapi.json",
+        "see": ["https://aiagentlabs.co.kr/agents.json", "https://aiagentlabs.co.kr/for-agents.html"],
+    }, status_code=404)
+
+
+async def _json_405(request: Request, exc) -> JSONResponse:
+    return JSONResponse({
+        "error": f"method {request.method} not allowed on {request.url.path}",
+        "hint": "every /v1/* read is GET; only /billing/stripe/checkout is POST — see GET /openapi.json",
+    }, status_code=405)
+
+
+async def _json_500(request: Request, exc) -> JSONResponse:
+    return JSONResponse({  # never leak internals; give the agent a self-correcting path instead
+        "error": "internal error",
+        "hint": ("retry once; if it persists the fault is ours — the open data files "
+                 "(/latest.json, /reconcile.json, /llms-full.txt) remain fetchable on the static host"),
+        "see": ["https://aiagentlabs.co.kr/status.json"],
+    }, status_code=500)
+
+
+app = Starlette(routes=routes,
+                exception_handlers={404: _json_404, 405: _json_405, Exception: _json_500})
 
 
 def main() -> None:
