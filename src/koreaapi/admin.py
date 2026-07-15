@@ -39,6 +39,7 @@ import json
 import os
 import re
 import sys
+import urllib.request
 from datetime import datetime, timezone
 
 from . import answers, integrity
@@ -405,6 +406,32 @@ async def load_latest(in_path: str = "data/latest.json", *, db_path: str | None 
         except Exception:
             continue
     return n
+
+
+async def bootstrap(*, db_path: str | None = None, min_entities: int = 1000,
+                    url: str | None = None) -> dict:
+    """Disaster-recovery SELF-HEAL for the accumulated store. The DB lives in the Actions cache, and
+    GitHub evicts caches (7-day unused / 10GB LRU) — an eviction silently resets ~5k discovered
+    entities to the ~650-seed roster (weeks to re-discover). But the current state is already public:
+    the deployed site serves /latest.json. If the store looks RESET (fewer than min_entities facts),
+    fetch the LIVE latest.json and re-seed via load_latest (timestamps preserved from the file; deep
+    snapshot history beyond the latest state is the one thing an eviction still costs). Best-effort:
+    a true first-ever run (no live site yet) just reports and continues cold."""
+    ents = await store.entities(db_path=db_path)
+    n_facts = sum(1 for e in ents if e["kind"] == "facts")
+    if n_facts >= min_entities:
+        return {"healed": False, "facts": n_facts, "note": "store healthy — no heal needed"}
+    src = url or f"{_SITE_BASE}/latest.json"
+    try:
+        req = urllib.request.Request(src, headers={"User-Agent": "KoreaAPI-collect (self-heal)"})
+        raw = await asyncio.to_thread(lambda: urllib.request.urlopen(req, timeout=60).read())  # noqa: S310
+        os.makedirs("data", exist_ok=True)
+        with open("data/latest.json", "wb") as f:
+            f.write(raw)
+    except Exception as e:  # noqa: BLE001 — cold-start (no live site yet) is a normal, reported path
+        return {"healed": False, "facts": n_facts, "note": f"live fetch failed ({e}) — continuing cold"}
+    n = await load_latest(db_path=db_path)
+    return {"healed": n > 0, "facts_before": n_facts, "restored": n, "source": src}
 
 
 _CHANGE_FIELDS = (("agency", "agency/network (소속사)"), ("name_ko", "Korean name"),
@@ -4704,6 +4731,13 @@ def _main(argv: list[str]) -> int:
         print(f"refresh: {len(out['refreshed'])}/{len(out['attempted'])} re-verified "
               f"(stale pool {out['stale']}, threshold {out['threshold_seconds'] // 3600}h, oldest first)"
               + (f"; failed: {', '.join(out['failed'][:10])}" if out["failed"] else ""))
+    elif cmd == "bootstrap":
+        out = asyncio.run(bootstrap())
+        if out["healed"]:
+            print(f"bootstrap: SELF-HEALED — restored {out['restored']} record(s) from {out['source']} "
+                  f"(store had {out['facts_before']} facts — cache eviction suspected)")
+        else:
+            print(f"bootstrap: {out['note']} (facts={out['facts']})")
     elif cmd == "load":
         n = asyncio.run(load_latest())
         print(f"load: re-seeded {n} record(s) from data/latest.json -> {store._db_path(None)}")

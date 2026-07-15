@@ -11,6 +11,7 @@ Accumulates the verified DB across runs via the Actions cache (out of git; immun
 
 | step | what it does |
 |---|---|
+| `bootstrap` | **self-heal**: if the cache was evicted (store reset to ~roster size), re-seed the accumulated state from the LIVE site's `/latest.json` before collecting |
 | `pull` | re-verifies the curated roster (~650 seeds) through the full cross-verification source list |
 | `refresh 400` | re-verifies the **stalest discovered entities** (see Freshness model below) |
 | `sweep` | agency-hub SPARQL discovery — new labelmates, same verification bar |
@@ -107,6 +108,9 @@ compare — someone/something moved `main`.
 
 ## When something looks wrong
 
+- **"The store suddenly shrank to ~650 entities"** → the Actions cache was evicted; `bootstrap`
+  self-heals from the live `/latest.json` on the next collect tick (deep snapshot history beyond the
+  latest state is the one thing an eviction costs — everything current comes back).
 - **"Everything is stale"** → is `collect` green and running every 6h? Then watch `status.json:stale`
   drain (~3 days). If a specific entity never refreshes, it may be an upstream-deleted zombie — it
   costs one stride slot and is otherwise harmless; `prune` it if it's genuinely dead.
