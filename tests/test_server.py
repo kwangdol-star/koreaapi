@@ -50,6 +50,13 @@ def test_server_registers_its_tools():
     assert _tool_names() == EXPECTED_TOOLS
 
 
+def test_advertised_tool_list_never_drifts_from_the_live_server():
+    # The for-agents page + agents.json advertise admin._MCP_TOOLS; `ask` once shipped without joining
+    # that list, so the docs surface lied by omission. Pin: advertised names == live server tools.
+    from koreaapi.admin import _MCP_TOOLS
+    assert {n for n, _d in _MCP_TOOLS} == _tool_names()
+
+
 def test_bound_tool_returns_verified_data(monkeypatch, tmp_path):
     db = str(tmp_path / "mcp.db")
     monkeypatch.setenv("KOREAAPI_DB", db)  # service reads this when db_path is None

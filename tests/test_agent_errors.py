@@ -24,6 +24,14 @@ def test_wrong_method_returns_json_405():
     assert "GET" in r.json()["hint"]                            # tells the agent the right verb
 
 
+def test_cache_headers_for_agent_fleets():
+    # Verified facts change on a daily cadence -> short public max-age; metered/billing/health never cache.
+    c = TestClient(app)
+    assert c.get("/v1/certified").headers["cache-control"] == "public, max-age=300"
+    assert c.get("/healthz").headers["cache-control"] == "no-store"
+    assert c.get("/v1/does-not-exist").headers.get("cache-control") is None  # errors are not cacheable
+
+
 if __name__ == "__main__":
     import pytest
 

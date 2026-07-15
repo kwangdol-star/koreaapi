@@ -2872,12 +2872,14 @@ _MCP_TOOLS = [
     ("get_artist_status", "latest verified status for a Korean artist"),
     ("get_agency", "who is under a 소속사 / label"),
     ("get_person", "verified credits for a person (director / actor / idol)"),
-    ("get_related", "entities sharing a 소속사 / network"),
+    ("get_related", "entities sharing a 소속사 / network — geo entities also get same_region + nearby (verified-coordinate km)"),
     ("get_kculture_calendar", "upcoming K-culture events"),
     ("get_korea_rising", "what is rising in Korea now (premium signal)"),
     ("get_buy_options", "verify-official -> purchase gateway: the real official representative + a canonical anti-scam key (commerce-commission seed)"),
     ("list_answer_products", "list the Answer Products — named, citable decisions over the verified store"),
     ("get_answer", "run an Answer Product -> {signal, action, score, rationale, answer, evidence}"),
+    ("ask", "free-text question -> ROUTED to the right Answer Product and run (the NL front door; "
+            "reply says how it routed)"),
 ]
 
 

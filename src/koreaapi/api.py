@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -369,7 +370,35 @@ async def _json_500(request: Request, exc) -> JSONResponse:
     }, status_code=500)
 
 
+class _CacheHeaders:
+    """Agent fleets re-fetch aggressively; cache headers let their HTTP layers (and any CDN in front)
+    absorb that. Verified facts change on a daily cadence -> a short public max-age is safe; the
+    metered / billing / health paths must never be cached."""
+
+    _NO_STORE = ("/v1/korea-rising", "/billing", "/healthz")
+
+    def __init__(self, app):  # pure ASGI wrapper (no BaseHTTPMiddleware overhead)
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] not in ("GET", "HEAD"):
+            return await self.app(scope, receive, send)
+        path = scope["path"]
+
+        async def send_with_cache(message):
+            if message["type"] == "http.response.start" and message["status"] == 200:
+                headers = message.setdefault("headers", [])
+                if not any(k.lower() == b"cache-control" for k, _v in headers):
+                    policy = (b"no-store" if any(path.startswith(p) for p in self._NO_STORE)
+                              else b"public, max-age=300")  # <= the daily re-verification cadence
+                    headers.append((b"cache-control", policy))
+            await send(message)
+
+        await self.app(scope, receive, send_with_cache)
+
+
 app = Starlette(routes=routes,
+                middleware=[Middleware(_CacheHeaders)],
                 exception_handlers={404: _json_404, 405: _json_405, Exception: _json_500})
 
 
