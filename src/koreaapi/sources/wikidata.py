@@ -25,7 +25,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
-from ..roster import AGENCY_HINTS, NAMES
+from ..roster import AGENCY_HINTS, NAMES, SEARCH_KO
 
 
 def _http_get_json(url: str, headers: dict, *, attempts: int = 4, timeout: int = 20,
@@ -570,13 +570,13 @@ class WikidataSource:
         )
         return f"{WIKIDATA_API}?{query}"
 
-    def _search_url(self, term: str) -> str:
+    def _search_url(self, term: str, language: str = "en") -> str:
         query = urllib.parse.urlencode(
             {
                 "action": "wbsearchentities",
                 "search": term,
-                "language": "en",
-                "uselang": "en",
+                "language": language,  # wbsearchentities matches labels/aliases in THIS language only —
+                "uselang": language,   # a Korean-labeled-only item is invisible to an English search
                 "type": "item",
                 "limit": 5,  # several candidates: the type guard in fetch() walks past same-name impostors
                 "format": "json",
@@ -600,8 +600,17 @@ class WikidataSource:
             raise ValueError(f"cannot derive a search term from entity_id {entity_id!r}")
         raw = await asyncio.to_thread(self._http_get, self._search_url(term))
         qids = parse_search_all(raw)
+        # Korean-search fallback/widening: a Korean-labeled-only item (유성온천, 이강주, 샤롯데씨어터 …)
+        # is invisible to the English search above. When the roster carries a Korean search term, ALSO
+        # search language=ko and append those candidates — the type + identity guards still gate every
+        # candidate, so a wrong hit stays a miss, never a wrong record.
+        ko_term = SEARCH_KO.get(entity_id)
+        if ko_term:
+            ko_raw = await asyncio.to_thread(self._http_get, self._search_url(ko_term, "ko"))
+            qids += [q for q in parse_search_all(ko_raw) if q not in qids]
         if not qids:
-            raise ValueError(f"no Wikidata match for {entity_id!r} (searched {term!r})")
+            searched = f"{term!r}" + (f" + ko {ko_term!r}" if ko_term else "")
+            raise ValueError(f"no Wikidata match for {entity_id!r} (searched {searched})")
         return qids
 
     async def resolve_qid(self, entity_id: str) -> str:
@@ -614,6 +623,11 @@ class WikidataSource:
             or ({"en": NAMES[entity_id]} if entity_id in NAMES else None)
             or ({"en": self._aliases[entity_id]} if entity_id in self._aliases else None)
         )
+        # The roster's Korean search term joins the EXPECTED identity: without it a ko-labeled-only
+        # item fails the overlap check even when the ko search finds it (got ko=유성온천 vs expected
+        # en-only) — and WITH it the strict-KO guard also rejects same-EN-label impostors harder.
+        if entity_id in SEARCH_KO and expected is not None and not expected.get("ko"):
+            expected = {**expected, "ko": SEARCH_KO[entity_id]}
         ns = entity_id.split(":", 1)[0]
         payload: dict | None = None
         qid = ""

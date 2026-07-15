@@ -1116,6 +1116,42 @@ KOPIS_NAMES = {
     "theater:jeongdong": "정동극장",
 }
 
+# Korean SEARCH terms for seeds whose Wikidata item is Korean-labeled (little/no English label): the
+# English wbsearchentities pass can never find these, so resolve_candidates retries in language=ko with
+# this term, and the term ALSO joins the expected identity (fetch's overlap + strict-KO guard verifies
+# the Korean name — a wrong entry degrades to a MISS, never a wrong record). These are the 28 seeds the
+# live pull reported "failed (no snapshot)"; expand as new ko-only misses appear.
+SEARCH_KO = {
+    "food:dakbal": "닭발",
+    "brand:cosrx": "코스알엑스",
+    "brand:drjart": "닥터자르트",
+    "brand:banilaco": "바닐라코",
+    "brand:buldakramen": "불닭볶음면",
+    "folklore:heungbujeon": "흥부전",
+    "classic:mokminsimseo": "목민심서",
+    "classic:jasaneobo": "자산어보",
+    "fashion:anderssonbell": "앤더슨벨",
+    "fashion:juunj": "준지",
+    "fashion:kimseoryong": "김서룡",
+    "festival:andongmask": "안동국제탈춤페스티벌",
+    "liquor:jindohongju": "진도홍주",
+    "liquor:igangju": "이강주",
+    "museum:mmca": "국립현대미술관",
+    "museum:hoam": "호암미술관",
+    "museum:daelim": "대림미술관",
+    "theater:charlotte": "샤롯데씨어터",
+    "theater:jeongdong": "정동극장",
+    "themepark:eworld": "이월드",
+    "skiresort:vivaldipark": "비발디파크",
+    "skiresort:elysian": "엘리시안 강촌",
+    "hotspring:yuseong": "유성온천",
+    "hotspring:onyang": "온양온천",
+    "hotspring:icheon": "이천온천",
+    "hotspring:deoksan": "덕산온천",
+    "beach:eurwangni": "을왕리해수욕장",
+    "beach:hyeopjae": "협재해수욕장",
+}
+
 # 국가유산청 (Korea Heritage Service / CHA) search terms — the Korean 국가유산명 to query the official registry
 # by. A DORMANT seed (the KHS source is key-gated INERT); expand on activation. Names verified against the
 # well-known 국가유산 designations, so the identity guard has a correct target.
