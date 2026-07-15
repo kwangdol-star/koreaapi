@@ -147,6 +147,37 @@ async def latest(entity_id: str, kind: str, *, db_path: str | None = None) -> Re
     return Record.model_validate_json(raw) if raw else None
 
 
+async def latest_all(kind: str | None = "facts", *, db_path: str | None = None) -> dict:
+    """The latest snapshot of EVERY entity in ONE query (window function over the covering index) —
+    the batch companion to latest(). The serving paths (resolve / related / trip-plan / food-guide)
+    and the site build scan the whole store; per-entity latest() calls made that N+1 (≈5,300 SQLite
+    round-trips per MCP/HTTP request at current scale). Returns {entity_id: Record} for a given kind,
+    or {(entity_id, kind): Record} when kind is None. Newest-first insertion order (matches entities())."""
+
+    def _do() -> list[tuple]:
+        conn = _connect(db_path)
+        try:
+            where = "WHERE kind = ?" if kind is not None else ""
+            args: tuple = (kind,) if kind is not None else ()
+            rows = conn.execute(
+                f"SELECT entity_id, kind, record_json FROM ("
+                f"  SELECT entity_id, kind, record_json, snapshot_at, id,"
+                f"         ROW_NUMBER() OVER (PARTITION BY entity_id, kind"
+                f"                            ORDER BY snapshot_at DESC, id DESC) AS rn"
+                f"  FROM snapshots {where}"
+                f") WHERE rn = 1 ORDER BY snapshot_at DESC, id DESC",
+                args,
+            ).fetchall()
+            return rows
+        finally:
+            conn.close()
+
+    rows = await asyncio.to_thread(_do)
+    if kind is not None:
+        return {eid: Record.model_validate_json(raw) for eid, _k, raw in rows}
+    return {(eid, k): Record.model_validate_json(raw) for eid, k, raw in rows}
+
+
 async def history(entity_id: str, kind: str, *, limit: int = 5000,
                   db_path: str | None = None) -> list[Record]:
     """Every snapshot for an entity+kind, oldest → newest — the append-only timeline (the time moat).

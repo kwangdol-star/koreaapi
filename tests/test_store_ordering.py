@@ -65,3 +65,55 @@ if __name__ == "__main__":
     import pytest
 
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def _rec2(eid: str, summary: str, when: datetime, kind: str = "facts") -> Record:
+    return Record(
+        entity_id=eid, kind=kind, name=Name(ko="이름", en_official=summary), snapshot_at=when,
+        summary_en=summary, data={},
+        provenance=Provenance(sources=["Wikidata Q1", "Wikipedia x"], fetched_at=when,
+                              skill_score=1.0, confidence="high"),
+    )
+
+
+def test_latest_all_matches_per_entity_latest():
+    # latest_all is the ONE-query batch companion the serving paths use; it must agree with latest()
+    # exactly — newest snapshot per entity (kind-filtered) / per (entity, kind) when kind is None.
+    db = _tmp_db()
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    asyncio.run(store.append_record(_rec2("artist:a", "a-old", base), db_path=db))
+    asyncio.run(store.append_record(_rec2("artist:a", "a-new", base + timedelta(days=3)), db_path=db))
+    asyncio.run(store.append_record(_rec2("place:b", "b-only", base + timedelta(days=1)), db_path=db))
+    asyncio.run(store.append_record(_rec2("artist:a", "a-chart", base + timedelta(days=5), kind="chart"),
+                                    db_path=db))
+
+    facts = asyncio.run(store.latest_all("facts", db_path=db))
+    assert set(facts) == {"artist:a", "place:b"}
+    assert facts["artist:a"].summary_en == "a-new"          # newest facts snapshot, chart NOT leaked in
+    for eid in facts:                                        # agrees with the per-entity path exactly
+        assert facts[eid].summary_en == asyncio.run(store.latest(eid, "facts", db_path=db)).summary_en
+
+    every = asyncio.run(store.latest_all(None, db_path=db))
+    assert every[("artist:a", "chart")].summary_en == "a-chart"   # kind=None keys by (entity, kind)
+    assert list(every)[0] == ("artist:a", "chart")                # newest-first order (matches entities())
+
+
+def test_resolve_scan_is_single_query_not_n_plus_1(monkeypatch):
+    # Regression guard for the N+1 collapse: a NAME resolve over the store must not call the
+    # per-entity latest() at all (5,300 SQLite round-trips per MCP/HTTP request at live scale).
+    from koreaapi import service
+    db = _tmp_db()
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    for i in range(5):
+        asyncio.run(store.append_record(_rec2(f"artist:e{i}", f"Entity {i}", base), db_path=db))
+    calls = {"n": 0}
+    real = store.latest
+
+    async def counting(*a, **k):
+        calls["n"] += 1
+        return await real(*a, **k)
+
+    monkeypatch.setattr(service.store, "latest", counting)
+    out = asyncio.run(service.resolve("Entity 3", db_path=db))
+    assert out["found"] and out["id"] == "artist:e3"
+    assert calls["n"] == 0                                   # the scan went through latest_all only

@@ -247,15 +247,12 @@ async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
     geo: dict[str, list] = {}   # namespace -> [(eid, rec)]
     festivals: list = []
     foods: list = []
-    for e in await store.entities(db_path=db_path):
-        ns = e["entity_id"].split(":", 1)[0]
-        if e["kind"] != "facts" or (ns not in _GEO_NS and ns not in ("festival", "food")):
-            continue
-        rec = await store.latest(e["entity_id"], "facts", db_path=db_path)
-        if rec is None:
+    for eid, rec in (await store.latest_all("facts", db_path=db_path)).items():  # ONE query, not N+1
+        ns = eid.split(":", 1)[0]
+        if ns not in _GEO_NS and ns not in ("festival", "food"):
             continue
         if ns == "food":  # national picks — not region-filtered
-            foods.append((e["entity_id"], rec))
+            foods.append((eid, rec))
             continue
         hay = " ".join(filter(None, [
             rec.data.get("agency_en"), rec.data.get("agency_ko"),
@@ -263,9 +260,9 @@ async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
         if not (q and q in hay):
             continue
         if ns == "festival":
-            festivals.append((e["entity_id"], rec))
+            festivals.append((eid, rec))
         else:
-            geo.setdefault(ns, []).append((e["entity_id"], rec))
+            geo.setdefault(ns, []).append((eid, rec))
 
     def by_skill(t) -> float:
         return -t[1].provenance.skill_score
@@ -339,13 +336,10 @@ async def _run_food_guide(query: str, db_path: str | None = None) -> dict:
         return True
 
     matches: list = []
-    for e in await store.entities(db_path=db_path):
-        eid = e["entity_id"]
-        if e["kind"] != "facts" or not eid.startswith("food:") or not ok(FOOD_SPICE.get(eid), FOOD_VEG.get(eid)):
+    for eid, rec in (await store.latest_all("facts", db_path=db_path)).items():  # ONE query, not N+1
+        if not eid.startswith("food:") or not ok(FOOD_SPICE.get(eid), FOOD_VEG.get(eid)):
             continue
-        rec = await store.latest(eid, "facts", db_path=db_path)
-        if rec is not None:
-            matches.append((eid, rec, FOOD_SPICE.get(eid), FOOD_VEG.get(eid)))
+        matches.append((eid, rec, FOOD_SPICE.get(eid), FOOD_VEG.get(eid)))
     matches.sort(key=lambda t: -t[1].provenance.skill_score)
 
     filters: list[str] = []

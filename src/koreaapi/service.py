@@ -136,17 +136,16 @@ async def agency(name: str, *, db_path: str | None = None) -> dict:
     members: list[dict] = []
     if target:
         seen: set[str] = set()
-        for e in await store.entities(db_path=db_path):
-            if e["entity_id"] in seen:
-                continue
-            rec = await store.latest(e["entity_id"], e["kind"], db_path=db_path)
-            if rec is None:
+        # ONE query, not N+1: latest snapshot per (entity, kind), newest-first (matches the old
+        # entities() order, so the first kind seen per entity wins exactly as before).
+        for (eid, _kind), rec in (await store.latest_all(None, db_path=db_path)).items():
+            if eid in seen:
                 continue
             ag_en, ag_ko = _norm_name(rec.data.get("agency_en")), _norm_name(rec.data.get("agency_ko"))
             # Prefix match, not substring: "SM" matches "SM Entertainment" but NOT "Cosmic ... Agency"
             # (whose normalized form happens to contain "sm"). Agency queries lead with the brand.
             if (ag_en and ag_en.startswith(target)) or (ag_ko and ag_ko.startswith(target)):
-                seen.add(e["entity_id"])
+                seen.add(eid)
                 members.append(_item(rec))
     return {"agency": name, "count": len(members), "members": members, "license": LICENSE}
 
@@ -231,12 +230,7 @@ async def person(name: str, *, db_path: str | None = None) -> dict:
     my_works: list[tuple[str, list[str]]] = []   # P's works -> everyone credited on each (collab graph)
     person_works: dict[str, set] = {}            # person key -> set of work ids (the recurring-collab filter)
     people_display: dict[str, str] = {}          # person key -> a display name
-    for e in await store.entities(db_path=db_path):
-        if e["kind"] != "facts":
-            continue
-        rec = await store.latest(e["entity_id"], "facts", db_path=db_path)
-        if rec is None:
-            continue
+    for _eid, rec in (await store.latest_all("facts", db_path=db_path)).items():  # ONE query, not N+1
         is_video = rec.entity_id.startswith(("drama:", "film:"))
         roles = [("cast" if is_video else "member", n) for n in (rec.data.get("members") or [])]
         roles += [("director", n) for n in (rec.data.get("directors") or [])]
@@ -354,8 +348,7 @@ async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None
     same_region: list[dict] = []   # same-REGION neighbors ACROSS the geo verticals (region-edge based)
     seen_sr: set[str] = set()
     nearby: list[dict] = []        # physically close (haversine ≤ _NEARBY_KM), across the geo verticals
-    for e in await store.entities(db_path=db_path):
-        oid = e["entity_id"]
+    for oid, r in (await store.latest_all("facts", db_path=db_path)).items():  # ONE query, not N+1
         if oid == entity_id:
             continue
         other_geo = oid.split(":", 1)[0] in GEO_NAMESPACES
@@ -363,9 +356,6 @@ async def related(entity_id: str, *, limit: int = 12, db_path: str | None = None
         region_hit = bool(key) and is_geo and oid not in seen_sr and other_geo   # any geo vertical
         nearby_hit = anchor is not None and other_geo
         if not (related_hit or region_hit or nearby_hit):
-            continue
-        r = await store.latest(oid, "facts", db_path=db_path)
-        if r is None:
             continue
         if (related_hit or region_hit) and \
                 _norm_name(r.data.get("agency_en") or r.data.get("agency_ko")) == key:
@@ -624,14 +614,9 @@ async def resolve(query: str, *, db_path: str | None = None) -> dict:
             return {"query": query, **_resolved(q, rec, "entity_id")}
     candidates: list[tuple[int, float, str, object]] = []  # (fuzzy score, skill, entity_id, rec)
     alias_hit: tuple | None = None  # a grounded-alias exact-match; used only if NO canonical name matches
-    for e in await store.entities(db_path=db_path):
-        if e["kind"] != "facts":
-            continue
-        rec = await store.latest(e["entity_id"], "facts", db_path=db_path)
-        if rec is None:
-            continue
+    for eid, rec in (await store.latest_all("facts", db_path=db_path)).items():  # ONE query, not N+1
         if is_qid and external_ids(rec.provenance.sources).get("wikidata", "").lower() == q.lower():
-            return {"query": query, **_resolved(e["entity_id"], rec, "wikidata")}
+            return {"query": query, **_resolved(eid, rec, "wikidata")}
         # Canonical NAME exact-match returns in-loop -> a real name ALWAYS wins. Grounded alternate names
         # (enrich.py, from the Wikipedia lead) widen recall but are a FALLBACK: an alias exact-match is
         # remembered and used only if NO entity has a canonical exact-match, and is labeled matched_by=
@@ -639,13 +624,13 @@ async def resolve(query: str, *, db_path: str | None = None) -> dict:
         # confidence. <2-char junk keys ('Han' problem) are dropped.
         name_only = name_keys(rec.name.ko, rec.name.en_official, rec.name.romanized)
         if qn in name_only:  # exact (disambiguator-insensitive: 'Vincenzo (TV series)' == 'Vincenzo')
-            return {"query": query, **_resolved(e["entity_id"], rec, "name")}
+            return {"query": query, **_resolved(eid, rec, "name")}
         alias_keys = {k for k in name_keys(*(rec.data.get("aliases") or [])) - name_only if len(k) >= 2}
         if alias_hit is None and qn in alias_keys:
-            alias_hit = (e["entity_id"], rec)  # remember; a later canonical exact-match still takes priority
+            alias_hit = (eid, rec)  # remember; a later canonical exact-match still takes priority
         sc = match_score(qn, name_only | alias_keys)
         if sc:
-            candidates.append((sc, rec.provenance.skill_score, e["entity_id"], rec))
+            candidates.append((sc, rec.provenance.skill_score, eid, rec))
     if alias_hit is not None:  # no canonical exact-match anywhere -> the grounded-alias exact-match is next
         return {"query": query, **_resolved(alias_hit[0], alias_hit[1], "alias")}
     if candidates:

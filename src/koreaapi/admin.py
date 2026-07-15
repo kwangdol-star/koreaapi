@@ -360,16 +360,11 @@ async def audit(*, db_path: str | None = None, fix: bool = False) -> dict:
     from .sources.wikidata import _UA, _alien_class, _http_get_json, batch_claims_url, parse_p31_map
     targets: dict[str, str] = {}  # entity_id -> its verified Wikidata Q-id
     skipped = 0
-    for e in await store.entities(db_path=db_path):
-        if e["kind"] != "facts":
-            continue
-        rec = await store.latest(e["entity_id"], "facts", db_path=db_path)
-        if rec is None:
-            continue
+    for eid, rec in (await store.latest_all("facts", db_path=db_path)).items():  # ONE query, not N+1
         qid = next((m.group(0) for s in rec.provenance.sources
                     if "wikidata" in s.lower() and (m := re.search(r"\bQ\d+\b", s))), None)
         if qid:
-            targets[e["entity_id"]] = qid
+            targets[eid] = qid
         else:
             skipped += 1  # no Wikidata provenance -> nothing to re-verify against
     p31: dict[str, set] = {}
@@ -2416,12 +2411,12 @@ def _write_label_html_ko(out_dir: str, name: str, items: list, jsonld: str) -> N
 
 
 async def _load_by_entity(db_path: str | None = None) -> dict:
-    """entity_id -> {kind: latest Record} over the whole store (shared by pages + sitemap)."""
+    """entity_id -> {kind: latest Record} over the whole store (shared by pages + sitemap).
+    ONE window-function query (store.latest_all) instead of a latest() per (entity, kind) — at ~5k
+    entities x 12 build commands per deploy that N+1 dominated the build time."""
     by_entity: dict[str, dict] = {}
-    for e in await store.entities(db_path=db_path):
-        rec = await store.latest(e["entity_id"], e["kind"], db_path=db_path)
-        if rec is not None:
-            by_entity.setdefault(e["entity_id"], {})[e["kind"]] = rec
+    for (eid, kind), rec in (await store.latest_all(None, db_path=db_path)).items():
+        by_entity.setdefault(eid, {})[kind] = rec
     return by_entity
 
 
