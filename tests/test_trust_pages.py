@@ -59,6 +59,12 @@ def test_for_agents_page_and_manifest(tmp_path):
     assert au["allowed"] is True and "via KoreaAPI" in au["attribution"]
     assert "content_hash" in au["agent_to_agent"]               # downstream re-verification path
     assert "P625" in au["physical_ai"]                          # grounded spatial data for embodied agents
+    # the machine front door: the SAME manifest at /.well-known/agent.json, pointing at the canonical
+    wk = json.load(open(os.path.join(out, ".well-known", "agent.json"), encoding="utf-8"))
+    assert wk["name"] == man["name"] and wk["canonical"].endswith("/agents.json")
+    assert wk["autonomous_use"]["allowed"] is True
+    wf = open("/home/user/koreaapi-build/.github/workflows/pages.yml", encoding="utf-8").read()
+    assert "cp -r site/.well-known _site/.well-known" in wf     # dot-dir: no glob catches it — guard the cp
 
 
 def test_pricing_pages(tmp_path):

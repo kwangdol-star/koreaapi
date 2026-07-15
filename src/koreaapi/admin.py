@@ -2978,8 +2978,15 @@ def _agents_manifest() -> dict:
 def _write_for_agents(out_dir: str) -> None:
     """The operator quickstart (/for-agents) + the machine manifest (/agents.json). Built for the person
     WIRING an agent: connect over MCP or plain JSON, with the trust story they can defend to their users."""
+    manifest = _agents_manifest()
     with open(os.path.join(out_dir, "agents.json"), "w", encoding="utf-8") as f:
-        json.dump(_agents_manifest(), f, ensure_ascii=False, indent=2)
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+    # The SAME manifest at the emerging machine front door: /.well-known/agent.json is where
+    # agent-discovery tooling increasingly looks first (GitHub Pages serves .well-known verbatim).
+    # One source of truth, two addresses — the canonical copy stays /agents.json.
+    os.makedirs(os.path.join(out_dir, ".well-known"), exist_ok=True)
+    with open(os.path.join(out_dir, ".well-known", "agent.json"), "w", encoding="utf-8") as f:
+        json.dump({**manifest, "canonical": f"{_SITE_BASE}/agents.json"}, f, ensure_ascii=False, indent=2)
     tools = "".join(f"<li><code>{n}</code> — {html.escape(d)}</li>" for n, d in _MCP_TOOLS)
     prods = "".join(f"<li>{p['emoji']} <code>{html.escape(p['id'])}</code> — {html.escape(p['about'])}</li>"
                     for p in answers.list_products()["products"])
@@ -3707,7 +3714,8 @@ def verify_site(site_dir: str = "_site", min_entities: int = 100) -> dict:
     idx = os.path.join(site_dir, "index.html")
     need(os.path.exists(idx) and os.path.getsize(idx) > 5000, "index.html missing or suspiciously small")
     for f in ("guides.html", "whats-new.html", "search.html", "llms.txt", "llms-full.txt",
-              "search-index.json", "sitemap.xml", "agents.json", "reconcile.json", "status.json"):
+              "search-index.json", "sitemap.xml", "agents.json", "reconcile.json", "status.json",
+              os.path.join(".well-known", "agent.json"), "404.html"):
         need(os.path.exists(os.path.join(site_dir, f)), f"{f} missing")
     try:
         entries = json.load(open(os.path.join(site_dir, "search-index.json"), encoding="utf-8"))
