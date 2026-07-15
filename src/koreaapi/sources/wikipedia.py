@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from .wikidata import _http_get_json  # shared retry+backoff GET (rate-limit resilient)
 
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
+KO_WIKIPEDIA_API = "https://ko.wikipedia.org/w/api.php"  # the Korean lead — the /ko/ pages' substance
 _UA = {
     "User-Agent": "KoreaAPI/0.1 (https://github.com/kwangdol-star/koreaapi) python-urllib"
 }
@@ -732,7 +733,19 @@ def parse_page(raw: dict, entity_id: str, kind: str) -> dict:
         "abstract_en": _clean_extract(page.get("extract")),
         "summary_en": f"{en or ko} - {kind} (Wikipedia).",
         "summary_ko": f"{ko or en} - {kind} (위키백과).",
+        # the Korean-article title (langlink), consumed by fetch() to pull the KOREAN lead — popped
+        # there, never stored on a record.
+        "_ko_title": ko,
     }
+
+
+def parse_ko_extract(raw: dict) -> str | None:
+    """Pure: the Korean-article intro extract from a ko.wikipedia query response (None when absent/
+    missing — the Korean abstract is supplementary, a miss never fails the fetch)."""
+    pages = raw.get("query", {}).get("pages", [])
+    if not pages or pages[0].get("missing"):
+        return None
+    return _clean_extract(pages[0].get("extract"))
 
 
 class WikipediaSource:
@@ -764,6 +777,22 @@ class WikipediaSource:
         )
         return f"{WIKIPEDIA_API}?{query}"
 
+    def _ko_url(self, ko_title: str) -> str:
+        query = urllib.parse.urlencode(
+            {
+                "action": "query",
+                "titles": ko_title,
+                "prop": "extracts",
+                "exintro": "1",
+                "explaintext": "1",
+                "exsentences": "4",
+                "redirects": "1",
+                "format": "json",
+                "formatversion": "2",
+            }
+        )
+        return f"{KO_WIKIPEDIA_API}?{query}"
+
     def _http_get(self, url: str) -> dict:
         return _http_get_json(url, _UA)
 
@@ -771,5 +800,17 @@ class WikipediaSource:
         title = self._title(entity_id)
         raw = await asyncio.to_thread(self._http_get, self._url(title))
         payload = parse_page(raw, entity_id, kind)
+        # The KOREAN lead (the langlinked ko-article's intro) -> abstract_ko: real Korean prose for the
+        # /ko/ pages (Naver's crawl surface) instead of an English abstract with an apology. Best-effort:
+        # any failure just ships the payload without it (supplementary, never fails the cross-check).
+        ko_title = payload.pop("_ko_title", None)
+        if ko_title:
+            try:
+                ko_raw = await asyncio.to_thread(self._http_get, self._ko_url(ko_title))
+                abstract_ko = parse_ko_extract(ko_raw)
+                if abstract_ko:
+                    payload["abstract_ko"] = abstract_ko
+            except Exception:
+                pass
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         return {"payload": payload, "citation": f"Wikipedia {payload['name_en_official']} {ts}"}

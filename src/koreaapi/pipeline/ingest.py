@@ -164,6 +164,8 @@ async def ingest_one(
     same_work = [p for p in payloads if _same_work(p, chosen)]
     if not chosen.get("abstract_en"):
         chosen["abstract_en"] = next((p.get("abstract_en") for p in same_work if p.get("abstract_en")), None)
+    if not chosen.get("abstract_ko"):  # the Korean lead (ko.wikipedia) — the /ko/ pages' substance
+        chosen["abstract_ko"] = next((p.get("abstract_ko") for p in same_work if p.get("abstract_ko")), None)
     # attrs: UNION across same-work payloads (Wikidata genre/awards + KTO address/tel + KOSIS
     # population complement each other); on a key conflict the structured base's own value wins.
     merged_attrs: dict = {}

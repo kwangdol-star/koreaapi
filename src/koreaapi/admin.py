@@ -2490,8 +2490,15 @@ def _entity_qa_ko(primary) -> list[tuple[str, str]]:
     asof = primary.snapshot_at.strftime("%Y-%m-%d")
     src = "; ".join(primary.provenance.sources)
     ns = _entity_kind(primary.entity_id)
+    abstract_ko = (d.get("abstract_ko") or "").strip()
     summary_ko = (primary.summary_ko or "").strip().rstrip(". ")
-    if summary_ko:  # every verified record carries a Korean summary -> a rich, extractable "무엇인가요?"
+    if abstract_ko:  # the strongest "무엇인가요?": the cited Korean-Wikipedia lead's first sentence
+        first = re.split(r"(?<=[.!?])\s+", abstract_ko)[0].strip()
+        if len(first) > 400:
+            first = first[:400].rsplit(" ", 1)[0] + "…"
+        qas.append((f"{ko}은(는) 무엇인가요?",
+                    f"{first} (한국어 위키백과 lead; 이름 교차검증: {src}, {asof} 기준)."))
+    elif summary_ko:  # every verified record carries a Korean summary -> a rich, extractable "무엇인가요?"
         qas.append((f"{ko}은(는) 무엇인가요?", f"{summary_ko} (교차검증: {src}, {asof} 기준)."))
     elif ns in _KO_WHATIS:
         qas.append((f"{ko}은(는) 무엇인가요?",
@@ -2550,7 +2557,11 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
     title = html.escape(f"{ko_raw or en_raw} ({en_raw})")
     desc = html.escape(f"{ko_raw or en_raw} ({en_raw}) — AI·검색엔진을 위한 교차검증 한국문화 프로필. {asof} 기준.")
     qas_ko = _entity_qa_ko(primary)
-    graph_ko = [{**_entity_node(primary), "inLanguage": "ko"}] + ([_faqpage_node(qas_ko)] if qas_ko else [])
+    node_ko = {**_entity_node(primary), "inLanguage": "ko"}
+    _abstract_ko = (primary.data.get("abstract_ko") or "").strip()
+    if _abstract_ko:  # the crawled Korean node describes in KOREAN (Naver lifts description, not prose)
+        node_ko["description"] = _abstract_ko
+    graph_ko = [node_ko] + ([_faqpage_node(qas_ko)] if qas_ko else [])
     jsonld = _escape_jsonld({"@context": "https://schema.org", "@graph": graph_ko})
     qa_block = ("<h2>자주 묻는 질문</h2>" + "".join(
         f"<div class=qa><div class=q>{html.escape(q)}</div><div class=a>{html.escape(a)}</div></div>"
@@ -2561,7 +2572,10 @@ def _write_entity_html_ko(out_dir: str, slug: str, en_url: str, primary, *, hist
     cert_badge = f" · 🏅 {html.escape(str(cert['by']))} 공식 인증" if cert else ""
     about = ""
     abstract = (primary.data.get("abstract_en") or "").strip()
-    if abstract:
+    if _abstract_ko:  # real Korean prose (the langlinked ko.wikipedia lead) — no English-with-an-apology
+        about = (f"<h2>설명</h2><p>{html.escape(_abstract_ko)} "
+                 "<span class=rom>— 출처: 한국어 위키백과 (lead)</span></p>")
+    elif abstract:
         about = f"<h2>설명</h2><p>{html.escape(abstract)} <span class=rom>— 영문 출처: Wikipedia</span></p>"
     attrs = primary.data.get("attrs") or {}
     details = ("<h2>상세</h2><ul class=attrs>"
