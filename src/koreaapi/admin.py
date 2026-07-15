@@ -154,14 +154,26 @@ async def refresh(*, db_path: str | None = None, max_n: int = 400,
         if age >= threshold:
             stale.append((age, e["entity_id"]))
     stale.sort(key=lambda t: (-t[0], t[1]))  # oldest first (deterministic tie-break)
-    todo = [eid for _age, eid in stale[:max_n]]
+    # STRIDE-sample the pool instead of taking the head slice: an entity that can NEVER re-verify (a
+    # deleted/renamed Wikidata item -> identity guard rejects, appends nothing) would otherwise sit at
+    # the head and, as such zombies accumulate, starve every refreshable entity behind them. Spreading
+    # the budget across the whole pool keeps oldest-priority loosely (they stay eligible until done)
+    # while capping any zombie's cost at one slot per run — stateless (the append-only store has no
+    # failure counter to persist).
+    if len(stale) > max_n > 0:
+        stride = -(-len(stale) // max_n)  # ceil
+        todo = [eid for _age, eid in stale[::stride]][:max_n]
+    else:
+        todo = [eid for _age, eid in stale[:max_n]]
     aliases: dict[str, str] = {}
     qids: dict[str, str] = {}
-    for eid in todo:
+    floors: dict[str, int] = {}  # don't DOWNGRADE: a cross-verified record refreshes only if ≥2 sources
+    for eid in todo:               # answer this cycle (partial-outage guard); single-source stays at 1.
         r = await store.latest(eid, "facts", db_path=db_path)
         if r is None:
             continue
         aliases[eid] = r.name.en_official or r.name.ko or eid.split(":", 1)[-1]
+        floors[eid] = 2 if getattr(r.provenance, "agreeing_sources", 0) >= 2 else 1
         q = external_ids(r.provenance.sources).get("wikidata")
         if q:
             qids[eid] = q  # memoized Q-id -> fetch the exact item, no search drift, one call saved
@@ -176,7 +188,8 @@ async def refresh(*, db_path: str | None = None, max_n: int = 400,
     for i, eid in enumerate(todo):
         if i:
             await asyncio.sleep(0.2)  # pace like pull() so Wikimedia never throttles the batch tail
-        rec = await ingest_one("facts", eid, sources, db_path=db_path)
+        rec = await ingest_one("facts", eid, sources, db_path=db_path,
+                               min_sources=floors.get(eid, 1))
         (refreshed if rec is not None else failed).append(eid)
     return {"stale": len(stale), "attempted": todo, "refreshed": refreshed, "failed": failed,
             "threshold_seconds": threshold}
@@ -2342,6 +2355,9 @@ def _write_label_html(out_dir: str, name: str, items: list, jsonld: str) -> None
 <meta name="description" content="{desc}">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="{url}">
+<link rel="alternate" hreflang="en" href="{url}">
+<link rel="alternate" hreflang="ko" href="{_SITE_BASE}/ko/label/{slug}.html">
+<link rel="alternate" hreflang="x-default" href="{url}">
 {_social_meta(nm, desc, url)}
 {_FONT_LINKS}
 <script type="application/ld+json">
@@ -2349,7 +2365,7 @@ def _write_label_html(out_dir: str, name: str, items: list, jsonld: str) -> None
 </script>
 {_HUB_STYLE}
 </head><body>
-<p class=back><a href="../index.html">← KoreaAPI {_FLAG} · verifiable K-culture data</a></p>
+<p class=back><a href="../index.html">← KoreaAPI {_FLAG} · verifiable K-culture data</a> · <a href="../ko/label/{slug}.html">한국어</a></p>
 <h1>{_ICON['label']} {nm}</h1>
 <div class=sub>{len(items)} verified entities under this label / network · cross-checked · via KoreaAPI</div>
 <div class=pchips>{chips}</div>
@@ -3329,12 +3345,15 @@ def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
             nodes = []
             for c in clusters:
                 a_eid, a_r = c["anchor"]
+                a_name = a_r.name.en_official or a_r.name.ko
                 stops = [(a_eid, a_r)] + [(eid, r) for eid, r, _km in c["spots"]]
                 nodes.append({
-                    "@type": "TouristTrip", "inLanguage": lang,
-                    "name": f"Walkable cluster around {a_r.name.en_official or a_r.name.ko} ({region})",
-                    "description": (f"Verified spots within {c['radius_km']:.0f} km of each other "
-                                    "(great-circle, verified coordinates) — via KoreaAPI."),
+                    "@type": "TouristTrip",
+                    "name": f"Walkable cluster around {a_name} ({region})",
+                    # honest geometry: distances are measured FROM THE ANCHOR (two members can be
+                    # farther apart than the radius) — never overclaim in crawlable structured data
+                    "description": (f"Verified spots within {c['radius_km']:.0f} km of {a_name} "
+                                    "(great-circle from verified coordinates) — via KoreaAPI."),
                     "itinerary": {"@type": "ItemList", "itemListElement": [
                         {"@type": "ListItem", "position": j + 1,
                          "item": {"@type": "TouristAttraction",
@@ -3345,9 +3364,9 @@ def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
             return nodes
 
         if clusters:
-            sections.append("<h2>Walkable together (&le;3 km)</h2>" + _cluster_ul()
-                            + "<p class=rom>Great-circle distances from verified coordinates "
-                              "(Wikidata P625).</p>")
+            sections.append("<h2>Walkable together (&le;3 km of an anchor)</h2>" + _cluster_ul()
+                            + "<p class=rom>Distances measured from each group's first (anchor) spot — "
+                              "great-circle, verified coordinates (Wikidata P625).</p>")
         top = [r.name.en_official or r.name.ko for _, r in all_spots[:6]]
         qas = [(f"What are the top verified places to visit in {region}?",
                 f"KoreaAPI cross-verifies {n_geo} spot(s) in {region}, including {', '.join(top)}. "
@@ -3384,8 +3403,9 @@ def _write_region_guides(out_dir: str, by_entity: dict) -> list[dict]:
         if festivals:
             ko_sections.append(f"<h2>축제·행사</h2><ul>{_guide_li(festivals[:8])}</ul>")
         if clusters:
-            ko_sections.append("<h2>도보권 묶음 (&le;3km)</h2>" + _cluster_ul()
-                               + "<p class=rom>검증된 좌표(Wikidata P625) 기준 대권 거리.</p>")
+            ko_sections.append("<h2>도보권 묶음 (앵커 기준 &le;3km)</h2>" + _cluster_ul()
+                               + "<p class=rom>각 묶음의 첫 항목(앵커) 기준 거리 — 검증된 좌표(Wikidata "
+                                 "P625) 대권 거리.</p>")
         ko_qas = [(f"{region}에서 가볼 만한 검증된 곳은?",
                    f"KoreaAPI가 {region}의 {n_geo}곳을 교차검증했습니다: {', '.join(ko_top)}. "
                    "각 항목은 독립적으로 교차검증된 인용 가능 엔티티입니다.")]

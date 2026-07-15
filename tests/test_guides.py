@@ -112,6 +112,10 @@ def test_region_guide_renders_walkable_clusters_with_touristtrip(tmp_path):
     cluster = en.split("Walkable together")[1].split("</ul>")[0]
     assert "gamcheon" in cluster and " km" in cluster            # the close pair, with distance
     assert "haeundae" not in cluster                             # 13 km -> not walkable together
+    # honest geometry: distances are anchor-relative — never claim members are within 3 km OF EACH OTHER
+    # (which anchor wins is order-dependent among equal-skill spots; the anchor-relative phrasing is not)
+    assert "of each other" not in en
+    assert "within 3 km of Jagalchi Market" in en or "within 3 km of Gamcheon Culture Village" in en
     ko = (tmp_path / "site" / "ko" / "guide-busan.html").read_text(encoding="utf-8")
     assert "도보권 묶음" in ko and '"@type": "TouristTrip"' in ko  # Korean parity, same shared clusters
 

@@ -74,6 +74,7 @@ async def ingest_one(
     sources: list,
     *,
     db_path: str | None = None,
+    min_sources: int = 1,
 ) -> Record | None:
     """Run one ingestion unit for a single entity + kind, then append a snapshot.
 
@@ -95,8 +96,11 @@ async def ingest_one(
         used_fallback.append(bool(getattr(src, "is_fallback", False)))
         srcnames.append(getattr(src, "name", "?"))  # for name-authority tie-break below
 
-    if not payloads:
-        return None  # nothing usable this cycle
+    if len(payloads) < max(min_sources, 1):
+        # nothing usable this cycle — or (refresh) fewer sources than the caller's floor: during a
+        # partial outage a re-ingest would DOWNGRADE a cross-verified record to single-source (and drop
+        # source-specific fields); appending nothing keeps the richer snapshot and retries next run.
+        return None
 
     # cross-verify on the canonical FACTS (bilingual name), not the prose summary, so two
     # independent sources that agree on who this is count as agreement (raising Skill Score).
@@ -175,8 +179,15 @@ async def ingest_one(
     # stored grounded extract (data.enrichment) — no repeat LLM call, since the abstract is stable.
     # attrs are GAP-FILL only (a cross-verified structured value always wins); every value is grounded
     # literally in the abstract, so a hallucination can't enter. No key / failure / nothing -> no change.
+    prev = await store.latest(entity_id, kind, db_path=db_path)
+    # Coordinates are stable verified facts (P625) and Wikidata is their ONLY writer: if the coord-
+    # bearing source failed this cycle but others succeeded, carry the previous verified geo forward —
+    # otherwise the entity flaps out of nearby / walkable clusters / map-ready items until the next
+    # healthy refresh. Carried value is the same verified P625, never a guess.
+    if not chosen.get("geo") and prev is not None and prev.data.get("geo"):
+        chosen["geo"] = prev.data["geo"]
+
     if chosen.get("abstract_en"):
-        prev = await store.latest(entity_id, kind, db_path=db_path)
         enrichment = prev.data.get("enrichment") if prev else None
         if enrichment is None:  # not yet successfully derived -> attempt (enrich returns None if it
             enrichment = await asyncio.to_thread(  # couldn't run: no key / transient error -> retry next build)

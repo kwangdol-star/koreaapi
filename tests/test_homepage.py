@@ -150,6 +150,8 @@ def test_label_hub_pages_and_crosslinks(tmp_path):
     # links staying inside the /ko/ layer, hreflang-paired, in the sitemap.
     ko_hub = (tmp_path / "site" / "ko" / "label" / "big-hit-music.html").read_text(encoding="utf-8")
     assert '<html lang="ko">' in ko_hub and "../artist/bts.html" in ko_hub
+    en_hub = (tmp_path / "site" / "label" / "big-hit-music.html").read_text(encoding="utf-8")
+    assert 'hreflang="ko"' in en_hub and "/ko/label/big-hit-music.html" in en_hub  # RECIPROCAL hreflang
     assert "소속 검증" in ko_hub or "검증 엔티티" in ko_hub
     ko_bts = (tmp_path / "site" / "ko" / "artist" / "bts.html").read_text(encoding="utf-8")
     assert "../label/big-hit-music.html" in ko_bts and "소속 검증 명단" in ko_bts

@@ -233,7 +233,8 @@ async def _run_related_network(query: str, db_path: str | None = None) -> dict:
         answer["nearby"] = [{"name": it["name"], "kind": it["kind"], "km": it["km"]} for it in nearby]
     return _env("related-network", query, signal=signal, action=action,
                 score=_clamp01(max(count, len(nearby)) / 12.0),
-                rationale=f"{count} related via {rel.get('related_by')}; {len(nearby)} nearby (≤30 km).",
+                rationale=(f"{count} related via {rel.get('related_by') or 'no hub edge'}; "
+                           f"{len(nearby)} nearby (≤30 km, verified coordinates)."),
                 answer=answer)
 
 
@@ -307,8 +308,8 @@ async def _run_trip_plan(query: str, db_path: str | None = None) -> dict:
     return _env("trip-plan", query, signal=signal, action=action,
                 score=_clamp01((n_geo + n_fe) / 8.0),
                 rationale=(f"{n_geo} spot(s) across {len(geo)} type(s) ({kinds}) + {n_fe} festival(s) "
-                           f"matched; {len(clusters)} walkable cluster(s) (≤3 km, verified coordinates); "
-                           "foods are national picks."),
+                           f"matched; {len(clusters)} walkable cluster(s) (≤3 km of an anchor spot, "
+                           "verified coordinates); foods are national picks."),
                 answer={"region": query, "places": _li(all_geo, 8), "by_type": by_type,
                         "walkable_clusters": clusters,
                         "festivals": _li(festivals, 4), "foods": _li(foods, 5)})
