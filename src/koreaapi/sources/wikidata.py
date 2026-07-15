@@ -821,6 +821,20 @@ _DISCOVER = {
     "animation": (["Q581714", "Q202866"], "P495", "Q884"),             # animated series/film, origin SK
     "university": (["Q3918", "Q189004"], "P17", "Q884"),               # university + college, country SK
     "festival": (["Q132241", "Q220505"], "P17", "Q884"),               # festival + film festival, country SK
+    # GEO verticals — the travel-content growth engine (guides / nearby / walkable clusters feed on
+    # these, and Korean geo items are richly tagged with ko labels + P625). Canonical, widely-used
+    # classes only (the webtoon-class lesson: no exotic guesses); every candidate still passes the
+    # bilingual name guard + cross-verification + the type audit, and place↔geo adjacency already
+    # covers the attraction dual-typing. A wrong class here yields 0 rows or audited-out rows — verify
+    # the counts on the first live collect. (museum/temple stay discovered under place:, as today;
+    # park is complete — all 22 national parks are seeded; theater is KOPIS/roster-covered.)
+    "beach":     (["Q40080"], "P17", "Q884"),      # beach, country SK
+    "island":    (["Q23442"], "P17", "Q884"),      # island, country SK
+    "hotspring": (["Q177380"], "P17", "Q884"),     # hot spring, country SK
+    "skiresort": (["Q130003"], "P17", "Q884"),     # ski resort, country SK
+    "themepark": (["Q194195"], "P17", "Q884"),     # amusement park, country SK
+    "venue":     (["Q483110"], "P17", "Q884"),     # stadium, country SK
+    "airport":   (["Q1248784"], "P17", "Q884"),    # airport, country SK
     # (history/heritage/folklore/region/show are seed-only: too heterogeneous / class-overlapping to
     #  discover cleanly — e.g. a variety "television program" class overlaps the drama vertical)
 }
