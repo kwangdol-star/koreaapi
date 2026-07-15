@@ -78,6 +78,38 @@ def test_ko_page_faq_and_jsonld_lead_with_the_korean_abstract(tmp_path):
     assert "royal palace" in en                                    # the English page keeps the EN lead
 
 
+def test_korean_enrichment_mines_the_korean_lead(monkeypatch):
+    # The same grounded labor over abstract_ko: Korean aliases merge (deduped) after the EN ones under
+    # its OWN run-once marker; a Korean alias then resolves the entity for a Korean query.
+    from koreaapi import service
+    from koreaapi.pipeline import ingest as ingest_mod
+
+    calls = []
+
+    def fake_enrich(abstract, existing_keys=(), known_names=()):
+        calls.append(abstract[:8])
+        if abstract.startswith("경복궁은"):                      # the KOREAN pass
+            return {"attrs": {"Founded": "1395"}, "aliases": ["경복", "Gyeongbok Palace"]}
+        return {"attrs": {}, "aliases": ["Gyeongbok Palace"]}    # the EN pass (overlapping alias)
+
+    monkeypatch.setattr(ingest_mod, "enrich", fake_enrich)
+    db = tempfile.mktemp(suffix=".db")
+    payload = {"name_ko": "경복궁", "name_en_official": "Gyeongbokgung", "name_en_source": "official",
+               "summary_en": "x", "abstract_en": "Gyeongbokgung is a royal palace.",
+               "abstract_ko": _ABS_KO}
+    src = [MockSource("Wikidata", payload), MockSource("Wikipedia", payload)]
+    rec = asyncio.run(ingest_mod.ingest_one("facts", "place:gyeongbokgung", src, db_path=db))
+    assert rec.data["aliases"] == ["Gyeongbok Palace", "경복"]   # EN first, KO merged + deduped
+    assert rec.data["attrs"]["Founded"] == "1395"                # Korean-stated fact gap-fills
+    assert rec.data["enrichment_ko"]["aliases"] == ["경복", "Gyeongbok Palace"]  # its own marker
+
+    asyncio.run(ingest_mod.ingest_one("facts", "place:gyeongbokgung", src, db_path=db))
+    assert len(calls) == 2                                       # run-once held for BOTH passes
+
+    r = asyncio.run(service.resolve("경복", db_path=db))          # the Korean alias resolves
+    assert r["found"] and r["id"] == "place:gyeongbokgung" and r["matched_by"] == "alias"
+
+
 if __name__ == "__main__":
     import pytest
 

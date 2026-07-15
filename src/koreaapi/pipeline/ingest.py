@@ -207,6 +207,30 @@ async def ingest_one(
             if enrichment.get("aliases"):
                 chosen["aliases"] = enrichment["aliases"]
 
+    # KOREAN-grounded enrichment — the same labor over the KOREAN lead (abstract_ko): Korean alternate
+    # names ("샤롯데" -> 샤롯데씨어터) widen Korean-query recall in resolve/search/alternateName, and
+    # Korean-stated facts gap-fill attrs. Identical safety envelope: verbatim grounding, gap-fill only,
+    # run-once with its own marker (enrichment_ko) + self-heal, one cheap call per entity one time.
+    if chosen.get("abstract_ko"):
+        enrichment_ko = prev.data.get("enrichment_ko") if prev else None
+        if enrichment_ko is None:
+            enrichment_ko = await asyncio.to_thread(
+                enrich, chosen["abstract_ko"],
+                existing_keys=tuple((chosen.get("attrs") or {}).keys()),
+                known_names=(chosen.get("name_ko"), chosen.get("name_en_official"), chosen.get("name_romanized")),
+            )
+        if enrichment_ko is not None:
+            chosen["enrichment_ko"] = enrichment_ko
+            if enrichment_ko.get("attrs"):
+                gap = dict(chosen.get("attrs") or {})
+                for k, v in enrichment_ko["attrs"].items():
+                    gap.setdefault(k, v)
+                chosen["attrs"] = gap
+            if enrichment_ko.get("aliases"):
+                merged = list(chosen.get("aliases") or [])
+                merged += [a for a in enrichment_ko["aliases"] if a not in merged]
+                chosen["aliases"] = merged[:8]  # EN + KO alternates, deduped, bounded
+
     if not chosen.get("name_romanized") and chosen.get("name_ko"):
         rom = await asyncio.to_thread(romanize, chosen["name_ko"])  # cheap LLM; best-effort
         if rom:

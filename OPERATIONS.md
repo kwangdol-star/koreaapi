@@ -50,7 +50,7 @@ site build. Restores the collect DB (read-only), regenerates every surface, then
 | where | model | gate |
 |---|---|---|
 | `romanize.py` — name romanization | Haiku | retries each build until it succeeds |
-| `enrich.py` — attrs + aliases from the cited Wikipedia lead | Haiku | every value must appear **literally** in the abstract; run-once per entity (marker only stored on a REAL run, so transient failures self-heal) |
+| `enrich.py` — attrs + aliases from the cited Wikipedia leads (EN + KO — Korean aliases widen Korean-query recall) | Haiku | every value must appear **literally** in the abstract; run-once per entity (marker only stored on a REAL run, so transient failures self-heal) |
 | `sources/circlechart.py` — weekly #1 extraction | Haiku | `_grounded` drops anything not literally on the page |
 | `answers.route()` — free-text → Answer Product | Haiku | pure keyword fallback (works keyless); routing only CHOOSES, the verified product decides |
 
