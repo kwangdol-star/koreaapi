@@ -63,9 +63,18 @@ def _has_structured(payload: dict) -> bool:
 def _same_work(a: dict, b: dict) -> bool:
     """Two payloads describe the same work when their English official names link — equal, or one is
     a disambiguated form of the other ('Vincenzo' ⊂ 'Vincenzo (TV series)'). Used to carry the
-    canonical name + abstract across sources WITHOUT letting a drifted wrong-entity source contribute."""
+    canonical name + abstract across sources WITHOUT letting a drifted wrong-entity source contribute.
+    KO-ONLY pair (a Korean-local entity with no English article anywhere — Wikidata + ko.wikipedia):
+    neither side has an EN name to link on, so link by the KOREAN name instead — exact normalized
+    equality only (stricter than the EN containment rule; a one-sided-EN pair still never links)."""
     x, y = _en_norm(a.get("name_en_official")), _en_norm(b.get("name_en_official"))
-    return bool(x and y) and (x == y or x in y or y in x)
+    if x and y:
+        return x == y or x in y or y in x
+    if not x and not y:
+        ka = (a.get("name_ko") or "").casefold().replace(" ", "")
+        kb = (b.get("name_ko") or "").casefold().replace(" ", "")
+        return bool(ka) and ka == kb
+    return False
 
 
 async def ingest_one(

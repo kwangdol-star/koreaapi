@@ -167,6 +167,7 @@ async def refresh(*, db_path: str | None = None, max_n: int = 400,
     else:
         todo = [eid for _age, eid in stale[:max_n]]
     aliases: dict[str, str] = {}
+    ko_aliases: dict[str, str] = {}  # stored 한국어명 -> the ko.wikipedia cross-check for ko-only entities
     qids: dict[str, str] = {}
     floors: dict[str, int] = {}  # don't DOWNGRADE: a cross-verified record refreshes only if ≥2 sources
     for eid in todo:               # answer this cycle (partial-outage guard); single-source stays at 1.
@@ -174,12 +175,15 @@ async def refresh(*, db_path: str | None = None, max_n: int = 400,
         if r is None:
             continue
         aliases[eid] = r.name.en_official or r.name.ko or eid.split(":", 1)[-1]
+        if r.name.ko:
+            ko_aliases[eid] = r.name.ko
         floors[eid] = 2 if getattr(r.provenance, "agreeing_sources", 0) >= 2 else 1
         q = external_ids(r.provenance.sources).get("wikidata")
         if q:
             qids[eid] = q  # memoized Q-id -> fetch the exact item, no search drift, one call saved
     if sources is None:  # injectable for offline tests; live = the discover-path source list
-        sources = [WikidataSource(aliases=aliases, qids=qids), WikipediaSource(aliases=aliases),
+        sources = [WikidataSource(aliases=aliases, qids=qids),
+                   WikipediaSource(aliases=aliases, ko_aliases=ko_aliases),
                    MusicBrainzSource(aliases=aliases), NominatimSource(aliases=aliases),
                    TMDBSource(aliases=aliases), TourAPISource(aliases=aliases),
                    KopisSource(aliases=aliases), KHeritageSource(aliases=aliases),
@@ -302,7 +306,7 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
         except Exception as e:  # surface WHY (endpoint error) vs an honest 0-results — for tuning
             out[v] = {"candidates": 0, "ingested": [], "error": f"{type(e).__name__}: {e}"[:120]}
             continue
-        todo: list[tuple[str, str, str]] = []
+        todo: list[tuple[str, str, str, str | None]] = []
         seen: set[str] = set()
         for c in cands:
             eid = f"{v}:{c['slug']}"
@@ -311,16 +315,20 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
                 continue
             seen.add(c["slug"])
             seen.add(c["qid"])
-            todo.append((eid, c["en"], c["qid"]))
+            todo.append((eid, c["en"], c["qid"], c.get("ko")))
         todo = todo[:max_new]
-        aliases = {eid: en for eid, en, _q in todo}
-        qids = {eid: q for eid, _en, q in todo}
-        sources = [WikidataSource(aliases=aliases, qids=qids), WikipediaSource(aliases=aliases),
+        aliases = {eid: en for eid, en, _q, _ko in todo if en}
+        qids = {eid: q for eid, _en, q, _ko in todo}
+        # the candidate's KOREAN label -> the ko.wikipedia cross-check: a ko-only discovered entity
+        # (온천·향토 items from the geo classes) can still clear the single-source cap.
+        ko_aliases = {eid: ko for eid, _en, _q, ko in todo if ko}
+        sources = [WikidataSource(aliases=aliases, qids=qids),
+                   WikipediaSource(aliases=aliases, ko_aliases=ko_aliases),
                    MusicBrainzSource(aliases=aliases), NominatimSource(aliases=aliases),
                    TMDBSource(aliases=aliases), TourAPISource(aliases=aliases), KopisSource(aliases=aliases),
                    KHeritageSource(aliases=aliases), OpenLibrarySource(aliases=aliases)]
         ingested: list[str] = []
-        for eid, _en, _q in todo:
+        for eid, _en, _q, _ko in todo:
             rec = await ingest_one("facts", eid, sources, db_path=db_path)
             if rec is not None:
                 ingested.append(eid)

@@ -14,6 +14,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
+from ..roster import SEARCH_KO
 from .wikidata import _http_get_json  # shared retry+backoff GET (rate-limit resilient)
 
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
@@ -748,16 +749,55 @@ def parse_ko_extract(raw: dict) -> str | None:
     return _clean_extract(pages[0].get("extract"))
 
 
+def parse_ko_page(raw: dict, kind: str) -> dict:
+    """Pure: a ko.wikipedia query response (Korean title + optional EN langlink + lead extract) -> our
+    payload. The KO-first mirror of parse_page, used when an entity has NO English article: the Korean
+    Wikipedia article is an INDEPENDENT source agreeing on the 한국어명 — real cross-verification for
+    Korean-local entities (온천·향토주·공연장) instead of a permanent single-source cap."""
+    pages = raw.get("query", {}).get("pages", [])
+    if not pages:
+        raise ValueError("no page in ko.wikipedia response")
+    page = pages[0]
+    if page.get("missing"):
+        raise ValueError("ko.wikipedia page missing")
+    ko = page.get("title")
+    if not ko:
+        raise ValueError("no title in ko.wikipedia response")
+    en = None
+    for ll in page.get("langlinks", []):
+        if ll.get("lang") == "en":
+            en = ll.get("title")
+            break
+    payload = {
+        "name_ko": ko,
+        "name_en_official": en,          # usually None — that's the point (no EN article)
+        "name_romanized": None,
+        "name_en_source": "official" if en else None,
+        "name_en_confidence": "high" if en else "low",
+        "abstract_ko": _clean_extract(page.get("extract")),
+        "summary_en": f"{en or ko} - {kind} (Korean Wikipedia).",
+        "summary_ko": f"{ko} - {kind} (한국어 위키백과).",
+    }
+    return payload
+
+
 class WikipediaSource:
     name = "Wikipedia"
     is_fallback = False
 
-    def __init__(self, aliases: dict[str, str] | None = None) -> None:
+    def __init__(self, aliases: dict[str, str] | None = None,
+                 ko_aliases: dict[str, str] | None = None) -> None:
         # entity_id -> article title for ids outside the curated map (e.g. swept labelmates).
         self._aliases: dict[str, str] = aliases or {}
+        # entity_id -> KOREAN title for the ko.wikipedia fallback (discovered/refreshed ko-only
+        # entities thread their stored 한국어명 through here; roster seeds ride SEARCH_KO).
+        self._ko_aliases: dict[str, str] = ko_aliases or {}
 
     def _title(self, entity_id: str) -> str:
         return _TITLES.get(entity_id) or self._aliases.get(entity_id) or entity_id.split(":", 1)[-1].strip()
+
+    def _ko_term(self, entity_id: str) -> str | None:
+        return SEARCH_KO.get(entity_id) or self._ko_aliases.get(entity_id)
 
     def _url(self, title: str) -> str:
         query = urllib.parse.urlencode(
@@ -796,10 +836,41 @@ class WikipediaSource:
     def _http_get(self, url: str) -> dict:
         return _http_get_json(url, _UA)
 
+    def _ko_page_url(self, ko_title: str) -> str:
+        query = urllib.parse.urlencode(
+            {
+                "action": "query",
+                "titles": ko_title,
+                "prop": "langlinks|extracts",
+                "lllang": "en",              # the mirror direction: ko article -> its EN langlink
+                "lllimit": "1",
+                "exintro": "1",
+                "explaintext": "1",
+                "exsentences": "4",
+                "redirects": "1",
+                "format": "json",
+                "formatversion": "2",
+            }
+        )
+        return f"{KO_WIKIPEDIA_API}?{query}"
+
     async def fetch(self, entity_id: str, kind: str) -> dict:
         title = self._title(entity_id)
-        raw = await asyncio.to_thread(self._http_get, self._url(title))
-        payload = parse_page(raw, entity_id, kind)
+        try:
+            raw = await asyncio.to_thread(self._http_get, self._url(title))
+            payload = parse_page(raw, entity_id, kind)
+        except ValueError:
+            # No English article. Korean-local entities (온천·향토주·공연장 …) live on ko.wikipedia —
+            # an INDEPENDENT source agreeing on the 한국어명. Without this they were capped at
+            # single-source forever; with it Wikidata + ko.wikipedia cross-verify the Korean name.
+            ko_term = self._ko_term(entity_id)
+            if not ko_term:
+                raise
+            ko_raw = await asyncio.to_thread(self._http_get, self._ko_page_url(ko_term))
+            ko_payload = parse_ko_page(ko_raw, kind)
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            return {"payload": ko_payload,
+                    "citation": f"Wikipedia(ko) {ko_payload['name_ko']} {ts}"}
         # The KOREAN lead (the langlinked ko-article's intro) -> abstract_ko: real Korean prose for the
         # /ko/ pages (Naver's crawl surface) instead of an English abstract with an apology. Best-effort:
         # any failure just ships the payload without it (supplementary, never fails the cross-check).
