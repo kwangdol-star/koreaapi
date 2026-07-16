@@ -84,6 +84,17 @@ def test_pages_workflow_self_heals_and_gates_at_corpus_scale():
     assert "verifysite _site 1000" in wf                      # 1000 > the ~658-entity roster
 
 
+def test_every_documented_dormant_key_is_wired_in_the_workflows():
+    # 'Activation is adding a repo secret' (OPERATIONS) is only true if the workflow maps the secret
+    # into env — KOPIS/KHERITAGE once weren't. Pin every documented rail key into BOTH workflows.
+    keys = ("TMDB_API_KEY", "TOURAPI_KEY", "KOSIS_API_KEY", "KOPIS_API_KEY",
+            "KHERITAGE_API_KEY", "YOUTUBE_API_KEY", "ANTHROPIC_API_KEY")
+    for wf in ("collect.yml", "pages.yml"):
+        text = open(f"/home/user/koreaapi-build/.github/workflows/{wf}", encoding="utf-8").read()
+        missing = [k for k in keys if f"secrets.{k}" not in text]
+        assert not missing, f"{wf} missing env mapping for: {missing}"
+
+
 def test_collect_workflow_self_heals_before_collecting():
     wf = open("/home/user/koreaapi-build/.github/workflows/collect.yml", encoding="utf-8").read()
     assert "koreaapi.admin bootstrap" in wf

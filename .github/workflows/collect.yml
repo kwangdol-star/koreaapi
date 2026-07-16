@@ -48,6 +48,9 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }} # official-channel release snapshots (best-effort; skipped if unset)
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }} # 3rd-source cross-check for drama/film/animation (skipped if unset)
           TOURAPI_KEY: ${{ secrets.TOURAPI_KEY }} # KTO official place-authority source + badge (skipped if unset)
+          KOPIS_API_KEY: ${{ secrets.KOPIS_API_KEY }} # 공연예술통합전산망 theater source (skipped if unset)
+          KHERITAGE_API_KEY: ${{ secrets.KHERITAGE_API_KEY }} # 국가유산청 heritage source (skipped if unset)
+          KHERITAGE_URL: ${{ secrets.KHERITAGE_URL }} # optional endpoint override (the agency renamed in 2024)
           KOSIS_API_KEY: ${{ secrets.KOSIS_API_KEY }} # 국가통계포털 region population attrs (skipped if unset)
         run: |
           # SELF-HEAL first: if the cache was evicted (store reset to ~roster size), re-seed the
