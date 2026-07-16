@@ -32,7 +32,7 @@ def test_bootstrap_heals_a_reset_store_from_the_live_site(tmp_path, monkeypatch)
                           _record("place:gyeongbokgung", "경복궁", "Gyeongbokgung")]).encode()
     monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=60: io.BytesIO(payload))
 
-    out = asyncio.run(admin.bootstrap(db_path=db, min_entities=1000))
+    out = asyncio.run(admin.bootstrap(db_path=db, min_entities=2))  # live corpus must itself be >= threshold
     assert out["healed"] is True and out["restored"] == 2 and out["facts_before"] == 0
     rec = asyncio.run(store.latest("artist:bts", "facts", db_path=db))
     assert rec.name.ko == "방탄소년단"
@@ -63,6 +63,25 @@ def test_bootstrap_cold_start_reports_and_continues(tmp_path, monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", down)
     out = asyncio.run(admin.bootstrap(db_path=db, min_entities=1000))
     assert out["healed"] is False and "continuing cold" in out["note"]   # a first-ever run stays calm
+
+
+def test_bootstrap_refuses_a_truncated_live_corpus(tmp_path, monkeypatch):
+    # A truncated live latest.json (e.g. after a bad deploy) must not be echoed back in on every tick.
+    monkeypatch.chdir(tmp_path)
+    db = tempfile.mktemp(suffix=".db")
+    payload = json.dumps([_record("artist:bts", "방탄소년단", "BTS")]).encode()   # 1 << threshold
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=60: io.BytesIO(payload))
+    out = asyncio.run(admin.bootstrap(db_path=db, min_entities=1000))
+    assert out["healed"] is False and "refusing to heal" in out["note"]
+
+
+def test_pages_workflow_self_heals_and_gates_at_corpus_scale():
+    # The cache-eviction disaster: without bootstrap, a pages build on a fresh DB would be roster-only,
+    # PASS a 100-entity gate, and OVERWRITE the live /latest.json — destroying bootstrap's own recovery
+    # source. pages must heal first AND gate above roster size.
+    wf = open("/home/user/koreaapi-build/.github/workflows/pages.yml", encoding="utf-8").read()
+    assert "koreaapi.admin bootstrap" in wf and wf.index("admin bootstrap") < wf.index("admin pull")
+    assert "verifysite _site 1000" in wf                      # 1000 > the ~658-entity roster
 
 
 def test_collect_workflow_self_heals_before_collecting():

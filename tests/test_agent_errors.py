@@ -30,6 +30,8 @@ def test_cache_headers_for_agent_fleets():
     assert c.get("/v1/certified").headers["cache-control"] == "public, max-age=300"
     assert c.get("/healthz").headers["cache-control"] == "no-store"
     assert c.get("/v1/does-not-exist").headers.get("cache-control") is None  # errors are not cacheable
+    assert c.get("/v1/buy-options/artist:bts").headers["cache-control"] == "no-store"  # buy-INTENT signal
+
 
 
 if __name__ == "__main__":

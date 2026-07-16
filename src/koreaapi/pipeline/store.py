@@ -244,16 +244,27 @@ async def entities(*, db_path: str | None = None) -> list[dict]:
     return await asyncio.to_thread(_do)
 
 
-async def recent(limit: int = 200, *, db_path: str | None = None) -> list[Record]:
-    """Return the most recent snapshots across all entities (newest first)."""
+async def recent(limit: int = 200, *, kinds: tuple[str, ...] | None = None,
+                 db_path: str | None = None) -> list[Record]:
+    """Return the most recent snapshots across all entities (newest first). `kinds` filters IN SQL —
+    a caller that wants rare kinds (calendar events among thousands of facts snapshots) must not have
+    them pushed out of a fixed-size window by the dominant kind."""
 
     def _do() -> list[str]:
         conn = _connect(db_path)
         try:
-            rows = conn.execute(
-                "SELECT record_json FROM snapshots ORDER BY snapshot_at DESC, id DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
+            if kinds:
+                marks = ",".join("?" for _ in kinds)
+                rows = conn.execute(
+                    f"SELECT record_json FROM snapshots WHERE kind IN ({marks}) "
+                    "ORDER BY snapshot_at DESC, id DESC LIMIT ?",
+                    (*kinds, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT record_json FROM snapshots ORDER BY snapshot_at DESC, id DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
             return [r[0] for r in rows]
         finally:
             conn.close()

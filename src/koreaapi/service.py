@@ -105,11 +105,11 @@ async def kculture_calendar(window_days: int = 30, *, db_path: str | None = None
     await _log("query", "kculture_calendar", db_path)
     window = max(1, int(window_days))
     horizon = datetime.now(timezone.utc) - timedelta(days=window)
-    recs = await store.recent(500, db_path=db_path)
+    # kind-filtered IN SQL: calendar kinds are appended once daily while facts land by the hundreds
+    # per tick — an unfiltered recent(500) window would push them out within hours.
+    recs = await store.recent(500, kinds=_CALENDAR_KINDS, db_path=db_path)
     items = []
     for r in recs:
-        if r.kind not in _CALENDAR_KINDS:
-            continue
         at = r.snapshot_at if r.snapshot_at.tzinfo else r.snapshot_at.replace(tzinfo=timezone.utc)
         if at >= horizon:
             items.append(_item(r))

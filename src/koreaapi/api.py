@@ -95,7 +95,7 @@ def openapi_spec() -> dict:
                 [_pp("name", "HYBE")]),
             "/v1/calendar": _op(
                 "Recent verified K-culture events", "Comebacks, releases, concerts.",
-                [_qp("window_days", "integer", "advisory window (Phase 1)")]),
+                [_qp("window_days", "integer", "days back to include (a real snapshot-date filter)")]),
             "/v1/history/{entity_id}": _op(
                 "Append-only verified timeline + change events (the time moat)",
                 "First / last verified, snapshot count, and the change events (소속사 A→B, renames) a latecomer "
@@ -375,7 +375,8 @@ class _CacheHeaders:
     absorb that. Verified facts change on a daily cadence -> a short public max-age is safe; the
     metered / billing / health paths must never be cached."""
 
-    _NO_STORE = ("/v1/korea-rising", "/billing", "/healthz")
+    _NO_STORE = ("/v1/korea-rising", "/billing", "/healthz",
+                 "/v1/buy-options")  # buy-INTENT is the premium demand signal — never cache-swallow it
 
     def __init__(self, app):  # pure ASGI wrapper (no BaseHTTPMiddleware overhead)
         self.app = app

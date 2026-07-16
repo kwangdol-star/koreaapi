@@ -714,6 +714,8 @@ def parse_page(raw: dict, entity_id: str, kind: str) -> dict:
     page = pages[0]
     if page.get("missing"):
         raise ValueError("Wikipedia page missing")
+    if "disambiguation" in (page.get("pageprops") or {}):
+        raise ValueError("Wikipedia page is a disambiguation page")  # a list of homonyms is not the entity
     en = page.get("title")
     ko = None
     for ll in page.get("langlinks", []):
@@ -744,8 +746,8 @@ def parse_ko_extract(raw: dict) -> str | None:
     """Pure: the Korean-article intro extract from a ko.wikipedia query response (None when absent/
     missing — the Korean abstract is supplementary, a miss never fails the fetch)."""
     pages = raw.get("query", {}).get("pages", [])
-    if not pages or pages[0].get("missing"):
-        return None
+    if not pages or pages[0].get("missing") or "disambiguation" in (pages[0].get("pageprops") or {}):
+        return None  # a disambiguation list must never ship as an entity's Korean lead
     return _clean_extract(pages[0].get("extract"))
 
 
@@ -760,6 +762,10 @@ def parse_ko_page(raw: dict, kind: str) -> dict:
     page = pages[0]
     if page.get("missing"):
         raise ValueError("ko.wikipedia page missing")
+    if "disambiguation" in (page.get("pageprops") or {}):
+        # a bare Korean title often lands on a disambiguation list ("...은 다음을 가리킨다") — equality
+        # with our expected name would be UNEARNED agreement + a junk 설명; reject -> a guarded miss.
+        raise ValueError("ko.wikipedia page is a disambiguation page")
     ko = page.get("title")
     if not ko:
         raise ValueError("no title in ko.wikipedia response")
@@ -772,8 +778,8 @@ def parse_ko_page(raw: dict, kind: str) -> dict:
         "name_ko": ko,
         "name_en_official": en,          # usually None — that's the point (no EN article)
         "name_romanized": None,
-        "name_en_source": "official" if en else None,
-        "name_en_confidence": "high" if en else "low",
+        "name_en_source": "official" if en else "llm",  # "llm" like parse_page: None is not a legal
+        "name_en_confidence": "high" if en else "low",  # TranslationSource and would crash _build_name
         "abstract_ko": _clean_extract(page.get("extract")),
         "summary_en": f"{en or ko} - {kind} (Korean Wikipedia).",
         "summary_ko": f"{ko} - {kind} (한국어 위키백과).",
@@ -804,7 +810,7 @@ class WikipediaSource:
             {
                 "action": "query",
                 "titles": title,
-                "prop": "langlinks|extracts",  # +extracts: the lead-paragraph description (substance)
+                "prop": "langlinks|extracts|pageprops",  # +pageprops: detect disambiguation pages
                 "lllang": "ko",
                 "lllimit": "1",
                 "exintro": "1",        # only the article's intro section
@@ -822,7 +828,7 @@ class WikipediaSource:
             {
                 "action": "query",
                 "titles": ko_title,
-                "prop": "extracts",
+                "prop": "extracts|pageprops",
                 "exintro": "1",
                 "explaintext": "1",
                 "exsentences": "4",
@@ -841,7 +847,7 @@ class WikipediaSource:
             {
                 "action": "query",
                 "titles": ko_title,
-                "prop": "langlinks|extracts",
+                "prop": "langlinks|extracts|pageprops",
                 "lllang": "en",              # the mirror direction: ko article -> its EN langlink
                 "lllimit": "1",
                 "exintro": "1",

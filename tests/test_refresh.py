@@ -74,18 +74,18 @@ def test_refresh_threshold_is_half_ttl_by_default():
     assert out["attempted"] == ["place:aging"]                    # refresh-BEFORE-stale, not after
 
 
-def test_refresh_stride_spreads_the_budget_past_zombies():
-    # A permanently-failing entity (deleted/renamed upstream) must not monopolize the head slot every
-    # run and starve the pool behind it: the budget is STRIDE-sampled across all eligible entities.
+def test_refresh_budget_spreads_evenly_past_zombies():
+    # A permanently-failing entity must not monopolize the head every run: the budget takes exactly
+    # max_n picks spread EVENLY across the pool (a zombie costs one slot; no half-wasted budgets for
+    # pools just above max_n).
     db = tempfile.mktemp(suffix=".db")
-    _add(db, "place:zombie", "좀비", "Zombie Oldest", age_days=30)
-    _add(db, "temple:mid", "중간", "Mid", age_days=20)
-    _add(db, "beach:young", "영", "Young Eligible", age_days=10)
-    p = {"name_ko": "영", "name_en_official": "Young Eligible", "name_en_source": "official", "summary_en": "x"}
+    for i, age in enumerate([50, 40, 30, 20, 10]):
+        _add(db, f"place:p{i}", f"장소{i}", f"Spot {i}", age_days=age)
+    p = {"name_ko": "장소", "name_en_official": "Spot", "name_en_source": "official", "summary_en": "x"}
     out = asyncio.run(admin.refresh(db_path=db, max_n=2,
                                     sources=[MockSource("Wikidata", p), MockSource("Wikipedia", p)]))
-    # stride ceil(3/2)=2 -> indexes 0 and 2: the zombie costs ONE slot, but the tail still gets served
-    assert out["attempted"] == ["place:zombie", "beach:young"]
+    assert out["attempted"] == ["place:p0", "place:p2"]   # indexes {0, 5//2}: oldest + a mid-pool pick
+    assert len(out["attempted"]) == 2                      # the FULL budget is used (no stride waste)
 
 
 def test_refresh_never_downgrades_a_cross_verified_record(monkeypatch):
@@ -101,10 +101,11 @@ def test_refresh_never_downgrades_a_cross_verified_record(monkeypatch):
     assert latest.provenance.agreeing_sources == 2                     # tier preserved; retried next run
 
 
-def test_ingest_carries_verified_geo_forward_when_the_coord_source_fails():
-    # Wikidata is the only geo writer: if it fails a cycle but others succeed, the previous verified
-    # P625 coords ride forward — the entity must not flap out of nearby/clusters until the next
-    # healthy refresh. The carried value is the same verified fact, never a guess.
+def test_geo_carry_forward_on_outage_but_respects_removal():
+    # Wikidata is the only geo writer. If it did NOT answer this cycle, the previous verified P625
+    # rides forward (no flapping out of nearby/clusters). But if Wikidata ANSWERED and no longer
+    # asserts a coordinate, the removal is respected — a corrected wrong coordinate must not become
+    # immortal via carry-forward.
     from koreaapi.pipeline.ingest import ingest_one
     db = tempfile.mktemp(suffix=".db")
     p1 = {"name_ko": "궁", "name_en_official": "Palace", "name_en_source": "official", "summary_en": "x",
@@ -112,9 +113,25 @@ def test_ingest_carries_verified_geo_forward_when_the_coord_source_fails():
     asyncio.run(ingest_one("facts", "place:p", [MockSource("Wikidata", p1), MockSource("Wikipedia", p1)],
                            db_path=db))
     p2 = {"name_ko": "궁", "name_en_official": "Palace", "name_en_source": "official", "summary_en": "x"}
-    rec = asyncio.run(ingest_one("facts", "place:p", [MockSource("Wikidata", p2), MockSource("Wikipedia", p2)],
-                                 db_path=db))
-    assert rec.data["geo"] == {"lat": 37.5796, "lon": 126.977}         # carried forward, not lost
+    outage = asyncio.run(ingest_one("facts", "place:p",
+                                    [MockSource("Wikipedia", p2), MockSource("KTO", p2)], db_path=db))
+    assert outage.data["geo"] == {"lat": 37.5796, "lon": 126.977}      # Wikidata absent -> carried
+    removed = asyncio.run(ingest_one("facts", "place:p",
+                                     [MockSource("Wikidata", p2), MockSource("Wikipedia", p2)], db_path=db))
+    assert "geo" not in removed.data                                    # Wikidata answered w/o P625 -> respected
+
+
+def test_floor_counts_agreement_not_answers():
+    # The anti-downgrade floor must count AGREEING sources: two answering-but-non-agreeing payloads
+    # (e.g. the ko.wikipedia fallback vs an EN-named record) must not demote a cross-verified record.
+    from koreaapi.pipeline.ingest import ingest_one
+    db = tempfile.mktemp(suffix=".db")
+    wd = {"name_ko": "국립현대미술관", "name_en_official": "MMCA", "name_en_source": "official", "summary_en": "x"}
+    ko_only = {"name_ko": "국립현대미술관", "name_en_official": None, "summary_en": "x"}
+    rec = asyncio.run(ingest_one("facts", "museum:mmca",
+                                 [MockSource("Wikidata", wd), MockSource("Wikipedia", ko_only)],
+                                 db_path=db, min_sources=2))
+    assert rec is None                                                  # 2 answered, only 1 agreed -> skip
 
 
 def test_status_json_reports_the_stale_pool(tmp_path):

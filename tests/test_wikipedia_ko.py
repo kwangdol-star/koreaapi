@@ -81,5 +81,18 @@ def test_ko_only_entity_becomes_cross_verified():
     assert rec.data["abstract_ko"].startswith("유성온천은")        # the Korean lead rides along
 
 
+def test_disambiguation_pages_are_rejected_everywhere():
+    # A bare Korean title often lands on a disambiguation list ("...은 다음을 가리킨다"): equality with
+    # our expected name would be UNEARNED agreement and a junk 설명. All three parsers reject it.
+    from koreaapi.sources.wikipedia import parse_ko_extract, parse_page
+    dis = {"query": {"pages": [{"title": "유성온천", "pageprops": {"disambiguation": ""},
+                                "extract": "유성온천은 다음을 가리킨다.", "langlinks": []}]}}
+    with pytest.raises(ValueError, match="disambiguation"):
+        parse_ko_page(dis, "facts")
+    with pytest.raises(ValueError, match="disambiguation"):
+        parse_page(dis, "hotspring:yuseong", "facts")
+    assert parse_ko_extract(dis) is None
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

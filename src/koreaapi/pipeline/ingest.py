@@ -105,16 +105,20 @@ async def ingest_one(
         used_fallback.append(bool(getattr(src, "is_fallback", False)))
         srcnames.append(getattr(src, "name", "?"))  # for name-authority tie-break below
 
-    if len(payloads) < max(min_sources, 1):
-        # nothing usable this cycle — or (refresh) fewer sources than the caller's floor: during a
-        # partial outage a re-ingest would DOWNGRADE a cross-verified record to single-source (and drop
-        # source-specific fields); appending nothing keeps the richer snapshot and retries next run.
-        return None
+    if not payloads:
+        return None  # nothing usable this cycle
 
     # cross-verify on the canonical FACTS (bilingual name), not the prose summary, so two
     # independent sources that agree on who this is count as agreement (raising Skill Score).
     keys = [_verify_key(p) for p in payloads]
     modal_key, n_agree = Counter(keys).most_common(1)[0]
+
+    if n_agree < max(min_sources, 1):
+        # The caller's anti-downgrade floor counts AGREEING sources, not merely answering ones: a
+        # non-agreeing extra payload (e.g. the ko.wikipedia fallback when the record carries an EN
+        # name) must not smuggle a single-agreement snapshot past the floor and demote a
+        # cross-verified record. Appending nothing keeps the richer snapshot; retried next run.
+        return None
 
     # STRUCTURED BASE: build the verified record on the payload that carries structured facts (agency /
     # date / people / attrs) — that's Wikidata. It MUST be the SAME WORK as the modal (name-vote) winner
@@ -192,10 +196,12 @@ async def ingest_one(
     # literally in the abstract, so a hallucination can't enter. No key / failure / nothing -> no change.
     prev = await store.latest(entity_id, kind, db_path=db_path)
     # Coordinates are stable verified facts (P625) and Wikidata is their ONLY writer: if the coord-
-    # bearing source failed this cycle but others succeeded, carry the previous verified geo forward —
+    # bearing source did NOT answer this cycle but others did, carry the previous verified geo forward —
     # otherwise the entity flaps out of nearby / walkable clusters / map-ready items until the next
-    # healthy refresh. Carried value is the same verified P625, never a guess.
-    if not chosen.get("geo") and prev is not None and prev.data.get("geo"):
+    # healthy refresh. But when Wikidata DID answer and no longer asserts a coordinate, respect the
+    # removal (a corrected wrong coordinate must not become immortal via carry-forward).
+    if (not chosen.get("geo") and prev is not None and prev.data.get("geo")
+            and "Wikidata" not in srcnames):
         chosen["geo"] = prev.data["geo"]
 
     if chosen.get("abstract_en"):

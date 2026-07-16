@@ -39,6 +39,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
@@ -122,7 +123,10 @@ async def pull(entity_ids: list[str] | None = None, *, db_path: str | None = Non
         if i:
             await asyncio.sleep(0.2)  # pace the ~100-entity batch so Wikimedia doesn't throttle the
             #                           tail (dramas/films sort last); _http_get also retries on 429
-        rec = await ingest_one("facts", entity_id, sources, db_path=db_path)
+        try:
+            rec = await ingest_one("facts", entity_id, sources, db_path=db_path)
+        except Exception:  # noqa: BLE001 — ONE bad payload must never abort the whole command (and with
+            rec = None     # bash -e, the rest of the collect tick) — the entity just counts as failed.
         (ingested if rec is not None else failed).append(entity_id)
     return {"requested": ids, "ingested": ingested, "failed": failed}
 
@@ -162,8 +166,10 @@ async def refresh(*, db_path: str | None = None, max_n: int = 400,
     # while capping any zombie's cost at one slot per run — stateless (the append-only store has no
     # failure counter to persist).
     if len(stale) > max_n > 0:
-        stride = -(-len(stale) // max_n)  # ceil
-        todo = [eid for _age, eid in stale[::stride]][:max_n]
+        # exactly max_n picks spread EVENLY across the pool (a plain stride slice yields only
+        # ~len/ceil(len/max_n) picks — half the budget wasted for pools just above max_n)
+        idxs = sorted({(i * len(stale)) // max_n for i in range(max_n)})
+        todo = [stale[i][1] for i in idxs]
     else:
         todo = [eid for _age, eid in stale[:max_n]]
     aliases: dict[str, str] = {}
@@ -175,7 +181,10 @@ async def refresh(*, db_path: str | None = None, max_n: int = 400,
         if r is None:
             continue
         aliases[eid] = r.name.en_official or r.name.ko or eid.split(":", 1)[-1]
-        if r.name.ko:
+        if r.name.ko and not r.name.en_official:
+            # thread the ko.wikipedia fallback ONLY for records with no EN name: for an EN-named
+            # record the ko-only payload can never agree (ko| vs ko|en) — it would just be a third
+            # answering-but-non-agreeing source dragging the agree/total score ratio every refresh.
             ko_aliases[eid] = r.name.ko
         floors[eid] = 2 if getattr(r.provenance, "agreeing_sources", 0) >= 2 else 1
         q = external_ids(r.provenance.sources).get("wikidata")
@@ -193,8 +202,11 @@ async def refresh(*, db_path: str | None = None, max_n: int = 400,
     for i, eid in enumerate(todo):
         if i:
             await asyncio.sleep(0.2)  # pace like pull() so Wikimedia never throttles the batch tail
-        rec = await ingest_one("facts", eid, sources, db_path=db_path,
-                               min_sources=floors.get(eid, 1))
+        try:
+            rec = await ingest_one("facts", eid, sources, db_path=db_path,
+                                   min_sources=floors.get(eid, 1))
+        except Exception:  # noqa: BLE001 — per-entity isolation: a crash here would stall the freshness
+            rec = None     # engine at the head of the pool forever (the entity stays oldest + retried).
         (refreshed if rec is not None else failed).append(eid)
     return {"stale": len(stale), "attempted": todo, "refreshed": refreshed, "failed": failed,
             "threshold_seconds": threshold}
@@ -329,7 +341,10 @@ async def discover(verticals: list[str] | None = None, *, db_path: str | None = 
                    KHeritageSource(aliases=aliases), OpenLibrarySource(aliases=aliases)]
         ingested: list[str] = []
         for eid, _en, _q, _ko in todo:
-            rec = await ingest_one("facts", eid, sources, db_path=db_path)
+            try:
+                rec = await ingest_one("facts", eid, sources, db_path=db_path)
+            except Exception:  # noqa: BLE001 — per-entity isolation (same rationale as pull/refresh)
+                rec = None
             if rec is not None:
                 ingested.append(eid)
             have.add(eid)
@@ -438,8 +453,31 @@ async def bootstrap(*, db_path: str | None = None, min_entities: int = 1000,
             f.write(raw)
     except Exception as e:  # noqa: BLE001 — cold-start (no live site yet) is a normal, reported path
         return {"healed": False, "facts": n_facts, "note": f"live fetch failed ({e}) — continuing cold"}
+    try:
+        n_live = len(json.loads(raw))
+    except Exception:
+        return {"healed": False, "facts": n_facts, "note": "live latest.json unparseable — continuing cold"}
+    if n_live < min_entities:
+        # a truncated live corpus (e.g. after a bad deploy) must not be echoed back in on every tick —
+        # and re-healing from it would only duplicate rows without restoring anything.
+        return {"healed": False, "facts": n_facts,
+                "note": f"live corpus has only {n_live} record(s) (< {min_entities}) — refusing to heal from it"}
     n = await load_latest(db_path=db_path)
     return {"healed": n > 0, "facts_before": n_facts, "restored": n, "source": src}
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401
+        raise urllib.error.HTTPError(req.full_url, code, f"redirect to {newurl} refused "
+                                     "(the certification proof must live on the official domain itself)",
+                                     headers, fp)
+
+
+def _fetch_no_redirect(url: str) -> str:
+    opener = urllib.request.build_opener(_NoRedirect)
+    req = urllib.request.Request(url, headers={"User-Agent": "KoreaAPI-certify (domain-control check)"})
+    with opener.open(req, timeout=30) as resp:  # noqa: S310 — https, host from the P856-verified record
+        return resp.read().decode("utf-8", "replace")
 
 
 async def certify_claim(entity_id: str, domain: str, org: str | None = None, *,
@@ -468,9 +506,7 @@ async def certify_claim(entity_id: str, domain: str, org: str | None = None, *,
                 "challenge": certify.claim_challenge(entity_id, certify.official_domain(on_record) or domain)}
     dom = certify.official_domain(domain)
     url = f"https://{dom}{certify.WELL_KNOWN}"
-    fetch = fetch or (lambda u: urllib.request.urlopen(  # noqa: S310 — https, host from the verified record
-        urllib.request.Request(u, headers={"User-Agent": "KoreaAPI-certify (domain-control check)"}),
-        timeout=30).read().decode("utf-8", "replace"))
+    fetch = fetch or _fetch_no_redirect  # redirects refused: the proof must live ON the official domain
     try:
         published = await asyncio.to_thread(fetch, url)
     except Exception as e:  # noqa: BLE001 — an unreachable proof URL is a normal, reportable outcome
@@ -483,9 +519,10 @@ async def certify_claim(entity_id: str, domain: str, org: str | None = None, *,
     entry = certify.claim_record(entity_id, org or dom, dom, today, url)
     return {"ok": True, "entity_id": entity_id, "entry": entry,
             "merge_as": f'    "{entity_id}": {entry!r},',
-            "note": ("proof verified (domain control + P856 equality). Merge the line into "
-                     "roster.CERTIFIED and deploy — the 🏅 badge, /certified.json and get_verified "
-                     "flip on the next build.")}
+            "note": ("proof verified (domain control + P856 equality). Before merging, eyeball the "
+                     "entity's P856 on LIVE Wikidata (it is single-source and editable — the one gate "
+                     "code cannot close). Merge the line into roster.CERTIFIED and deploy — the 🏅 "
+                     "badge, /certified.json and get_verified flip on the next build.")}
 
 
 _CHANGE_FIELDS = (("agency", "agency/network (소속사)"), ("name_ko", "Korean name"),

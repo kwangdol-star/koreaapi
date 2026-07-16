@@ -58,6 +58,10 @@ jobs:
         run: |
           uv sync
           uv pip install opentimestamps-client || echo "ots install skipped — Bitcoin anchoring stays dormant"  # enable OpenTimestamps (free, keyless) so admin export anchors the integrity chain-head
+          # SELF-HEAL first (same as collect): if the cache was evicted, re-seed from the LIVE
+          # /latest.json — otherwise this build would be roster-only and OVERWRITE the live corpus
+          # (destroying bootstrap's own recovery source). Belt: the verifysite gate below at 1000.
+          uv run python -m koreaapi.admin bootstrap
           uv run python -m koreaapi.admin pull
           uv run python -m koreaapi.admin sweep
           uv run python -m koreaapi.admin chart
@@ -105,7 +109,10 @@ jobs:
           # PRE-DEPLOY GATE: validate the assembled _site (index size, sitemap, search index, entity-page
           # counts, key files). A generator regression or a lost DB cache FAILS the build here, and
           # GitHub Pages keeps serving the previous good deployment — freeze beats broken.
-          uv run python -m koreaapi.admin verifysite _site 100
+          uv run python -m koreaapi.admin verifysite _site 1000
+          #   1000 > the ~658-entity roster: a cache-evicted, bootstrap-failed build CANNOT pass and
+          #   overwrite the live corpus with a skeleton. (True cold-start bring-up: run with a lower
+          #   threshold manually once, e.g. `verifysite _site 100`.)
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3 # publishes ./_site by default
