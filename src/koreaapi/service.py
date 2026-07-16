@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from math import asin, cos, radians, sin, sqrt
 
 from . import certify, integrity
@@ -99,18 +99,26 @@ async def artist_status(artist_id: str, *, db_path: str | None = None) -> dict:
 async def kculture_calendar(window_days: int = 30, *, db_path: str | None = None) -> dict:
     """Recent verified Korean culture events (comebacks, releases, concerts) with provenance.
 
-    Phase 1: `window_days` is advisory (echoed, not yet a hard filter) - date-window filtering
-    activates once upcoming-event dates are ingested; today this returns the recent verified
-    event snapshots so the response never silently claims a filter it doesn't apply.
-    """
+    `window_days` is a REAL filter: only event snapshots verified within the last N days are
+    returned (snapshot-dated — these are verified recent events; forward-looking 'upcoming' dates
+    activate when an upcoming-events source lands, and the note says which one you're getting)."""
     await _log("query", "kculture_calendar", db_path)
+    window = max(1, int(window_days))
+    horizon = datetime.now(timezone.utc) - timedelta(days=window)
     recs = await store.recent(500, db_path=db_path)
-    items = [_item(r) for r in recs if r.kind in _CALENDAR_KINDS]
+    items = []
+    for r in recs:
+        if r.kind not in _CALENDAR_KINDS:
+            continue
+        at = r.snapshot_at if r.snapshot_at.tzinfo else r.snapshot_at.replace(tzinfo=timezone.utc)
+        if at >= horizon:
+            items.append(_item(r))
     return {
-        "window_days": window_days,
+        "window_days": window,
         "count": len(items),
         "items": items,
-        "note": "Recent verified events; window_days is advisory at Phase 1 (not yet a hard filter).",
+        "note": (f"Verified event snapshots from the last {window} day(s) (snapshot-dated). "
+                 "Forward-looking dates activate when an upcoming-events source lands."),
         "license": LICENSE,
     }
 

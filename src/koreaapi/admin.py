@@ -1142,6 +1142,16 @@ def _report_section(title: str, col2: str, items: list[tuple[str, object]],
 async def report_html(db_path: str | None = None, out_path: str = "report.html") -> str:
     by_entity = await _load_by_entity(db_path=db_path)
     s = await stats(db_path=db_path)
+    # Inline search on the magnet page itself (same lazy index + per-kind links as /search.html) —
+    # built OUTSIDE the template because the page f-string double-braces CSS, which would mangle the JS.
+    search_box = ('<div style="margin:0 0 22px">'
+                  + _SEARCH_JS.replace("__BASE__", "")
+                              .replace("__ADIR__", "artist/").replace("__PDIR__", "person/")
+                              .replace("__LDIR__", "label/")
+                              .replace("__NOHIT__", "no verified entity matches")
+                              .replace("__PLACEHOLDER__",
+                                       "🔍 경복궁 · Gyeongbokgung · BTS · 봉준호 · 비빔밥 …")
+                  + "</div>")
     # Group the verified entities by vertical (facts/primary record), so the homepage reads as a
     # browsable catalogue (artists / dramas / films) instead of one undifferentiated table.
     groups: dict[str, list[tuple[str, object]]] = {ns: [] for ns in _VERTICALS}
@@ -1342,6 +1352,7 @@ async def report_html(db_path: str | None = None, out_path: str = "report.html")
  <a class="pill" href="./status.json">/status.json · health</a>
  <a class="pill" href="https://github.com/kwangdol-star/koreaapi">GitHub</a>
 </div>
+{search_box}
 <div class="chips">
  <span class="chip"><b>Cross-verified</b> · up to 3 independent sources agree</span>
  <span class="chip"><b>Provenance</b> + <b>Skill Score</b> on every record</span>
@@ -4273,6 +4284,12 @@ def _corpus_block(entity_id: str, r) -> str:
     abstract = (r.data.get("abstract_en") or "").strip()
     if abstract:
         lines.append(abstract)
+    abstract_ko = (r.data.get("abstract_ko") or "").strip()
+    if abstract_ko:  # the Korean lead — a Korean-consuming LLM slurping the corpus gets Korean substance
+        lines.append(f"설명: {abstract_ko}")
+    aliases = [a for a in (r.data.get("aliases") or []) if isinstance(a, str) and a.strip()]
+    if aliases:  # grounded alternate names -> the corpus block matches alias-phrased queries too
+        lines.append("Also known as: " + " · ".join(aliases[:6]))
     if r.summary_en:
         lines.append(f"Facts: {r.summary_en}")
     attrs = r.data.get("attrs") or {}

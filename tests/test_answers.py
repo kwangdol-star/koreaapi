@@ -223,6 +223,18 @@ def test_compare_routes_from_free_text(monkeypatch):
     assert answers.route("difference between bibimbap and bulgogi")["product"] == "compare"
 
 
+def test_person_credits_surfaces_collaborators():
+    db = tempfile.mktemp(suffix=".db")
+    for eid, ko, en in [("film:parasite", "기생충", "Parasite"),
+                        ("film:memoriesofmurder", "살인의 추억", "Memories of Murder")]:
+        _add(db, eid, ko, en, sources=["Wikidata Q1", "Wikipedia x"], agree=2, skill=1.0,
+             data={"directors": ["Bong Joon-ho"], "members": ["Song Kang-ho"]})
+    out = asyncio.run(answers.answer("person-credits", "Bong Joon-ho", db_path=db))
+    assert out["signal"] == "FOUND"
+    collabs = out["answer"]["collaborators"]                    # crawl<->agent parity for the person graph
+    assert [c["name"] for c in collabs] == ["Song Kang-ho"] and collabs[0]["shared_count"] == 2
+
+
 def test_catalog_is_bilingual():
     cat = answers.list_products()
     assert all(p.get("name_ko") and p.get("about_ko") for p in cat["products"])

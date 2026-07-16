@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from koreaapi import service
 from koreaapi.admin import seed
@@ -394,3 +394,22 @@ if __name__ == "__main__":
     test_korea_rising_ranks_high_skill_first()
     test_buy_options_verifies_official_and_returns_safe_channels()
     print("all service tests passed")
+
+
+def test_calendar_window_days_is_a_real_filter():
+    # window_days now actually filters (snapshot-dated); the note says exactly what you're getting.
+    db = tempfile.mktemp(suffix=".db")
+    now = datetime.now(timezone.utc)
+
+    def rel(eid, when):
+        asyncio.run(store.append_record(Record(
+            entity_id=eid, kind="release", name=Name(ko="이름", en_official=eid), snapshot_at=when,
+            summary_en="x", data={}, provenance=Provenance(
+                sources=["YouTube y"], fetched_at=when, skill_score=0.7, confidence="medium")), db_path=db))
+
+    rel("artist:recent", now - timedelta(days=3))
+    rel("artist:old", now - timedelta(days=60))
+    out = asyncio.run(service.kculture_calendar(30, db_path=db))
+    names = [i["name"]["en_official"] for i in out["items"]]
+    assert names == ["artist:recent"]                          # inside the window only
+    assert out["count"] == 1 and "last 30 day" in out["note"]

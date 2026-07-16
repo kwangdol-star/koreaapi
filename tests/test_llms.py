@@ -124,3 +124,17 @@ if __name__ == "__main__":
     import pytest
 
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_corpus_block_carries_korean_substance_and_aliases(tmp_path):
+    # A Korean-consuming LLM slurping the corpus gets the KOREAN lead + grounded aliases, not EN-only.
+    db = tempfile.mktemp(suffix=".db")
+    p = {"name_ko": "경복궁", "name_en_official": "Gyeongbokgung", "name_en_source": "official",
+         "abstract_en": "Gyeongbokgung is a royal palace.",
+         "abstract_ko": "경복궁은 조선 왕조의 법궁이다.", "aliases": ["Gyeongbok Palace", "경복"]}
+    asyncio.run(ingest_one("facts", "place:gyeongbokgung", _sources(p), db_path=db))
+    out = str(tmp_path / "llms-full.txt")
+    asyncio.run(admin.llms_full_txt(db_path=db, out_path=out))
+    text = open(out, encoding="utf-8").read()
+    assert "설명: 경복궁은 조선 왕조의 법궁이다." in text
+    assert "Also known as: Gyeongbok Palace · 경복" in text

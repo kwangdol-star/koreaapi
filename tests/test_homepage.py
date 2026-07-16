@@ -43,6 +43,16 @@ def test_homepage_groups_by_vertical_and_surfaces_people():
     assert '"@type": "WebSite"' in t and '"@type": "Organization"' in t
 
 
+def test_homepage_embeds_the_search_box():
+    # The magnet page itself is searchable (same lazy index + per-kind links as /search.html).
+    db = tempfile.mktemp(suffix=".db")
+    out = tempfile.mktemp(suffix=".html")
+    _seed(db)
+    asyncio.run(admin.report_html(db_path=db, out_path=out))
+    t = open(out, encoding="utf-8").read()
+    assert "id=q" in t and "search-index.json" in t and "'person/'" in t
+
+
 def test_homepage_caps_sections_to_a_preview():
     # The homepage is a PREVIEW: each vertical section caps its rows and links to the full hub, so
     # 5000+ entities don't stutter the browser (the complete crawlable list lives on /<vertical>.html).

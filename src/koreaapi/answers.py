@@ -204,7 +204,10 @@ async def _run_person_credits(query: str, db_path: str | None = None) -> dict:
                 action=f"{res.get('name')}: {count} verified credit(s).",
                 score=_clamp01(count / 8.0),
                 rationale=f"{count} credit(s) across verified works.",
-                answer={"name": res.get("name"), "count": count, "credits": res.get("credits", [])},
+                answer={"name": res.get("name"), "count": count, "credits": res.get("credits", []),
+                        # recurring co-workers (the differentiated 'who do they work with?' edge) —
+                        # already on the crawled person page + get_person; now on the product too
+                        "collaborators": res.get("collaborators", [])},
                 evidence={"citation": res.get("citation")} if res.get("citation") else {})
 
 
