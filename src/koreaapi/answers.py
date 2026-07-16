@@ -591,6 +591,13 @@ async def answer_all(query: str, *, db_path: str | None = None) -> dict:
         return {"error": "query required"}
     results: list[dict] = []
     for p in _PRODUCTS:
+        if p["id"] == "compare" and len([s for s in _VS.split(q) if s.strip()]) != 2:
+            # compare needs TWO entities; on a single-name batch query it can only ever answer
+            # NEED_TWO — say SKIPPED honestly instead of shipping guaranteed noise.
+            results.append(_env("compare", q, signal="SKIPPED",
+                                action="Needs two entities ('X vs Y') — call compare directly.",
+                                score=0.0, rationale="single-entity batch query.", answer={}))
+            continue
         try:
             results.append(await p["run"](q, db_path=db_path))
         except Exception as e:  # one product failing must never break the batch

@@ -76,6 +76,7 @@ def test_answer_all_runs_every_product():
     sigs = {a["product"]: a["signal"] for a in out["answers"]}
     assert sigs["canonical-name"] == "CONFIRMED"
     assert sigs["fact-check"] == "TRIPLE_VERIFIED"
+    assert sigs["compare"] == "SKIPPED"            # single-name batch: honest skip, not NEED_TWO noise
     # every envelope carries the uniform decision keys
     for a in out["answers"]:
         assert {"product", "signal", "action", "score", "rationale", "answer", "evidence"} <= set(a)

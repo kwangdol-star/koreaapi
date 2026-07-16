@@ -42,7 +42,7 @@ import sys
 import urllib.request
 from datetime import datetime, timezone
 
-from . import answers, integrity
+from . import answers, certify, integrity
 from .badge import badge_svg, tier_of
 from .license import LICENSE
 from .models import Record
@@ -440,6 +440,52 @@ async def bootstrap(*, db_path: str | None = None, min_entities: int = 1000,
         return {"healed": False, "facts": n_facts, "note": f"live fetch failed ({e}) — continuing cold"}
     n = await load_latest(db_path=db_path)
     return {"healed": n > 0, "facts_before": n_facts, "restored": n, "source": src}
+
+
+async def certify_claim(entity_id: str, domain: str, org: str | None = None, *,
+                        db_path: str | None = None, fetch=None) -> dict:
+    """Run a rights-holder CERTIFICATION claim end-to-end — the operator command the /certify flow
+    promised ('we fetch that URL and confirm') but had no runnable step for. Gates, in order:
+    (1) the entity must be verified and carry an on-record official website (Wikidata P856);
+    (2) the claimed domain must EQUAL that on-record domain (certify.domain_matches_record — the
+        equality the whole proof rests on);
+    (3) the proof token must be published at https://<domain>/.well-known/koreaapi-certify.txt.
+    On success returns the exact roster.CERTIFIED one-liner to merge (certification activates on the
+    next deploy: 🏅 badge, /certified.json, get_verified officially_certified). On any failure returns
+    the challenge envelope to send back to the claimant. Never writes anything itself — the registry
+    entry is a reviewed code change (a certification is an editorial act, not an automated one)."""
+    rec = await store.latest(entity_id, "facts", db_path=db_path)
+    if rec is None:
+        return {"ok": False, "reason": f"{entity_id} has no verified record — verify first, certify second"}
+    on_record = rec.data.get("official_url")
+    if not on_record:
+        return {"ok": False, "reason": (f"{entity_id} carries no official website (P856) on the verified "
+                                        "record — certification binds to that domain; add it upstream first")}
+    if not certify.domain_matches_record(domain, on_record):
+        return {"ok": False,
+                "reason": (f"claimed domain {domain!r} != the on-record official site "
+                           f"({certify.official_domain(on_record)!r}) — a same-name impostor path; refuse"),
+                "challenge": certify.claim_challenge(entity_id, certify.official_domain(on_record) or domain)}
+    dom = certify.official_domain(domain)
+    url = f"https://{dom}{certify.WELL_KNOWN}"
+    fetch = fetch or (lambda u: urllib.request.urlopen(  # noqa: S310 — https, host from the verified record
+        urllib.request.Request(u, headers={"User-Agent": "KoreaAPI-certify (domain-control check)"}),
+        timeout=30).read().decode("utf-8", "replace"))
+    try:
+        published = await asyncio.to_thread(fetch, url)
+    except Exception as e:  # noqa: BLE001 — an unreachable proof URL is a normal, reportable outcome
+        return {"ok": False, "reason": f"could not fetch {url} ({e})",
+                "challenge": certify.claim_challenge(entity_id, dom)}
+    if not certify.verify_claim(published, entity_id, dom, on_record):
+        return {"ok": False, "reason": f"token at {url} does not match the expected proof",
+                "challenge": certify.claim_challenge(entity_id, dom)}
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    entry = certify.claim_record(entity_id, org or dom, dom, today, url)
+    return {"ok": True, "entity_id": entity_id, "entry": entry,
+            "merge_as": f'    "{entity_id}": {entry!r},',
+            "note": ("proof verified (domain control + P856 equality). Merge the line into "
+                     "roster.CERTIFIED and deploy — the 🏅 badge, /certified.json and get_verified "
+                     "flip on the next build.")}
 
 
 _CHANGE_FIELDS = (("agency", "agency/network (소속사)"), ("name_ko", "Korean name"),
@@ -4770,6 +4816,20 @@ def _main(argv: list[str]) -> int:
         print(f"refresh: {len(out['refreshed'])}/{len(out['attempted'])} re-verified "
               f"(stale pool {out['stale']}, threshold {out['threshold_seconds'] // 3600}h, oldest first)"
               + (f"; failed: {', '.join(out['failed'][:10])}" if out["failed"] else ""))
+    elif cmd == "certifyclaim":
+        if len(sys.argv) < 4:
+            print("usage: certifyclaim <entity_id> <domain> [org]")
+            raise SystemExit(2)
+        out = asyncio.run(certify_claim(sys.argv[2], sys.argv[3],
+                                        sys.argv[4] if len(sys.argv) > 4 else None))
+        if out["ok"]:
+            print(f"certifyclaim: VERIFIED ✅  merge into roster.CERTIFIED:\n{out['merge_as']}\n{out['note']}")
+        else:
+            print(f"certifyclaim: REFUSED — {out['reason']}")
+            if out.get("challenge"):
+                ch = out["challenge"]
+                print(f"  send the claimant: publish '{ch['token']}' at {ch['publish_at']}")
+            raise SystemExit(1)
     elif cmd == "bootstrap":
         out = asyncio.run(bootstrap())
         if out["healed"]:

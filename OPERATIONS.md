@@ -106,6 +106,21 @@ git push origin main
 Never force-push `main` (history is the time-moat). If push is rejected as non-fast-forward, STOP and
 compare — someone/something moved `main`.
 
+## Certification claims (the supply-side rail, now operable)
+
+When a rights-holder opens a claim (entity_id + their domain), run:
+
+```
+PYTHONPATH=src python -m koreaapi.admin certifyclaim <entity_id> <domain> [org-name]
+```
+
+It enforces the whole gate in order — verified record exists → the claimed domain EQUALS the on-record
+official site (Wikidata P856; the impostor check) → the proof token is live at
+`https://<domain>/.well-known/koreaapi-certify.txt` — then prints the exact `roster.CERTIFIED` line to
+merge (a certification is a reviewed code change, never automated). On refusal it prints why + the
+challenge to send back. Merging + deploying flips the 🏅 badge, `/certified.json`, and
+`get_verified.officially_certified`.
+
 ## When something looks wrong
 
 - **"The store suddenly shrank to ~650 entities"** → the Actions cache was evicted; `bootstrap`
