@@ -65,6 +65,7 @@ def test_search_index_and_pages_are_written(tmp_path):
     # the Korean home links every Korean asset (search / guides / whats-new) — no orphaned /ko/ pages
     ko_home = (tmp_path / "site" / "ko" / "index.html").read_text(encoding="utf-8")
     assert './search.html' in ko_home and './guides.html' in ko_home and './whats-new.html' in ko_home
+    assert "id=q" in ko_home and "BASE='../'" in ko_home   # the KO home embeds the search box too
 
 
 def test_grounded_aliases_are_visible_and_in_jsonld(tmp_path):

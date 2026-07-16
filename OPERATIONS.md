@@ -23,8 +23,10 @@ Accumulates the verified DB across runs via the Actions cache (out of git; immun
 **pages** (`.github/workflows/pages.yml`, on push to main + daily 01:37 UTC + after each collect) — the
 site build. Restores the collect DB (read-only), regenerates every surface, then:
 
+- **self-heals first** (same `bootstrap` as collect) — a cache-evicted pages build must never go out
+  roster-only and overwrite the live `/latest.json` (bootstrap's own recovery source)
 - assembles `_site/` (globbed copies: `cp site/*.html`, `cp llms*.txt`, explicit `search-index.json`)
-- **`verifysite _site 100` — the pre-deploy gate.** Index size, sitemap ≥100 URLs on our host, search
+- **`verifysite _site 1000` — the pre-deploy gate (1000 > the ~658-entity roster).** Index size, sitemap ≥100 URLs on our host, search
   index ≥100 entries, `artist/` + `ko/artist/` page counts, key files present. A generator regression
   or a lost DB cache fails the build here and GitHub Pages keeps serving the previous good deployment
   — freeze beats broken (the 5-week-freeze lesson, inverted).
@@ -39,9 +41,12 @@ site build. Restores the collect DB (read-only), regenerates every surface, then
 - Refresh re-ingests through the same cross-verification path the entity was discovered with (stored
   name as the search alias + the memoized Wikidata Q-id from provenance). The identity guard still
   applies: upstream drift ⇒ a MISS, never a wrong record.
-- **No downgrades:** a cross-verified record refreshes only if ≥2 sources answer that cycle
-  (`ingest_one(min_sources=2)`), and verified P625 coordinates carry forward when the coord-bearing
-  source fails a cycle — an outage never demotes a tier or drops an entity off the map features.
+- **No downgrades:** a cross-verified record refreshes only if ≥2 sources AGREE that cycle
+  (`ingest_one(min_sources=2)` counts agreement, not answers — a non-agreeing extra payload can't
+  smuggle a demotion past it), and verified P625 coordinates carry forward when Wikidata did NOT
+  answer (an outage never drops an entity off the map features) but a removal by an answering
+  Wikidata is respected (a corrected wrong coordinate is not immortal). The refresh budget takes
+  exactly max_n picks spread EVENLY across the pool.
 - Watch it drain: `status.json` → `stale` (past TTL), `refresh_pool` (past half-TTL = what refresh
   targets next), `oldest_snapshot_days`. Expect `stale → ~0` within ~3 days of collect running.
 

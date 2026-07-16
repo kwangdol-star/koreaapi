@@ -2799,6 +2799,14 @@ def _write_ko_home(out_dir: str, total: int, sample: list[tuple[str, str]]) -> N
     """Korean landing (/ko/index.html): the hreflang counterpart of the English home, a Korean
     explainer for domestic (Naver) ranking, and internal links into the Korean entity pages."""
     ko_url = f"{_SITE_BASE}/ko/"
+    # inline search, same as the English home (parity): fetches the ROOT index, links stay in /ko/
+    search_box = ('<div style="margin:0 0 18px">'
+                  + _SEARCH_JS.replace("__BASE__", "../")
+                              .replace("__ADIR__", "artist/").replace("__PDIR__", "person/")
+                              .replace("__LDIR__", "label/")
+                              .replace("__NOHIT__", "일치하는 검증 엔티티가 없습니다")
+                              .replace("__PLACEHOLDER__", "🔍 경복궁 · BTS · 봉준호 · 비빔밥 …")
+                  + "</div>")
     pills = " · ".join(f'<a href="./{fname}">{emoji} {html.escape(_KO_VERTICAL.get(ns, label))}</a>'
                        for ns, (label, fname, emoji, _c) in _VERTICALS.items())
     recent = "".join(f'<li><a href="./artist/{s}.html">{html.escape(n)}</a></li>' for s, n in sample)
@@ -2823,6 +2831,7 @@ def _write_ko_home(out_dir: str, total: int, sample: list[tuple[str, str]]) -> N
 <h2>KoreaAPI란?</h2>
 <p>모든 항목은 독립 출처(Wikidata · Wikipedia · MusicBrainz · OpenStreetMap · TMDB · 한국관광공사)로 <b>교차검증</b>되고, 양국어(한국어 / 공식 영문 / 로마자)로 제공되며, 투명한 <b>Skill Score</b>와 출처(provenance)가 붙습니다. 현재 약 {total}개 검증 엔티티.</p>
 <h2>둘러보기</h2>
+{search_box}
 <p><a href="./search.html">🔍 검색</a> · <a href="./guides.html">🧳 가이드 (지역·식단)</a> · <a href="./whats-new.html">🆕 새 소식 (검증된 변경)</a></p>
 <p>{pills}</p>
 <h2>데이터 · 에이전트</h2>

@@ -50,6 +50,16 @@ def test_server_registers_its_tools():
     assert _tool_names() == EXPECTED_TOOLS
 
 
+def test_install_doc_lists_every_live_tool():
+    # docs/MCP_INSTALL.md is the operator's front door; it once said 'Tools (11)' while the server
+    # exposed 16. Pin: every live tool name appears in the doc (and the count in the heading).
+    doc = open("/home/user/koreaapi-build/docs/MCP_INSTALL.md", encoding="utf-8").read()
+    names = _tool_names()
+    missing = [n for n in names if f"`{n}(" not in doc and f"`{n}()`" not in doc]
+    assert not missing, f"MCP_INSTALL.md missing tools: {missing}"
+    assert f"## Tools ({len(names)})" in doc
+
+
 def test_advertised_tool_list_never_drifts_from_the_live_server():
     # The for-agents page + agents.json advertise admin._MCP_TOOLS; `ask` once shipped without joining
     # that list, so the docs surface lied by omission. Pin: advertised names == live server tools.

@@ -12,30 +12,39 @@ Prefer not to run a server? The verified data is also a plain JSON file you can 
 (latest snapshot per entity+kind, each with provenance + Skill Score):
 **https://aiagentlabs.co.kr/latest.json**
 
-## Tools (11)
+## Tools (16)
+
+**Don't know which tool?** — free-text it:
+| Tool | Returns |
+|---|---|
+| `ask(question)` | routes a natural-language question ("vegetarian Korean dishes", "경복궁 vs 창덕궁", "what's near Gyeongbokgung?") to the right Answer Product and runs it |
 
 **Trust** — decide before you cite:
 | Tool | Returns |
 |---|---|
 | `get_verified(entity_id)` | cross-verification status + Skill Score + agreeing-source count |
-| `get_resolve(query)` | fuzzy name / external ID (e.g. a Wikidata Q-id) / id → the canonical verified entity |
+| `get_resolve(query)` | fuzzy name / grounded alias / external ID (Wikidata Q-id) / id → the canonical verified entity |
+| `get_certified()` | entities officially certified by their rights-holder (the tier above cross-verification) |
+| `get_history(entity_id)` | the append-only verified timeline + change events (the time moat) |
 
-**Decisions** — Answer Products (each returns `{signal, action, score, rationale, answer, evidence}`):
+**Decisions** — 11 Answer Products (each returns `{signal, action, score, rationale, answer, evidence}`):
 | Tool | Returns |
 |---|---|
-| `list_answer_products()` | the catalog: canonical-name · fact-check · identity-resolve · trend-radar · agency-roster · person-credits · related-network · trip-plan |
+| `list_answer_products()` | the catalog: canonical-name · fact-check · identity-resolve · trend-radar · agency-roster · person-credits · related-network · trip-plan (map-ready + walkable clusters) · food-guide · compare (X vs Y) · evidence-pack (cite-ready bundle) |
 | `get_answer(query, product)` | run one product on a query (omit `product` to run all) |
 
-**Data** — the verified store:
+**Data & signal** — the verified store:
 | Tool | Returns |
 |---|---|
 | `get_artist_status(artist_id)` | latest verified status across kinds + agency, e.g. `artist:bts` |
 | `get_agency(name)` | artists verified under a Korean agency/label (소속사), e.g. `JYP Entertainment` |
-| `get_person(name)` | verified credits for a person, e.g. `Bong Joon-ho` |
-| `get_related(entity_id)` | entities sharing the same 소속사 / network |
-| `get_kculture_calendar(window_days)` | upcoming comebacks / releases / concerts |
+| `get_person(name)` | verified credits + recurring collaborators, e.g. `Bong Joon-ho` |
+| `get_related(entity_id)` | same 소속사 / network — geo entities also get `same_region` + `nearby` (verified-coordinate km) |
+| `get_kculture_calendar(window_days)` | verified event snapshots from the last N days (a real date filter) |
 | `get_korea_rising(category, limit)` | what's rising now, ranked by observed demand + Skill Score |
-| `get_buy_options(item)` | where to buy (Phase 1: rail pending; logs buy-intent) |
+| `get_changes(limit, since)` | recent verified changes (소속사 moves, renames) — the freshness feed |
+| `get_metrics()` | how much agents have consumed KoreaAPI (usage totals + top signals) |
+| `get_buy_options(item)` | verify-official → purchase gateway (official site/channels; logs buy-intent) |
 
 ## Run it
 
